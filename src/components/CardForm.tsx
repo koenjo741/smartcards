@@ -212,7 +212,6 @@ export const CardForm: React.FC<CardFormProps> = ({
             // Let's implement a simple multi-page splicer
 
             let heightLeft = imgHeight;
-            let position = 0;
             let pageHeightContent = pdfHeight - (margin * 2);
 
             // First page

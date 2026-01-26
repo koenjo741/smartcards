@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Settings, Plus, Layers, Pencil } from 'lucide-react';
+import { Layout, Settings, Plus, Layers, Pencil, CalendarClock } from 'lucide-react';
 import type { Project } from '../types';
 
 interface SidebarProps {
@@ -14,6 +14,9 @@ interface SidebarProps {
     // Mobile Props
     isOpen: boolean;
     onClose: () => void;
+    // View Mode
+    currentView: 'list' | 'timeline';
+    onViewChange: (view: 'list' | 'timeline') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,7 +29,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     searchQuery,
     onSearchChange,
     isOpen,
-    onClose
+    onClose,
+    currentView,
+    onViewChange
 }) => {
     return (
         <>
@@ -46,19 +51,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
             `}>
                 <div className="p-6 flex items-center space-x-2 border-b border-gray-800">
                     <Layout className="w-6 h-6 text-blue-500" />
-                    <span className="text-xl font-bold text-gray-100">SmartCards</span>
+                    <span className="text-lg font-bold text-gray-100">SmartCards</span>
                 </div>
 
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                     <button
-                        onClick={() => onSelectProject(null)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-md transition-all ${selectedProjectId === null
+                        onClick={() => {
+                            onViewChange('list');
+                            onSelectProject(null);
+                        }}
+                        className={`w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-md transition-all ${currentView === 'list' && selectedProjectId === null
                             ? 'bg-blue-600 text-white shadow-md' // Active: Full Blue
                             : 'bg-slate-800 text-gray-300 hover:bg-slate-700 hover:text-white' // Inactive: Dark Card
                             }`}
                     >
                         <Layers className="w-4 h-4" />
                         <span>All Projects</span>
+                    </button>
+
+                    {/* Desktop-Only Timeline Button */}
+                    <button
+                        onClick={() => onViewChange('timeline')}
+                        className={`hidden md:flex w-full items-center space-x-3 px-3 py-2 text-sm font-medium rounded-md transition-all ${currentView === 'timeline'
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-slate-800 text-gray-300 hover:bg-slate-700 hover:text-white'
+                            }`}
+                    >
+                        <CalendarClock className="w-4 h-4" />
+                        <span>Timeline</span>
                     </button>
 
                     <div className="mt-4 mb-2">
@@ -86,7 +106,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                 style={{ backgroundColor: selectedProjectId === project.id ? project.color : undefined }}
                             >
                                 <button
-                                    onClick={() => onSelectProject(project.id)}
+                                    onClick={() => {
+                                        onViewChange('list');
+                                        onSelectProject(project.id);
+                                    }}
                                     className="flex-1 flex items-center space-x-2 text-left"
                                 >
                                     {selectedProjectId !== project.id && (

@@ -11,6 +11,7 @@ import clsx from 'clsx';
 import { SortAsc, Calendar } from 'lucide-react';
 import { useDropbox, DROPBOX_APP_KEY } from './hooks/useDropbox';
 import { SettingsModal } from './components/SettingsModal';
+import { TimelineView } from './components/TimelineView';
 import { useEffect } from 'react';
 
 // Helper for stable JSON stringify to avoid false positives in Sync
@@ -82,6 +83,7 @@ function App() {
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState(''); // New Search State
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -297,6 +299,7 @@ function App() {
   const handleCardClick = (card: Card) => {
     setExpandedCardId(card.id);
     setEditingCard(card);
+    setViewMode('list'); // Switch back to detail view on selection
   };
 
   const handleCloseExpanded = () => {
@@ -467,6 +470,8 @@ function App() {
       connectionError={connectionError}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
+      currentView={viewMode}
+      onViewChange={setViewMode}
     >
       {/* ... Header ... */}
       <header className="mb-4 md:mb-6 flex justify-between items-center">
@@ -649,36 +654,45 @@ function App() {
         {/* Logic: Hidden on mobile IF no card is expanded */}
         <div className={clsx(
           "w-full md:flex-1 bg-slate-800 rounded-xl shadow-lg border border-gray-700 p-4 md:p-8 overflow-y-auto relative h-full",
-          !expandedCardId ? "hidden md:block" : "block"
+          !expandedCardId && viewMode === 'list' ? "hidden md:block" : "block",
+          viewMode === 'timeline' ? "p-0 overflow-hidden" : ""
         )}>
-          {expandedCardId && editingCard ? (
-            <>
-              {/* Mobile Back Button */}
-              <button
-                onClick={handleCloseExpanded}
-                className="md:hidden mb-4 flex items-center text-blue-400 font-bold hover:text-blue-300 transition-colors"
-              >
-                <span className="mr-1">←</span> Back to List
-              </button>
-              <CardForm
-                key={editingCard.id} // Force remount on card switch to ensure form resets
-                initialData={editingCard}
-                projects={projects}
-                onSave={handleSaveCard}
-                onCancel={handleCloseExpanded} // Acts as "close card" (clears selection)
-                className="text-gray-100" // Pass text color to form
-              />
-            </>
+          {viewMode === 'timeline' ? (
+            <TimelineView
+              cards={cards} // Pass all cards, TimelineView filters by date
+              projects={projects}
+              onCardClick={handleCardClick}
+            />
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400">
-              <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                </svg>
+            expandedCardId && editingCard ? (
+              <>
+                {/* Mobile Back Button */}
+                <button
+                  onClick={handleCloseExpanded}
+                  className="md:hidden mb-4 flex items-center text-blue-400 font-bold hover:text-blue-300 transition-colors"
+                >
+                  <span className="mr-1">←</span> Back to List
+                </button>
+                <CardForm
+                  key={editingCard.id} // Force remount on card switch to ensure form resets
+                  initialData={editingCard}
+                  projects={projects}
+                  onSave={handleSaveCard}
+                  onCancel={handleCloseExpanded} // Acts as "close card" (clears selection)
+                  className="text-gray-100" // Pass text color to form
+                />
+              </>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                <div className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <p className="text-lg font-medium">Select a card to view details</p>
+                <p className="text-sm mt-1">or create a new one</p>
               </div>
-              <p className="text-lg font-medium">Select a card to view details</p>
-              <p className="text-sm mt-1">or create a new one</p>
-            </div>
+            )
           )}
         </div>
       </div>

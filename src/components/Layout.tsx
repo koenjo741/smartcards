@@ -13,6 +13,9 @@ interface LayoutProps {
     connectionError?: boolean;
     searchQuery: string;
     onSearchChange: (query: string) => void;
+    // New View Props
+    currentView: 'list' | 'timeline';
+    onViewChange: (view: 'list' | 'timeline') => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -25,7 +28,9 @@ export const Layout: React.FC<LayoutProps> = ({
     onOpenSettings,
     connectionError,
     searchQuery,
-    onSearchChange
+    onSearchChange,
+    currentView,
+    onViewChange
 }) => {
     // Mobile Sidebar State
     const [isSidebarOpen, setSidebarOpen] = React.useState(false);
@@ -67,6 +72,8 @@ export const Layout: React.FC<LayoutProps> = ({
                 onSearchChange={onSearchChange}
                 isOpen={isSidebarOpen}
                 onClose={() => setSidebarOpen(false)}
+                currentView={currentView}
+                onViewChange={onViewChange}
             />
             <main className="flex-1 overflow-y-auto bg-slate-950 p-4 md:p-8">
                 <div className="w-full mx-auto h-full flex flex-col">

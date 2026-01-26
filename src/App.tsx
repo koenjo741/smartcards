@@ -310,21 +310,25 @@ function App() {
   const handleProjectSelect = (projectId: string | null) => {
     setSelectedProjectId(projectId);
 
-    // Auto-open TODO card if TODO project is selected
-    if (projectId) {
-      const project = projects.find(p => p.id === projectId);
-      if (project && project.name === 'TODO') {
-        const todoCard = cards.find(c => c.projectIds.includes(projectId));
-        if (todoCard) {
-          setExpandedCardId(todoCard.id);
-          setEditingCard(todoCard);
-          return;
-        }
-      }
-    }
+    // Filter to see how many cards are "visible" for this project
+    const visibleCards = cards.filter(card => {
+      // 1. Must belong to project (if one is selected)
+      if (projectId && !card.projectIds.includes(projectId)) return false;
+      // 2. Must match current search
+      if (!matchesSearch(card, searchQuery)) return false;
+      return true;
+    });
 
-    // Otherwise close detail view
-    handleCloseExpanded();
+    // Auto-open if exactly one card is visible
+    // (This generalizes the previous 'TODO' logic)
+    if (visibleCards.length === 1) {
+      const card = visibleCards[0];
+      setExpandedCardId(card.id);
+      setEditingCard(card);
+    } else {
+      // Otherwise close detail view
+      handleCloseExpanded();
+    }
   };
 
   const handleSaveCard = useCallback((cardData: Omit<Card, 'id'> | Card) => {

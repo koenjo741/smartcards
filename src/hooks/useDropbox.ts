@@ -142,8 +142,8 @@ export function useDropbox() {
 
         // Create a unique name: timestamp_originalName
         const timestamp = Date.now();
-        // Allow international characters (Umlauts etc.) but remove system-reserved chars
-        const safeName = file.name.replace(/[\\/:"*?<>|]/g, '_');
+        // Allow international characters (Umlauts etc.) but remove system-reserved chars AND underscores (cause preview issues)
+        const safeName = file.name.replace(/[\\/:"*?<>|_]/g, '-');
         const path = `/attachments/${timestamp}_${safeName}`;
 
         const response = await dbx.filesUpload({

@@ -417,7 +417,10 @@ function App() {
   const todoCard = todoProject ? cards.find(c => c.projectIds.includes(todoProject.id)) : null;
 
   // Filter TODO card out of standard list
-  const standardCards = filteredCards.filter(c => !todoProject || !c.projectIds.includes(todoProject.id));
+  // CHANGED: We now only filter out the specific pinned TODO card.
+  // If other cards were accidentally assigned to the TODO project (the bug),
+  // they will now appear in the list so the user can open them and fix them.
+  const standardCards = filteredCards.filter(c => !todoCard || c.id !== todoCard.id);
 
   if (isAuthChecking) {
     return (

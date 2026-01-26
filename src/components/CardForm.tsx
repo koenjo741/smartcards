@@ -363,6 +363,12 @@ export const CardForm: React.FC<CardFormProps> = ({
                         const isSelected = selectedProjectIds.includes(p.id);
                         const isDisabled = !!isTodoCard;
 
+                        // NEW: Hide TODO project button unless the card is ALREADY in it (to allow removal)
+                        // or if we are editing the primary TODO card itself.
+                        if (p.name === 'TODO' && !isSelected) {
+                            return null;
+                        }
+
                         return (
                             <button
                                 key={p.id}
@@ -384,6 +390,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                             </button>
                         )
                     })}
+
                 </div>
             </div>
 

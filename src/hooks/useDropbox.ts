@@ -136,6 +136,67 @@ export function useDropbox() {
         setUserName(null);
     }, []);
 
+    // 6. Upload File (New)
+    const uploadFile = useCallback(async (file: File) => {
+        if (!dbx) throw new Error("Not connected to Dropbox");
+
+        // Create a unique name: timestamp_originalName
+        const timestamp = Date.now();
+        // Allow international characters (Umlauts etc.) but remove system-reserved chars
+        const safeName = file.name.replace(/[\\/:"*?<>|]/g, '_');
+        const path = `/attachments/${timestamp}_${safeName}`;
+
+        const response = await dbx.filesUpload({
+            path,
+            contents: file
+        });
+
+        // Return simplified Attachment object
+        return {
+            id: response.result.id, // Dropbox ID
+            name: file.name,
+            path: response.result.path_display || path,
+            type: file.type,
+            size: file.size
+        };
+    }, [dbx]);
+
+    // 7. Get File Link (New)
+    const getFileLink = useCallback(async (path: string) => {
+        if (!dbx) return null;
+        try {
+            const response = await dbx.filesGetTemporaryLink({ path });
+            return response.result.link;
+        } catch (error) {
+            console.error("Error getting link:", error);
+            return null;
+        }
+    }, [dbx]);
+
+    // 8. Get File Content (Blob) for Preview
+    const getFileContent = useCallback(async (path: string) => {
+        if (!dbx) return null;
+        try {
+            const response = await dbx.filesDownload({ path });
+            return (response.result as any).fileBlob as Blob;
+        } catch (error) {
+            console.error("Error downloading file content:", error);
+            return null;
+        }
+    }, [dbx]);
+
+    // 9. Delete File (Hard Delete)
+    const deleteFile = useCallback(async (path: string) => {
+        if (!dbx) throw new Error("Not connected");
+        try {
+            await dbx.filesDeleteV2({ path });
+            return true;
+        } catch (error) {
+            console.error("Error deleting file:", error);
+            return false;
+        }
+    }, [dbx]);
+
     return {
         isAuthenticated,
         isAuthChecking,
@@ -146,6 +207,10 @@ export function useDropbox() {
         connect,
         disconnect,
         saveData,
-        loadData
+        loadData,
+        uploadFile,
+        getFileContent,
+        deleteFile,
+        getFileLink
     };
 }

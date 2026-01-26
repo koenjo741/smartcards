@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Check, FileText } from 'lucide-react';
-import type { Project, Card } from '../types';
+import { Check, FileText, Paperclip, Trash2, Loader2, ExternalLink, Eye, X } from 'lucide-react';
+import type { Project, Card, Attachment } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { useDropbox } from '../hooks/useDropbox';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -27,6 +28,51 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
     const [dueDate, setDueDate] = useState('');
 
+    // Attachment State
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+    const { uploadFile, getFileContent, deleteFile } = useDropbox();
+
+    // Preview State
+    const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    useEffect(() => {
+        let activeUrl: string | null = null;
+
+        if (previewAttachment) {
+            setPreviewLoading(true);
+            getFileContent(previewAttachment.path)
+                .then(blob => {
+                    if (blob) {
+                        // FORCE the correct MIME type based on our metadata.
+                        // Dropbox might return generic 'octet-stream' which causes download.
+                        // We trust 'previewAttachment.type' (e.g. 'application/pdf') to be correct.
+                        const cleanBlob = new Blob([blob], { type: previewAttachment.type });
+
+                        activeUrl = URL.createObjectURL(cleanBlob);
+                        setPreviewUrl(activeUrl);
+                    } else {
+                        alert("Could not load preview content.");
+                        setPreviewAttachment(null);
+                    }
+                })
+                .finally(() => setPreviewLoading(false));
+        } else {
+            setPreviewUrl(null);
+        }
+
+        // CLEANUP: This runs when previewAttachment changes (closes) or component unmounts
+        return () => {
+            if (activeUrl) {
+                console.log("Revoking preview URL (Memory Cleanup)");
+                URL.revokeObjectURL(activeUrl);
+            }
+        };
+    }, [previewAttachment]);
+
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
 
     // Use ref to hold the latest onSave callback to avoid effect dependencies
@@ -44,13 +90,15 @@ export const CardForm: React.FC<CardFormProps> = ({
             setContent(initialData.content);
             setSelectedProjectIds(initialData.projectIds || []);
             setDueDate(initialData.dueDate || '');
+            setAttachments(initialData.attachments || []);
         } else {
             setTitle('');
             setContent('');
             setSelectedProjectIds([]);
             setDueDate('');
+            setAttachments([]);
         }
-    }, [initialData?.id]); // Only reset form when switching cards (ID changes), not when content updates triggers prop update
+    }, [initialData?.id]);
 
     useEffect(() => {
         if (!initialDataRef.current) return;
@@ -62,13 +110,14 @@ export const CardForm: React.FC<CardFormProps> = ({
                 title,
                 content,
                 projectIds: selectedProjectIds,
-                dueDate: dueDate || undefined
+                dueDate: dueDate || undefined,
+                attachments
             } as Card);
             setSaveStatus('saved');
         }, 1000);
 
         return () => clearTimeout(timeoutId);
-    }, [title, content, selectedProjectIds, dueDate]); // Depend ONLY on user-editable state
+    }, [title, content, selectedProjectIds, dueDate, attachments]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,7 +126,8 @@ export const CardForm: React.FC<CardFormProps> = ({
             title,
             content,
             projectIds: selectedProjectIds,
-            dueDate: dueDate || undefined
+            dueDate: dueDate || undefined,
+            attachments
         } as Card);
     };
 
@@ -322,7 +372,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 className={`
                   inline-flex items-center space-x-1 px-1.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-sm font-medium transition-all border
                   ${isSelected
-                                        ? 'border-transparent shadow-sm text-white' // Active: White text
+                                        ? 'border-transparent shadow-sm text-white'
                                         : 'bg-slate-800 border-gray-700 text-gray-400 hover:bg-slate-700 hover:text-gray-200'}
                   ${isDisabled && !isSelected ? 'opacity-30 cursor-not-allowed' : ''}
                   ${isDisabled && isSelected ? 'cursor-default' : ''}
@@ -374,21 +424,193 @@ export const CardForm: React.FC<CardFormProps> = ({
                 </div>
             )}
 
-            <div className="flex justify-between items-center pt-4 space-x-2 border-t border-gray-700 mt-6">
-                {/* Left Side: Export Button */}
-                {initialData && (
+            {/* Export PDF Button - Moved here */}
+            {initialData && (
+                <div>
                     <button
                         type="button"
                         onClick={handleExportPDF}
-                        className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-slate-700"
+                        className="flex items-center space-x-2 text-gray-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md transition-colors border border-gray-700 w-full justify-center md:w-auto md:justify-start"
                         title="Export as PDF"
                     >
                         <FileText className="w-4 h-4" />
-                        <span className="text-xs font-medium">Export PDF</span>
+                        <span className="text-sm font-medium">Export PDF</span>
                     </button>
-                )}
+                </div>
+            )}
 
-                {/* Right Side: Actions */}
+            {!isTodoCard && (
+                <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-300">
+                        Attachments (Dropbox)
+                    </label>
+
+                    {/* File List */}
+                    <div className="space-y-2 mb-3">
+                        {attachments.map(file => (
+                            <div key={file.id} className="flex items-center justify-between p-2 bg-slate-800 border border-slate-700 rounded text-sm group">
+                                <div className="flex items-center space-x-3 overflow-hidden">
+                                    <div className="bg-slate-700 p-1.5 rounded">
+                                        {/* Simple icon logic based on type */}
+                                        {file.type.includes('image') ? (
+                                            <FileText className="w-4 h-4 text-blue-400" />
+                                        ) : file.type.includes('pdf') ? (
+                                            <FileText className="w-4 h-4 text-red-400" />
+                                        ) : (
+                                            <Paperclip className="w-4 h-4 text-gray-400" />
+                                        )}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="truncate text-gray-200 font-medium">{file.name}</span>
+                                        <span className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPreviewAttachment(file)}
+                                        className="p-1.5 text-gray-400 hover:text-white hover:bg-slate-700 rounded transition-colors"
+                                        title="Preview"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            try {
+                                                const blob = await getFileContent(file.path);
+                                                if (!blob) throw new Error("No content");
+
+                                                const url = URL.createObjectURL(blob);
+                                                const a = document.createElement('a');
+                                                a.href = url;
+                                                a.download = file.name; // Keep original filename
+                                                document.body.appendChild(a);
+                                                a.click();
+                                                document.body.removeChild(a);
+                                                URL.revokeObjectURL(url);
+                                            } catch (e) {
+                                                console.error(e);
+                                                alert("Download failed.");
+                                            }
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-slate-700 rounded transition-colors"
+                                        title="Download file"
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            if (confirm('Soll das Attachment tatsächlich gelöscht werden? Achtung: Es ist dann nicht mehr wiederherstellbar!')) {
+                                                // 1. Delete from Dropbox
+                                                const success = await deleteFile(file.path);
+                                                if (success) {
+                                                    // 2. Remove from UI
+                                                    setAttachments(prev => prev.filter(a => a.id !== file.id));
+                                                } else {
+                                                    alert("Fehler beim Löschen aus der Dropbox. Bitte prüfen Sie die Verbindung.");
+                                                }
+                                            }
+                                        }}
+                                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
+                                        title="Delete file"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Preview Modal */}
+                    {previewAttachment && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                            <div className="relative bg-slate-900 rounded-lg shadow-2xl w-[95vw] h-[90vh] flex flex-col overflow-hidden border border-slate-700">
+                                <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-800">
+                                    <h3 className="font-medium text-gray-200 truncate">{previewAttachment.name}</h3>
+                                    <button
+                                        onClick={() => setPreviewAttachment(null)}
+                                        className="p-1 hover:bg-slate-700 rounded-full transition-colors text-gray-400 hover:text-white"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="flex-1 bg-slate-950 p-4 flex items-center justify-center overflow-auto">
+                                    {previewLoading ? (
+                                        <div className="flex flex-col items-center space-y-3 text-gray-400">
+                                            <Loader2 className="w-10 h-10 animate-spin text-blue-500" />
+                                            <p>Loading preview...</p>
+                                        </div>
+                                    ) : previewUrl ? (
+                                        previewAttachment.type.includes('image') ? (
+                                            <img
+                                                src={previewUrl}
+                                                alt={previewAttachment.name}
+                                                className="max-w-full max-h-full object-contain shadow-md rounded bg-slate-800"
+                                            />
+                                        ) : (
+                                            <iframe
+                                                src={previewUrl}
+                                                className="w-full h-full border-none rounded shadow-sm bg-slate-800"
+                                                title="PDF Preview"
+                                            />
+                                        )
+                                    ) : (
+                                        <p className="text-red-400">Failed to load content.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Upload Area */}
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            try {
+                                setIsUploading(true);
+                                const newAttachment = await uploadFile(file);
+                                setAttachments(prev => [...prev, newAttachment]);
+                            } catch (error) {
+                                console.error(error);
+                                alert("Upload failed. Are you connected to Dropbox?");
+                            } finally {
+                                setIsUploading(false);
+                                // Reset input
+                                if (fileInputRef.current) fileInputRef.current.value = '';
+                            }
+                        }}
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-300 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isUploading ? (
+                            <>
+                                <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                                Uploading to Dropbox...
+                            </>
+                        ) : (
+                            <>
+                                <Paperclip className="w-3.5 h-3.5 mr-2" />
+                                Add Attachment
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
+
+            <div className="flex justify-end items-center pt-4 space-x-2 border-t border-gray-700 mt-6">
+                {/* Footer Actions (Cancel / Save only) */}
                 <div className="flex items-center space-x-2">
                     {!initialData ? (
                         <>

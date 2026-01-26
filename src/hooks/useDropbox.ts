@@ -191,7 +191,12 @@ export function useDropbox() {
         try {
             await dbx.filesDeleteV2({ path });
             return true;
-        } catch (error) {
+        } catch (error: any) {
+            // If file is already gone (path_lookup/not_found), consider it a success so UI updates
+            if (error?.error?.error_summary?.includes('path_lookup/not_found')) {
+                console.warn("File already deleted from Dropbox, removing from local list.");
+                return true;
+            }
             console.error("Error deleting file:", error);
             return false;
         }

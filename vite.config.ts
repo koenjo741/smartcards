@@ -33,7 +33,7 @@ export default defineConfig({
         ]
       },
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: 'module', // Use module for better compatibility
       }
     })

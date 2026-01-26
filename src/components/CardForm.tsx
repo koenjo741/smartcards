@@ -138,7 +138,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                     ${dateStr ? `<div style="font-size: 14px; color: #666; margin-bottom: 30px;">Fällig am: ${dateStr}</div>` : ''}
                     <hr style="border: 0; border-top: 1px solid #ddd; margin: 30px 0;" />
                     <div class="pdf-content" style="font-size: 14px; line-height: 1.6;">
-                        ${content}
+                        ${content.replace(/<mark[^>]*>/g, '<span style="background-color: #bbf7d0; color: #000; padding: 0 2px; border-radius: 2px; line-height: 1.2; display: inline; box-decoration-break: clone; -webkit-box-decoration-break: clone;">').replace(/<\/mark>/g, '</span>')}
                     </div>
                 </div>
                 <style>
@@ -166,6 +166,24 @@ export const CardForm: React.FC<CardFormProps> = ({
                     /* Ensure paragraphs have space */
                     .pdf-content p {
                         margin-bottom: 10px !important;
+                    }
+                    /* Table Styling - ULTRA COMPACT */
+                    .pdf-content table {
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                        margin-bottom: 20px !important;
+                        font-size: 11px !important; 
+                    }
+                    .pdf-content th, .pdf-content td {
+                        border: 1px solid #d1d5db !important; 
+                        padding: 3px 6px !important; /* Even tighter padding */
+                        text-align: left !important;
+                        vertical-align: top !important;
+                        line-height: 1.3 !important;
+                    }
+                    .pdf-content th {
+                        background-color: #f3f4f6 !important;
+                        font-weight: 700 !important;
                     }
                 </style>
             `;

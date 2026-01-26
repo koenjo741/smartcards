@@ -1,0 +1,151 @@
+import { Dropbox } from 'dropbox';
+import { useState, useCallback, useEffect } from 'react';
+
+// REPLACE THIS WITH YOUR DROPBOX APP KEY
+export const DROPBOX_APP_KEY = 'ag0x9i8pgyothjr';
+
+const REDIRECT_URI = window.location.origin + '/'; // http://localhost:5173/
+
+export function useDropbox() {
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthChecking, setIsAuthChecking] = useState(true); // New: True initially
+    const [dbx, setDbx] = useState<Dropbox | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [lastSynced, setLastSynced] = useState<Date | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
+    const [connectionError, setConnectionError] = useState<boolean>(false);
+
+    // 1. Handle Auth on Load (Check URL Hash OR LocalStorage)
+    useEffect(() => {
+        // A. Check for new token in URL (Redirect from Dropbox)
+        if (window.location.hash.includes('access_token')) {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const accessToken = params.get('access_token');
+
+            if (accessToken) {
+                // Save to LocalStorage
+                localStorage.setItem('dropbox_token', accessToken);
+
+                const newDbx = new Dropbox({ accessToken });
+                setDbx(newDbx);
+                setIsAuthenticated(true);
+
+                // Get User Info
+                newDbx.usersGetCurrentAccount()
+                    .then(response => {
+                        setUserName(response.result.name.display_name);
+                    })
+                    .catch(console.error)
+                    .finally(() => setIsAuthChecking(false));
+
+                // Clean URL
+                window.history.replaceState(null, '', ' ');
+                setLastSynced(new Date());
+            } else {
+                setIsAuthChecking(false);
+            }
+        }
+        // B. Check for existing token in LocalStorage
+        else {
+            const storedToken = localStorage.getItem('dropbox_token');
+            if (storedToken) {
+                const newDbx = new Dropbox({ accessToken: storedToken });
+                setDbx(newDbx);
+                setIsAuthenticated(true);
+
+                // Verify token & get user info
+                newDbx.usersGetCurrentAccount()
+                    .then(response => {
+                        setUserName(response.result.name.display_name);
+                        setLastSynced(new Date());
+                    })
+                    .catch(err => {
+                        console.error("Token expired or invalid", err);
+                        localStorage.removeItem('dropbox_token');
+                        setDbx(null);
+                        setIsAuthenticated(false);
+                    })
+                    .finally(() => setIsAuthChecking(false));
+            } else {
+                setIsAuthChecking(false);
+            }
+        }
+    }, []);
+
+    // 2. Connect (Redirect to Dropbox)
+    const connect = useCallback(() => {
+        const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+        window.location.href = authUrl;
+    }, []);
+
+    // 3. Save Data (Upload)
+    const saveData = useCallback(async (data: any) => {
+        if (!dbx) return;
+        setIsSyncing(true);
+        try {
+            const fileContent = JSON.stringify(data, null, 2);
+            const blob = new Blob([fileContent], { type: 'application/json' });
+
+            await dbx.filesUpload({
+                path: '/smartcards.json',
+                contents: blob,
+                mode: { '.tag': 'overwrite' } // Always overwrite for now
+            });
+
+            setLastSynced(new Date());
+            setConnectionError(false);
+        } catch (error: any) {
+            console.error('Dropbox Upload Error:', error);
+            if (error?.status === 401 || error?.error?.error_summary?.includes('expired_access_token')) {
+                setConnectionError(true);
+                setIsAuthenticated(false); // Force disconnect state logically
+            } else {
+                alert('Backup failed. Check internet connection.');
+            }
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [dbx]);
+
+    // 4. Load Data (Download)
+    const loadData = useCallback(async () => {
+        if (!dbx) return null;
+        setIsSyncing(true);
+        try {
+            const response = await dbx.filesDownload({ path: '/smartcards.json' });
+            const blob = (response.result as any).fileBlob;
+            const text = await blob.text();
+
+            setLastSynced(new Date());
+            return JSON.parse(text);
+        } catch (error) {
+            console.error('Dropbox Download Error:', error);
+            // It's okay if file doesn't exist yet (new user)
+            return null;
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [dbx]);
+
+    // 5. Logout
+    const disconnect = useCallback(() => {
+        localStorage.removeItem('dropbox_token');
+        setDbx(null);
+        setIsAuthenticated(false);
+        setUserName(null);
+    }, []);
+
+    return {
+        isAuthenticated,
+        isAuthChecking,
+        userName,
+        isSyncing,
+        lastSynced,
+        connectionError,
+        connect,
+        disconnect,
+        saveData,
+        loadData
+    };
+}

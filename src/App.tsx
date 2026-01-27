@@ -684,6 +684,8 @@ function App() {
                   key={editingCard.id} // Force remount on card switch to ensure form resets
                   initialData={editingCard}
                   projects={projects}
+                  cards={cards} // Pass cards for linking
+                  onSelectCard={handleCardClick} // Enable navigation
                   onSave={handleSaveCard}
                   onCancel={handleCloseExpanded} // Acts as "close card" (clears selection)
                   className="text-gray-100" // Pass text color to form
@@ -709,6 +711,7 @@ function App() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveCard}
         projects={projects}
+        cards={cards} // Pass cards for linking
         initialData={null}
       />
 

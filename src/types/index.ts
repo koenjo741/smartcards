@@ -19,4 +19,5 @@ export interface Card {
   projectIds: string[];
   dueDate?: string;
   attachments?: Attachment[];
+  linkedCardIds?: string[];
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, FileText, Paperclip, Trash2, Loader2, ExternalLink, Eye, X } from 'lucide-react';
+import { Check, FileText, Paperclip, Trash2, Loader2, ExternalLink, Eye, X, Link } from 'lucide-react';
 import type { Project, Card, Attachment } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker from 'react-datepicker';
@@ -12,7 +12,9 @@ interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
     onCancel: () => void;
     projects: Project[];
+    cards?: Card[]; // Potential linked cards
     initialData?: Card | null;
+    onSelectCard?: (card: Card) => void; // For navigation
     className?: string; // Allow custom styling wrapper
 }
 
@@ -20,13 +22,17 @@ export const CardForm: React.FC<CardFormProps> = ({
     onSave,
     onCancel,
     projects,
+    cards = [],
     initialData,
+    onSelectCard,
     className
 }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
     const [dueDate, setDueDate] = useState('');
+    const [linkedCardIds, setLinkedCardIds] = useState<string[]>([]);
+    const [linkSearch, setLinkSearch] = useState('');
 
     // Attachment State
     const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -91,12 +97,14 @@ export const CardForm: React.FC<CardFormProps> = ({
             setSelectedProjectIds(initialData.projectIds || []);
             setDueDate(initialData.dueDate || '');
             setAttachments(initialData.attachments || []);
+            setLinkedCardIds(initialData.linkedCardIds || []);
         } else {
             setTitle('');
             setContent('');
             setSelectedProjectIds([]);
             setDueDate('');
             setAttachments([]);
+            setLinkedCardIds([]);
         }
     }, [initialData?.id]);
 
@@ -111,13 +119,14 @@ export const CardForm: React.FC<CardFormProps> = ({
                 content,
                 projectIds: selectedProjectIds,
                 dueDate: dueDate || undefined,
-                attachments
+                attachments,
+                linkedCardIds
             } as Card);
             setSaveStatus('saved');
         }, 1000);
 
         return () => clearTimeout(timeoutId);
-    }, [title, content, selectedProjectIds, dueDate, attachments]);
+    }, [title, content, selectedProjectIds, dueDate, attachments, linkedCardIds]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -127,7 +136,8 @@ export const CardForm: React.FC<CardFormProps> = ({
             content,
             projectIds: selectedProjectIds,
             dueDate: dueDate || undefined,
-            attachments
+            attachments,
+            linkedCardIds
         } as Card);
     };
 
@@ -431,7 +441,79 @@ export const CardForm: React.FC<CardFormProps> = ({
                 </div>
             )}
 
-            {/* Export PDF Button - Moved here */}
+            <div>
+                <label className="block text-sm font-medium mb-1 text-gray-300 flex items-center gap-2">
+                    <Link className="w-4 h-4" />
+                    Linked Cards
+                </label>
+
+                {/* List of linked cards */}
+                <div className="flex flex-wrap gap-2 mb-2">
+                    {linkedCardIds.map(id => {
+                        const card = cards.find(c => c.id === id);
+                        if (!card) return null;
+                        return (
+                            <div key={id} className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded-full px-3 py-1 text-xs text-blue-300 group hover:border-blue-500/50 transition-colors">
+                                <span
+                                    onClick={() => onSelectCard && onSelectCard(card)}
+                                    className={`truncate max-w-[200px] ${onSelectCard ? 'cursor-pointer hover:underline' : ''}`}
+                                    title={onSelectCard ? "Go to card" : ""}
+                                >
+                                    {card.title || 'Untitled'}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setLinkedCardIds(prev => prev.filter(lid => lid !== id))}
+                                    className="hover:text-white ml-1 p-0.5 rounded-full hover:bg-slate-700"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Search Input */}
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Search to link card..."
+                        value={linkSearch}
+                        onChange={(e) => setLinkSearch(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                    />
+                    {linkSearch && (
+                        <div className="absolute z-10 w-full mt-1 bg-slate-800 border border-gray-700 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                            {cards
+                                .filter(c =>
+                                    c.id !== initialData?.id && // Not self
+                                    !linkedCardIds.includes(c.id) && // Not already linked
+                                    (c.title.toLowerCase().includes(linkSearch.toLowerCase()) ||
+                                        c.content.toLowerCase().includes(linkSearch.toLowerCase()))
+                                )
+                                .slice(0, 10) // Limit results
+                                .map(c => (
+                                    <button
+                                        key={c.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setLinkedCardIds(prev => [...prev, c.id]);
+                                            setLinkSearch('');
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-slate-700 truncate block"
+                                    >
+                                        {c.title || 'Untitled'}
+                                    </button>
+                                ))}
+                            {linkSearch && cards.filter(c => c.id !== initialData?.id && !linkedCardIds.includes(c.id) && c.title.toLowerCase().includes(linkSearch.toLowerCase())).length === 0 && (
+                                <div className="px-3 py-2 text-sm text-gray-500">No matching cards found</div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Export PDF Button */}
             {initialData && (
                 <div>
                     <button

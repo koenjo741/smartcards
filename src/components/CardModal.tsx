@@ -8,6 +8,7 @@ interface CardModalProps {
     onClose: () => void;
     onSave: (card: Omit<Card, 'id'> | Card) => void;
     projects: Project[];
+    cards: Card[];
     initialData?: Card | null;
 }
 
@@ -16,6 +17,7 @@ export const CardModal: React.FC<CardModalProps> = ({
     onClose,
     onSave,
     projects,
+    cards,
     initialData
 }) => {
     if (!isOpen) return null;
@@ -38,6 +40,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                     onSave={onSave}
                     onCancel={onClose}
                     projects={projects}
+                    cards={cards} // Pass cards for linking
                     initialData={initialData}
                 />
             </div>

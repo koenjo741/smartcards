@@ -20,4 +20,6 @@ export interface Card {
   dueDate?: string;
   attachments?: Attachment[];
   linkedCardIds?: string[];
+  googleEventId?: string;
+  googleCalendarId?: string;
 }

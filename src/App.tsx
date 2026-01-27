@@ -9,6 +9,7 @@ import type { Card, Project } from './types';
 import clsx from 'clsx';
 
 import { SortAsc, Calendar } from 'lucide-react';
+import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useDropbox, DROPBOX_APP_KEY } from './hooks/useDropbox';
 import { SettingsModal } from './components/SettingsModal';
 import { TimelineView } from './components/TimelineView';
@@ -72,6 +73,7 @@ import { matchesSearch } from './utils/search';
 
 function App() {
   const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore } = useStore();
+  const { createEvent, deleteEvent, isAuthenticated: isGoogleAuthenticated } = useGoogleCalendar();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
@@ -125,6 +127,34 @@ function App() {
         alert("To install on iOS:\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap 'Add to Home Screen'");
       } else {
         alert("To install:\nTap your browser menu (three dots) and select 'Add to Home Screen' or 'Install App'");
+      }
+    }
+  };
+
+  const handleCalendarToggle = async (e: React.MouseEvent, card: Card) => {
+    e.stopPropagation(); // Prevent card selection
+
+    if (card.googleEventId) {
+      if (confirm('Möchtest du diesen Termin aus dem Google Kalender löschen?')) {
+        // Pass the stored calendarId (or undefined, which defaults to 'primary')
+        const success = await deleteEvent(card.googleEventId, card.googleCalendarId);
+        if (success) {
+          updateCard({ ...card, googleEventId: undefined, googleCalendarId: undefined });
+        }
+      }
+    } else {
+      if (!card.dueDate) {
+        alert('Bitte lege zuerst ein Fälligkeitsdatum fest.');
+        return;
+      }
+
+      const result = await createEvent(card);
+      if (result) {
+        updateCard({
+          ...card,
+          googleEventId: result.eventId,
+          googleCalendarId: result.calendarId
+        });
       }
     }
   };
@@ -615,19 +645,31 @@ function App() {
                         : "bg-slate-800 border-gray-700 hover:bg-slate-700 hover:border-gray-600 shadow-sm"
                     )}
                   >
-                    <div className="flex justify-between items-start mb-1">
-                      <h4 className={clsx("font-medium text-base truncate pr-2", card.id === expandedCardId ? "text-blue-400" : "text-gray-100")}>
+                    <div className="flex justify-between items-center mb-1">
+                      <h4 className={clsx("font-medium text-base truncate pr-2 flex-1", card.id === expandedCardId ? "text-blue-400" : "text-gray-100")}>
                         {card.title || <span className="text-gray-500 italic">Untitled</span>}
                       </h4>
                       {card.dueDate && (
-                        <span
-                          className="text-xs font-mono whitespace-nowrap"
-                          style={{ color: dateColor }}
+                        <div
+                          onClick={(e) => handleCalendarToggle(e, card)}
+                          className="flex items-center space-x-1.5 px-1.5 py-0.5 rounded hover:bg-slate-600 transition-colors cursor-pointer group/date"
+                          title={card.googleEventId ? "Aus Google Kalender löschen" : "In Google Kalender eintragen"}
                         >
-                          <span className={clsx(!dateColor && "text-gray-400")}>
-                            {formatDueDate(card.dueDate)}
+                          <span className={clsx(
+                            "text-[10px] font-bold transition-all duration-300",
+                            card.googleEventId ? "text-blue-400 opacity-100 scale-100" : "text-gray-600 opacity-0 group-hover/date:opacity-50 scale-0 group-hover/date:scale-100 w-0 group-hover/date:w-auto"
+                          )}>
+                            G
                           </span>
-                        </span>
+                          <span
+                            className="text-xs font-mono whitespace-nowrap"
+                            style={{ color: dateColor }}
+                          >
+                            <span className={clsx(!dateColor && "text-gray-400")}>
+                              {formatDueDate(card.dueDate)}
+                            </span>
+                          </span>
+                        </div>
                       )}
                     </div>
 

@@ -9,7 +9,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Check } from 'lucide-react';
+import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Check, Plus, X } from 'lucide-react';
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
@@ -113,9 +113,7 @@ interface RichTextEditorProps {
     editable?: boolean;
 }
 
-// ... (imports remain)
-import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Check, Plus, X } from 'lucide-react';
-// ... (extensions remain)
+
 
 const BASIC_COLORS = [
     '#000000', // Black

@@ -73,7 +73,7 @@ import { matchesSearch } from './utils/search';
 
 function App() {
   const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore } = useStore();
-  const { createEvent, deleteEvent, isAuthenticated: isGoogleAuthenticated } = useGoogleCalendar();
+  const { createEvent, deleteEvent } = useGoogleCalendar();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);

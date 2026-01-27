@@ -589,7 +589,7 @@ function App() {
                   <h4 className={clsx("font-bold text-base truncate pr-2 text-amber-500")}>
                     {todoCard.title}
                   </h4>
-                  <span className="text-[10px] uppercase tracking-wider text-amber-500/70 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] uppercase tracking-wider text-amber-500 font-medium border border-amber-500/30 px-1.5 py-0.5 rounded">
                     TODO
                   </span>
                 </div>

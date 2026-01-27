@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { useEditor, EditorContent, Extension } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
 import { TextStyle } from '@tiptap/extension-text-style';
 import StarterKit from '@tiptap/starter-kit';
 import Superscript from '@tiptap/extension-superscript';
@@ -15,6 +16,96 @@ import { ResizableImage } from './ResizableImage';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
+
+const FontSize = Extension.create({
+    name: 'fontSize',
+    addOptions() {
+        return {
+            types: ['textStyle'],
+        };
+    },
+    addGlobalAttributes() {
+        return [
+            {
+                types: this.options.types,
+                attributes: {
+                    fontSize: {
+                        default: null,
+                        parseHTML: element => element.style.fontSize?.replace(/['"]+/g, ''),
+                        renderHTML: attributes => {
+                            if (!attributes.fontSize) {
+                                return {};
+                            }
+                            return {
+                                style: `font-size: ${attributes.fontSize}`,
+                            };
+                        },
+                    },
+                },
+            },
+        ];
+    },
+    addCommands() {
+        return {
+            setFontSize: (fontSize: string) => ({ chain }: any) => {
+                return chain()
+                    .setMark('textStyle', { fontSize })
+                    .run();
+            },
+            unsetFontSize: () => ({ chain }: any) => {
+                return chain()
+                    .setMark('textStyle', { fontSize: null })
+                    .removeEmptyTextStyle()
+                    .run();
+            },
+        };
+    },
+});
+
+const FontFamily = Extension.create({
+    name: 'fontFamily',
+    addOptions() {
+        return {
+            types: ['textStyle'],
+        };
+    },
+    addGlobalAttributes() {
+        return [
+            {
+                types: this.options.types,
+                attributes: {
+                    fontFamily: {
+                        default: null,
+                        parseHTML: element => element.style.fontFamily?.replace(/['"]+/g, ''),
+                        renderHTML: attributes => {
+                            if (!attributes.fontFamily) {
+                                return {};
+                            }
+                            return {
+                                style: `font-family: ${attributes.fontFamily}`,
+                            };
+                        },
+                    },
+                },
+            },
+        ];
+    },
+    addCommands() {
+        return {
+            setFontFamily: (fontFamily: string) => ({ chain }: any) => {
+                return chain()
+                    .setMark('textStyle', { fontFamily })
+                    .run();
+            },
+            unsetFontFamily: () => ({ chain }: any) => {
+                return chain()
+                    .setMark('textStyle', { fontFamily: null })
+                    .removeEmptyTextStyle()
+                    .run();
+            },
+        };
+    },
+});
 
 interface RichTextEditorProps {
     content: string;
@@ -59,6 +150,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
             TableHeader,
             TableCell,
             TextStyle,
+            FontFamily,
+            FontSize,
             Extension.create({
                 name: 'indent',
                 addGlobalAttributes() {
@@ -190,7 +283,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     }
 
     return (
-        <div className="border border-gray-300 rounded-md overflow-hidden bg-white flex flex-col h-full text-gray-900 shadow-sm">
+        <div className="border border-gray-700 rounded-md overflow-hidden flex flex-col h-full text-gray-900 shadow-sm" style={{ backgroundColor: '#f3f4f6' }}>
             <input
                 type="file"
                 ref={fileInputRef}
@@ -199,11 +292,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 onChange={handleImageUpload}
             />
             {editable && (
-                <div className="border-b border-gray-200 bg-gray-50 p-2 flex flex-wrap gap-1 sticky top-0 z-10">
+                <div className="border-b border-gray-700 bg-slate-900 p-2 flex flex-wrap gap-1 sticky top-0 z-10">
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().toggleBold().run()}
-                        className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('bold') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bold') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Bold"
                     >
                         <Bold className="w-4 h-4" />
@@ -211,12 +304,70 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().toggleItalic().run()}
-                        className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('italic') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('italic') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Italic"
                     >
                         <Italic className="w-4 h-4" />
                     </button>
-                    <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
+                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+
+                    {/* Font Family Select */}
+                    <select
+                        onChange={(e) => {
+                            const font = e.target.value;
+                            if (font === 'default') {
+                                (editor.commands as any).unsetFontFamily();
+                            } else {
+                                (editor.commands as any).setFontFamily(font);
+                            }
+                        }}
+                        className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer mr-1"
+                        title="Font Family"
+                        style={{ width: '150px' }}
+                    >
+                        <optgroup label="Proportional">
+                            <option value="default">Inter</option>
+                            <option value="Roboto, sans-serif">Roboto</option>
+                            <option value="'Open Sans', sans-serif">Open Sans</option>
+                            <option value="Lato, sans-serif">Lato</option>
+                            <option value="Montserrat, sans-serif">Montserrat</option>
+                            <option value="'Source Sans 3', sans-serif">Source Sans</option>
+                            <option value="Nunito, sans-serif">Nunito</option>
+                            <option value="Rubik, sans-serif">Rubik</option>
+                        </optgroup>
+                        <optgroup label="Monospaced">
+                            <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                            <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                            <option value="'Fira Code', monospace">Fira Code</option>
+                        </optgroup>
+                    </select>
+
+                    {/* Font Size Select */}
+                    <select
+                        onChange={(e) => {
+                            const size = e.target.value;
+                            if (size === 'default') {
+                                (editor.commands as any).unsetFontSize();
+                            } else {
+                                (editor.commands as any).setFontSize(size);
+                            }
+                        }}
+                        value={editor.getAttributes('textStyle').fontSize || 'default'}
+                        className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer"
+                        title="Font Size"
+                        style={{ width: '85px' }}
+                    >
+                        <option value="default">Size</option>
+                        <option value="12px">12px</option>
+                        <option value="14px">14px</option>
+                        <option value="16px">16px</option>
+                        <option value="18px">18px</option>
+                        <option value="20px">20px</option>
+                        <option value="24px">24px</option>
+                        <option value="30px">30px</option>
+                    </select>
+
+                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
                     <div className="flex items-center gap-1 relative">
                         {/* Text Color Trigger */}
                         <button
@@ -228,7 +379,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                                 setTempColor(editor.getAttributes('textStyle').color || '#000000');
                                 setShowColorPopover(showColorPopover === 'text' ? null : 'text');
                             }}
-                            className="flex items-center justify-center w-6 h-6 rounded hover:bg-gray-200 border border-gray-300"
+                            className="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-700 border border-gray-600"
                             title="Text Color"
                         >
                             <div className="w-4 h-4 rounded-sm border border-gray-300" style={{ backgroundColor: editor.getAttributes('textStyle').color || '#000000' }} />
@@ -236,7 +387,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
 
                         {/* Text Color Popover */}
                         {showColorPopover === 'text' && (
-                            <div className="absolute top-full left-0 mt-1 p-2 bg-white border border-gray-200 shadow-xl rounded-lg z-50 flex items-center space-x-2">
+                            <div className="absolute top-full left-0 mt-1 p-2 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex items-center space-x-2">
                                 <input
                                     type="color"
                                     value={tempColor}
@@ -269,7 +420,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                                 setTempColor(editor.getAttributes('highlight').color || '#ffff00');
                                 setShowColorPopover(showColorPopover === 'highlight' ? null : 'highlight');
                             }}
-                            className="flex items-center justify-center w-6 h-6 rounded hover:bg-gray-200 border border-gray-300 ml-1"
+                            className="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-700 border border-gray-600 ml-1"
                             title="Highlight Color"
                         >
                             <div className="w-4 h-4 rounded-sm border border-gray-300" style={{ backgroundColor: editor.getAttributes('highlight').color || '#ffff00' }} />
@@ -277,7 +428,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
 
                         {/* Highlight Popover */}
                         {showColorPopover === 'highlight' && (
-                            <div className="absolute top-full left-8 mt-1 p-2 bg-white border border-gray-200 shadow-xl rounded-lg z-50 flex items-center space-x-2">
+                            <div className="absolute top-full left-8 mt-1 p-2 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex items-center space-x-2">
                                 <input
                                     type="color"
                                     value={tempColor}
@@ -304,7 +455,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                         <button
                             type="button"
                             onClick={() => editor.chain().focus().toggleHighlight().run()}
-                            className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('highlight') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('highlight') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                             title="Toggle Highlight"
                         >
                             <Highlighter className="w-4 h-4" />
@@ -319,7 +470,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                                 editor.chain().focus().unsetSubscript().setSuperscript().run();
                             }
                         }}
-                        className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('superscript') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('superscript') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Superscript"
                     >
                         <SuperIcon className="w-4 h-4" />
@@ -333,16 +484,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                                 editor.chain().focus().unsetSuperscript().setSubscript().run();
                             }
                         }}
-                        className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('subscript') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('subscript') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Subscript"
                     >
                         <SubIcon className="w-4 h-4" />
                     </button>
-                    <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
+                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().toggleBulletList().run()}
-                        className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('bulletList') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bulletList') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Bullet List"
                     >
                         <List className="w-4 h-4" />
@@ -350,7 +501,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                        className={`p-1.5 rounded hover:bg-gray-200 ${editor.isActive('orderedList') ? 'bg-gray-300 text-gray-900' : 'text-gray-600'}`}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('orderedList') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Ordered List"
                     >
                         <ListOrdered className="w-4 h-4" />
@@ -368,7 +519,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                                 (editor.chain().focus() as any).indent().run();
                             }
                         }}
-                        className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                        className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
                         title="Indent (Tab)"
                     >
                         <Indent className="w-4 h-4" />
@@ -387,16 +538,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                             }
                         }}
                         // disabled={!editor.can().liftListItem('listItem')} // Disabled check removed as we have fallback
-                        className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                        className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
                         title="Outdent (Shift+Tab)"
                     >
                         <Outdent className="w-4 h-4" />
                     </button>
-                    <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
+                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-                        className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                        className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
                         title="Insert Table"
                     >
                         <TableIcon className="w-4 h-4" />
@@ -407,23 +558,39 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                             <button
                                 type="button"
                                 onClick={() => editor.chain().focus().addColumnAfter().run()}
-                                className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                                className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
                                 title="Add Column"
                             >
                                 <Columns className="w-4 h-4" />
                             </button>
                             <button
                                 type="button"
+                                onClick={() => editor.chain().focus().deleteColumn().run()}
+                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
+                                title="Delete Column"
+                            >
+                                <Columns className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
                                 onClick={() => editor.chain().focus().addRowAfter().run()}
-                                className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                                className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
                                 title="Add Row"
                             >
                                 <Rows className="w-4 h-4" />
                             </button>
                             <button
                                 type="button"
+                                onClick={() => editor.chain().focus().deleteRow().run()}
+                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
+                                title="Delete Row"
+                            >
+                                <Rows className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
                                 onClick={() => editor.chain().focus().deleteTable().run()}
-                                className="p-1.5 rounded hover:bg-red-50 text-red-500"
+                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
                                 title="Delete Table"
                             >
                                 <Trash2 className="w-4 h-4" />

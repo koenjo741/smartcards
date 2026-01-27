@@ -169,3 +169,20 @@
   background-color: #2563eb !important;
   /* blue-600 */
 }
+
+.react-datepicker__today-button {
+  background-color: #0f172a !important;
+  /* slate-900 */
+  border-top-color: #374151 !important;
+  /* gray-700 */
+  color: #f3f4f6 !important;
+  /* gray-100 */
+  padding: 5px 0 !important;
+  font-weight: 500 !important;
+}
+
+.react-datepicker__today-button:hover {
+  background-color: #1e293b !important;
+  /* slate-800 */
+  color: #fff !important;
+}

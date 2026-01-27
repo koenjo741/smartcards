@@ -7,6 +7,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useDropbox } from '../hooks/useDropbox';
+import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -43,6 +44,7 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const { uploadFile, getFileContent, deleteFile } = useDropbox();
+    const { deleteEvent } = useGoogleCalendar();
 
     // Preview State
     const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
@@ -117,14 +119,17 @@ export const CardForm: React.FC<CardFormProps> = ({
 
         setSaveStatus('saving');
         const timeoutId = setTimeout(() => {
+            const currentData = initialDataRef.current;
             onSaveRef.current({
-                ...(initialDataRef.current || {}),
+                ...(currentData || {}),
                 title,
                 content,
                 projectIds: selectedProjectIds,
                 dueDate: dueDate || undefined,
                 attachments,
-                linkedCardIds
+                linkedCardIds,
+                googleEventId: dueDate ? currentData?.googleEventId : undefined,
+                googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
             } as Card);
             setSaveStatus('saved');
         }, 1000);
@@ -134,14 +139,17 @@ export const CardForm: React.FC<CardFormProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        const currentData = initialData;
         onSave({
-            ...(initialData || {}),
+            ...(currentData || {}),
             title,
             content,
             projectIds: selectedProjectIds,
             dueDate: dueDate || undefined,
             attachments,
-            linkedCardIds
+            linkedCardIds,
+            googleEventId: dueDate ? currentData?.googleEventId : undefined,
+            googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
         } as Card);
     };
 
@@ -436,6 +444,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 setDueDate(adjustedDate.toISOString().split('T')[0]);
                             } else {
                                 setDueDate('');
+                                // Automatically delete Google Calendar event if it exists
+                                if (initialData?.googleEventId) {
+                                    deleteEvent(initialData.googleEventId, initialData.googleCalendarId);
+                                }
                             }
                         }}
                         dateFormat="dd.MM.yyyy"

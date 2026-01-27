@@ -113,11 +113,61 @@ interface RichTextEditorProps {
     editable?: boolean;
 }
 
+// ... (imports remain)
+import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Check, Plus, X } from 'lucide-react';
+// ... (extensions remain)
+
+const BASIC_COLORS = [
+    '#000000', // Black
+    '#4b5563', // Gray 600
+    '#9ca3af', // Gray 400
+    '#dc2626', // Red 600
+    '#d97706', // Amber 600
+    '#ca8a04', // Yellow 600
+    '#16a34a', // Green 600
+    '#2563eb', // Blue 600
+    '#7c3aed', // Violet 600
+    '#db2777', // Pink 600
+];
+
+interface RichTextEditorProps {
+    content: string;
+    onChange: (content: string) => void;
+    editable?: boolean;
+}
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, editable = true }) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [showColorPopover, setShowColorPopover] = React.useState<'text' | 'highlight' | null>(null);
     const [tempColor, setTempColor] = React.useState('#000000');
     const selectionRef = React.useRef<any>(null); // To store selection for color picker
+    // User colors state
+    const [userColors, setUserColors] = React.useState<string[]>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('editor-user-colors');
+                return saved ? JSON.parse(saved) : [];
+            } catch (e) {
+                console.error('Failed to load user colors', e);
+                return [];
+            }
+        }
+        return [];
+    });
+
+    const addUserColor = (color: string) => {
+        if (!userColors.includes(color)) {
+            const newColors = [...userColors, color];
+            setUserColors(newColors);
+            localStorage.setItem('editor-user-colors', JSON.stringify(newColors));
+        }
+    };
+
+    const removeUserColor = (colorToRemove: string) => {
+        const newColors = userColors.filter(c => c !== colorToRemove);
+        setUserColors(newColors);
+        localStorage.setItem('editor-user-colors', JSON.stringify(newColors));
+    };
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -282,6 +332,105 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
         return null;
     }
 
+    const ColorPickerContent = ({ type, onClose }: { type: 'text' | 'highlight', onClose: () => void }) => {
+        const [pickerColor, setPickerColor] = React.useState(type === 'text' ? (editor.getAttributes('textStyle').color || '#000000') : (editor.getAttributes('highlight').color || '#ffff00'));
+
+        const applyColor = (color: string) => {
+            if (selectionRef.current) {
+                if (type === 'text') {
+                    editor.chain().focus().setTextSelection(selectionRef.current).unsetMark('textStyle').run();
+                    editor.chain().setTextSelection(selectionRef.current).setMark('textStyle', { color: color }).run();
+                } else {
+                    editor.chain().focus().setTextSelection(selectionRef.current).unsetHighlight().run();
+                    editor.chain().setTextSelection(selectionRef.current).toggleHighlight({ color: color }).run();
+                }
+            }
+            onClose();
+        };
+
+        return (
+            <div className="p-3 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex flex-col gap-3 w-64">
+                {/* Basic Colors */}
+                <div>
+                    <div className="text-xs text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Basic Colors</div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                        {BASIC_COLORS.map(color => (
+                            <button
+                                key={color}
+                                type="button"
+                                onClick={() => applyColor(color)}
+                                className="w-6 h-6 rounded-sm border border-gray-600 hover:scale-110 transition-transform shadow-sm"
+                                style={{ backgroundColor: color }}
+                                title={color}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* User Colors */}
+                <div>
+                    <div className="text-xs text-gray-400 font-semibold mb-1.5 uppercase tracking-wider flex justify-between items-center">
+                        <span>My Colors</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                        {userColors.map(color => (
+                            <div key={color} className="relative group">
+                                <button
+                                    type="button"
+                                    onClick={() => applyColor(color)}
+                                    className="w-6 h-6 rounded-sm border border-gray-600 hover:scale-110 transition-transform shadow-sm"
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeUserColor(color);
+                                    }}
+                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Remove color"
+                                >
+                                    <X className="w-2 h-2" />
+                                </button>
+                            </div>
+                        ))}
+                        {/* Placeholder if empty to maintain height or just nothing */}
+                        {userColors.length === 0 && <span className="text-xs text-gray-500 col-span-5 italic">No custom colors yet</span>}
+                    </div>
+                </div>
+
+                <div className="w-full h-px bg-gray-700" />
+
+                {/* Custom Color Input */}
+                <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                        <input
+                            type="color"
+                            value={pickerColor}
+                            onChange={(e) => setPickerColor(e.target.value)}
+                            className="w-full h-8 p-0 border border-gray-600 rounded bg-transparent cursor-pointer"
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => addUserColor(pickerColor)}
+                        className="p-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded border border-gray-600"
+                        title="Save to My Colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => applyColor(pickerColor)}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 flex items-center"
+                    >
+                        Apply
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="border border-gray-700 rounded-md overflow-hidden flex flex-col h-full text-gray-900 shadow-sm" style={{ backgroundColor: '#f3f4f6' }}>
             <input
@@ -387,27 +536,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
 
                         {/* Text Color Popover */}
                         {showColorPopover === 'text' && (
-                            <div className="absolute top-full left-0 mt-1 p-2 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex items-center space-x-2">
-                                <input
-                                    type="color"
-                                    value={tempColor}
-                                    onChange={(e) => setTempColor(e.target.value)}
-                                    className="w-8 h-8 p-0 border-0 rounded cursor-pointer"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (selectionRef.current) {
-                                            editor.chain().focus().setTextSelection(selectionRef.current).unsetMark('textStyle').run();
-                                            editor.chain().setTextSelection(selectionRef.current).setMark('textStyle', { color: tempColor }).run();
-                                        }
-                                        setShowColorPopover(null);
-                                    }}
-                                    className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 flex items-center"
-                                >
-                                    <Check className="w-3 h-3 mr-1" />
-                                    OK
-                                </button>
+                            <div className="absolute top-full left-0 mt-1 z-50">
+                                <ColorPickerContent type="text" onClose={() => setShowColorPopover(null)} />
+                                {/* Overlay to close */}
+                                <div className="fixed inset-0 z-40" onClick={() => setShowColorPopover(null)} />
                             </div>
                         )}
 
@@ -428,29 +560,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
 
                         {/* Highlight Popover */}
                         {showColorPopover === 'highlight' && (
-                            <div className="absolute top-full left-8 mt-1 p-2 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex items-center space-x-2">
-                                <input
-                                    type="color"
-                                    value={tempColor}
-                                    onChange={(e) => setTempColor(e.target.value)}
-                                    className="w-8 h-8 p-0 border-0 rounded cursor-pointer"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (selectionRef.current) {
-                                            editor.chain().focus().setTextSelection(selectionRef.current).unsetHighlight().run();
-                                            editor.chain().setTextSelection(selectionRef.current).toggleHighlight({ color: tempColor }).run();
-                                        }
-                                        setShowColorPopover(null);
-                                    }}
-                                    className="px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 flex items-center"
-                                >
-                                    <Check className="w-3 h-3 mr-1" />
-                                    OK
-                                </button>
+                            <div className="absolute top-full left-0 mt-1 z-50">
+                                <ColorPickerContent type="highlight" onClose={() => setShowColorPopover(null)} />
+                                <div className="fixed inset-0 z-40" onClick={() => setShowColorPopover(null)} />
                             </div>
                         )}
+
 
                         <button
                             type="button"
@@ -616,3 +731,4 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
         </div >
     );
 };
+

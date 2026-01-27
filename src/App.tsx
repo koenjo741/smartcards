@@ -179,7 +179,7 @@ function App() {
   // Update timestamp on any change
   useEffect(() => {
     lastLocalChange.current = Date.now();
-  }, [projects, cards]);
+  }, [projects, cards, customColors]);
 
   // 1. Initial Load on Connect
   useEffect(() => {
@@ -207,7 +207,8 @@ function App() {
     }, 3000); // 3s Debounce
 
     return () => clearTimeout(timeoutId);
-  }, [projects, cards, isAuthenticated, isCloudLoaded, saveData]);
+    return () => clearTimeout(timeoutId);
+  }, [projects, cards, customColors, isAuthenticated, isCloudLoaded, saveData]);
 
   // 3. Auto-initialize TODO Project and Card
   useEffect(() => {
@@ -282,7 +283,8 @@ function App() {
     }, 30000);
 
     return () => clearInterval(intervalId);
-  }, [isAuthenticated, isSyncing, loadData, loadDataStore, projects, cards]);
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
 
   const handleDropboxLoad = async () => {
     const data = await loadData();

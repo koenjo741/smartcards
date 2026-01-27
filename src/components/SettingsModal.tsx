@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Save, FolderOpen, HardDrive, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { ConfirmModal } from './ConfirmModal';
 import type { Project } from '../types';
 
 interface SettingsModalProps {
@@ -35,6 +36,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
     if (!isOpen) return null;
 
+    const [confirmState, setConfirmState] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+    });
+
     const moveProject = (index: number, direction: 'up' | 'down') => {
         if (direction === 'up' && index > 0) {
             const newProjects = [...projects];
@@ -48,7 +61,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm grid place-items-center z-50 p-4">
             <div className="bg-slate-900 border border-gray-700 rounded-xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center p-4 border-b border-gray-800 shrink-0">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -93,9 +106,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 <div className="w-px h-4 bg-gray-800 mx-1"></div>
                                                 <button
                                                     onClick={() => {
-                                                        if (confirm(`Delete project "${p.name}"? Cards will remain unassigned.`)) {
-                                                            onDeleteProject(p.id);
-                                                        }
+                                                        setConfirmState({
+                                                            isOpen: true,
+                                                            title: 'Delete Project',
+                                                            message: `Delete project "${p.name}"? Cards will remain unassigned.`,
+                                                            onConfirm: () => onDeleteProject(p.id)
+                                                        });
                                                     }}
                                                     className="p-1 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded"
                                                 >
@@ -203,6 +219,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </button>
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                isDestructive={true}
+            />
         </div>
     );
 };

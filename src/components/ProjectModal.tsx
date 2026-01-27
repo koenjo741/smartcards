@@ -52,8 +52,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
-            <div className="w-full max-w-sm bg-slate-800 rounded-lg shadow-xl p-6 relative border border-gray-700">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black bg-opacity-70 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm bg-slate-800 rounded-lg shadow-xl p-6 relative border border-gray-700 max-h-[90vh] overflow-y-auto">
                 <button
                     onClick={onClose}
                     className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors"

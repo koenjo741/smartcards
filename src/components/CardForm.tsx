@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ConfirmModal } from './ConfirmModal';
 import { Check, FileText, Paperclip, Trash2, Loader2, ExternalLink, Eye, X, Link } from 'lucide-react';
 import type { Project, Card, Attachment } from '../types';
 import { RichTextEditor } from './RichTextEditor';
@@ -38,6 +39,19 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [dueDate, setDueDate] = useState('');
     const [linkedCardIds, setLinkedCardIds] = useState<string[]>([]);
     const [linkSearch, setLinkSearch] = useState('');
+
+    // Confirmation State
+    const [confirmState, setConfirmState] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+    });
 
     // Attachment State
     const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -79,7 +93,6 @@ export const CardForm: React.FC<CardFormProps> = ({
         // CLEANUP: This runs when previewAttachment changes (closes) or component unmounts
         return () => {
             if (activeUrl) {
-                console.log("Revoking preview URL (Memory Cleanup)");
                 URL.revokeObjectURL(activeUrl);
             }
         };
@@ -127,7 +140,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                 projectIds: selectedProjectIds,
                 dueDate: dueDate || undefined,
                 attachments,
-                linkedCardIds,
+                linkedCardIds: linkedCardIds || [],
                 googleEventId: dueDate ? currentData?.googleEventId : undefined,
                 googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
             } as Card);
@@ -147,7 +160,7 @@ export const CardForm: React.FC<CardFormProps> = ({
             projectIds: selectedProjectIds,
             dueDate: dueDate || undefined,
             attachments,
-            linkedCardIds,
+            linkedCardIds: linkedCardIds || [],
             googleEventId: dueDate ? currentData?.googleEventId : undefined,
             googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
         } as Card);
@@ -608,17 +621,22 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={async () => {
-                                            if (confirm('Soll das Attachment tatsächlich gelöscht werden? Achtung: Es ist dann nicht mehr wiederherstellbar!')) {
-                                                // 1. Delete from Dropbox
-                                                const success = await deleteFile(file.path);
-                                                if (success) {
-                                                    // 2. Remove from UI
-                                                    setAttachments(prev => prev.filter(a => a.id !== file.id));
-                                                } else {
-                                                    alert("Fehler beim Löschen aus der Dropbox. Bitte prüfen Sie die Verbindung.");
+                                        onClick={() => {
+                                            setConfirmState({
+                                                isOpen: true,
+                                                title: 'Delete Attachment',
+                                                message: 'Soll das Attachment tatsächlich gelöscht werden? Achtung: Es ist dann nicht mehr wiederherstellbar!',
+                                                onConfirm: async () => {
+                                                    // 1. Delete from Dropbox
+                                                    const success = await deleteFile(file.path);
+                                                    if (success) {
+                                                        // 2. Remove from UI
+                                                        setAttachments(prev => prev.filter(a => a.id !== file.id));
+                                                    } else {
+                                                        alert("Fehler beim Löschen aus der Dropbox. Bitte prüfen Sie die Verbindung.");
+                                                    }
                                                 }
-                                            }
+                                            });
                                         }}
                                         className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors"
                                         title="Delete file"
@@ -744,6 +762,15 @@ export const CardForm: React.FC<CardFormProps> = ({
                     )}
                 </div>
             </div>
+
+            <ConfirmModal
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmState.onConfirm}
+                title={confirmState.title}
+                message={confirmState.message}
+                isDestructive={true}
+            />
         </form>
     );
 };

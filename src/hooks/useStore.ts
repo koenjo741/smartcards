@@ -46,7 +46,16 @@ export function useStore() {
     };
 
     const deleteCard = (id: string) => {
-        setData(prev => ({ ...prev, cards: prev.cards.filter(c => c.id !== id) }));
+        setData(prev => ({
+            ...prev,
+            cards: prev.cards
+                .filter(c => c.id !== id) // Remove the card itself
+                .map(c => ({
+                    ...c,
+                    // Remove the deleted card's ID from any linkedCardIds
+                    linkedCardIds: c.linkedCardIds?.filter(linkedId => linkedId !== id) || []
+                }))
+        }));
     };
 
     const addProject = (project: Project) => {

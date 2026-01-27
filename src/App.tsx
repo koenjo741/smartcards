@@ -13,17 +13,20 @@ import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useDropbox, DROPBOX_APP_KEY } from './hooks/useDropbox';
 import { SettingsModal } from './components/SettingsModal';
 import { TimelineView } from './components/TimelineView';
+import { ConfirmModal } from './components/ConfirmModal';
 import { useEffect } from 'react';
 
 // Helper for stable JSON stringify to avoid false positives in Sync
 const stableStringify = (obj: any): string => {
-  // Normalize: Remove keys with null or undefined values to ensure {} == { key: null } mismatches don't trigger updates
+  // Normalize: Remove keys with null values but KEEP undefined/empty arrays if they are part of the schema
+  // Actually, for consistency, let's just sort keys.
   const clean = (input: any): any => {
     if (Array.isArray(input)) return input.map(clean);
     if (typeof input === 'object' && input !== null) {
       const newObj: any = {};
       Object.keys(input).sort().forEach(key => {
         const val = input[key];
+        // Keep everything except null/undefined, but allow empty strings/arrays
         if (val !== null && val !== undefined) {
           newObj[key] = clean(val);
         }
@@ -87,6 +90,21 @@ function App() {
   const [searchQuery, setSearchQuery] = useState(''); // New Search State
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
 
+  // Confirmation State
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDestructive?: boolean;
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+  });
+
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -135,13 +153,20 @@ function App() {
     e.stopPropagation(); // Prevent card selection
 
     if (card.googleEventId) {
-      if (confirm('Möchtest du diesen Termin aus dem Google Kalender löschen?')) {
-        // Pass the stored calendarId (or undefined, which defaults to 'primary')
-        const success = await deleteEvent(card.googleEventId, card.googleCalendarId);
-        if (success) {
-          updateCard({ ...card, googleEventId: undefined, googleCalendarId: undefined });
+      setConfirmState({
+        isOpen: true,
+        title: 'Delete from Google Calendar?',
+        message: 'Möchtest du diesen Termin aus dem Google Kalender löschen?',
+        confirmText: 'Löschen',
+        isDestructive: true,
+        onConfirm: async () => {
+          // Pass the stored calendarId (or undefined, which defaults to 'primary')
+          const success = await deleteEvent(card.googleEventId!, card.googleCalendarId);
+          if (success) {
+            updateCard({ ...card, googleEventId: undefined, googleCalendarId: undefined });
+          }
         }
-      }
+      });
     } else {
       if (!card.dueDate) {
         alert('Bitte lege zuerst ein Fälligkeitsdatum fest.');
@@ -169,6 +194,7 @@ function App() {
     disconnect,
     saveData,
     loadData,
+    deleteFile,
     connectionError,
     isAuthChecking
   } = useDropbox();
@@ -187,7 +213,7 @@ function App() {
       loadData().then((data) => {
         if (data && data.projects && data.cards) {
           loadDataStore(data);
-          console.log("Initial Cloud Sync Complete");
+          // console.log("Initial Cloud Sync Complete");
         }
         setIsCloudLoaded(true); // Enable auto-save after first attempt (even if file didn't exist yet)
       });
@@ -202,7 +228,7 @@ function App() {
     if (!projects || projects.length === 0) return;
 
     const timeoutId = setTimeout(() => {
-      console.log("Auto-Save: Uploading changes to Dropbox...");
+      // console.log("Auto-Save: Uploading changes to Dropbox...");
       saveData({ projects, cards, customColors });
     }, 3000); // 3s Debounce
 
@@ -253,7 +279,7 @@ function App() {
         // This gives the Auto-Save (3s debounce + network time) a chance to finish first
         const timeSinceLastChange = Date.now() - lastLocalChange.current;
         if (timeSinceLastChange < 15000) {
-          console.log("Auto-Sync: Skipped (Local changes pending/saving)");
+          // console.log("Auto-Sync: Skipped (Local changes pending/saving)");
           return;
         }
 
@@ -273,8 +299,6 @@ function App() {
 
             if (currentHash !== cloudHash) {
               console.log("Auto-Sync: CHANGE DETECTED. Updating...");
-              // console.log("Current:", currentHash.slice(0, 50));
-              // console.log("Cloud:", cloudHash.slice(0, 50));
               loadDataStore(cloudData);
             }
           }
@@ -378,14 +402,45 @@ function App() {
     }
   }, [updateCard, addCard, expandedCardId]);
 
-  const handleDeleteCard = (e: React.MouseEvent, id: string) => {
+  const handleDeleteCard = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('Delete this card?')) {
-      deleteCard(id);
-      if (expandedCardId === id) {
-        handleCloseExpanded();
+
+    // Find card to check for attachments/calendar events
+    const cardToDelete = cards.find(c => c.id === id);
+    if (!cardToDelete) return;
+
+    const hasAttachments = cardToDelete.attachments && cardToDelete.attachments.length > 0;
+    const confirmMessage = hasAttachments
+      ? 'Achtung: Mit dem Löschen dieser Card löschen Sie auch die angehängten Attachments!'
+      : 'Delete this card?';
+
+    setConfirmState({
+      isOpen: true,
+      title: 'Delete Card',
+      message: confirmMessage,
+      confirmText: 'Delete Forever',
+      isDestructive: true,
+      onConfirm: async () => {
+        // 1. Delete Attachments from Dropbox
+        if (hasAttachments) {
+          for (const attachment of cardToDelete.attachments!) {
+            await deleteFile(attachment.path);
+          }
+        }
+
+        // 2. Delete Google Calendar Event
+        if (cardToDelete.googleEventId) {
+          await deleteEvent(cardToDelete.googleEventId, cardToDelete.googleCalendarId);
+        }
+
+        // 3. Delete from Local Store
+        deleteCard(id);
+
+        if (expandedCardId === id) {
+          handleCloseExpanded();
+        }
       }
-    }
+    });
   };
 
   const getDueDateStyle = (dateString: string) => {
@@ -785,6 +840,16 @@ function App() {
         projects={projects}
         onReorderProjects={reorderProjects}
         onDeleteProject={deleteProject}
+      />
+
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        isDestructive={confirmState.isDestructive}
       />
     </Layout>
   );

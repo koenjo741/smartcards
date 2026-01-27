@@ -179,7 +179,7 @@ export const useGoogleCalendar = () => {
             });
 
             const response = await request;
-            console.log('Event created in calendar:', calendarId);
+
             // Return both IDs so we can store them
             return { eventId: response.result.id, calendarId };
 

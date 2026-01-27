@@ -141,6 +141,20 @@ interface ColorPickerContentProps {
 
 const ColorPickerContent: React.FC<ColorPickerContentProps> = ({ type, onClose, editor, selectionRef, userColors, addUserColor, removeUserColor }) => {
     const [pickerColor, setPickerColor] = React.useState(type === 'text' ? (editor.getAttributes('textStyle').color || '#000000') : (editor.getAttributes('highlight').color || '#ffff00'));
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                onClose();
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [onClose]);
 
     const applyColor = (color: string) => {
         if (selectionRef.current) {
@@ -156,7 +170,10 @@ const ColorPickerContent: React.FC<ColorPickerContentProps> = ({ type, onClose, 
     };
 
     return (
-        <div className="p-3 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex flex-col gap-3 w-64" onClick={(e) => e.stopPropagation()}>
+        <div
+            ref={containerRef}
+            className="p-3 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex flex-col gap-3 w-64"
+        >
             {/* Basic Colors */}
             <div>
                 <div className="text-xs text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Basic Colors</div>
@@ -543,8 +560,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
 
                         {showColorPopover === 'text' && (
                             <div className="absolute top-full left-0 mt-1 z-50">
-                                {/* Overlay to close */}
-                                <div className="fixed inset-0 z-40" onClick={() => setShowColorPopover(null)} />
                                 <ColorPickerContent
                                     type="text"
                                     onClose={() => setShowColorPopover(null)}
@@ -574,7 +589,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                         {/* Highlight Popover */}
                         {showColorPopover === 'highlight' && (
                             <div className="absolute top-full left-0 mt-1 z-50">
-                                <div className="fixed inset-0 z-40" onClick={() => setShowColorPopover(null)} />
                                 <ColorPickerContent
                                     type="highlight"
                                     onClose={() => setShowColorPopover(null)}

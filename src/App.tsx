@@ -72,7 +72,7 @@ import { matchesSearch } from './utils/search';
 // ... (existing imports)
 
 function App() {
-  const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore } = useStore();
+  const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore, customColors, setCustomColors } = useStore();
   const { createEvent, deleteEvent } = useGoogleCalendar();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -203,7 +203,7 @@ function App() {
 
     const timeoutId = setTimeout(() => {
       console.log("Auto-Save: Uploading changes to Dropbox...");
-      saveData({ projects, cards });
+      saveData({ projects, cards, customColors });
     }, 3000); // 3s Debounce
 
     return () => clearTimeout(timeoutId);
@@ -265,9 +265,10 @@ function App() {
 
             const cloudProjects = cloudData.projects || [];
             const cloudCards = cloudData.cards || [];
+            const cloudColors = cloudData.customColors || [];
 
-            const currentHash = stableStringify({ projects: currentProjects, cards: currentCards });
-            const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards });
+            const currentHash = stableStringify({ projects: currentProjects, cards: currentCards, customColors });
+            const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards, customColors: cloudColors });
 
             if (currentHash !== cloudHash) {
               console.log("Auto-Sync: CHANGE DETECTED. Updating...");
@@ -731,6 +732,8 @@ function App() {
                   onSave={handleSaveCard}
                   onCancel={handleCloseExpanded} // Acts as "close card" (clears selection)
                   className="text-gray-100" // Pass text color to form
+                  customColors={customColors}
+                  onUpdateCustomColors={setCustomColors}
                 />
               </>
             ) : (
@@ -773,7 +776,7 @@ function App() {
         lastSynced={lastSynced}
         onConnect={handleConnect}
         onDisconnect={disconnect}
-        onSave={() => saveData({ projects, cards })}
+        onSave={() => saveData({ projects, cards, customColors })}
         onLoad={handleDropboxLoad}
 
         // Project Management

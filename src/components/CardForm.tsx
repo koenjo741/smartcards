@@ -16,6 +16,8 @@ interface CardFormProps {
     initialData?: Card | null;
     onSelectCard?: (card: Card) => void; // For navigation
     className?: string; // Allow custom styling wrapper
+    customColors?: string[];
+    onUpdateCustomColors?: (colors: string[]) => void;
 }
 
 export const CardForm: React.FC<CardFormProps> = ({
@@ -25,7 +27,9 @@ export const CardForm: React.FC<CardFormProps> = ({
     cards = [],
     initialData,
     onSelectCard,
-    className
+    className,
+    customColors = [],
+    onUpdateCustomColors
 }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -410,9 +414,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                 </label>
                 <div className="flex-1 min-h-[400px]">
                     <RichTextEditor
-                        key={initialData?.id || 'new'}
                         content={content}
                         onChange={setContent}
+                        userColors={customColors}
+                        onUserColorsChange={onUpdateCustomColors}
                     />
                 </div>
             </div>

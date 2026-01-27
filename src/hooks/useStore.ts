@@ -4,6 +4,7 @@ import type { Project, Card } from '../types';
 interface StoreData {
     projects: Project[];
     cards: Card[];
+    customColors?: string[];
 }
 
 const STORAGE_KEY = 'smartcards-data';
@@ -26,7 +27,7 @@ export function useStore() {
         if (stored) {
             return JSON.parse(stored);
         }
-        return { projects: MOCK_PROJECTS, cards: MOCK_CARDS };
+        return { projects: MOCK_PROJECTS, cards: MOCK_CARDS, customColors: [] };
     });
 
     useEffect(() => {
@@ -74,6 +75,10 @@ export function useStore() {
         }));
     };
 
+    const setCustomColors = (colors: string[]) => {
+        setData(prev => ({ ...prev, customColors: colors }));
+    };
+
     const loadData = (newData: StoreData) => {
         setData(newData);
     };
@@ -88,6 +93,8 @@ export function useStore() {
         reorderProjects,
         updateProject,
         deleteProject,
+        customColors: data.customColors || [],
+        setCustomColors,
         loadData // Exported for file import
     };
 }

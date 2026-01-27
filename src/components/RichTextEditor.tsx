@@ -259,39 +259,27 @@ interface RichTextEditorProps {
     content: string;
     onChange: (content: string) => void;
     editable?: boolean;
+    userColors?: string[];
+    onUserColorsChange?: (colors: string[]) => void;
 }
 
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, editable = true }) => {
+export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, editable = true, userColors = [], onUserColorsChange }) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [showColorPopover, setShowColorPopover] = React.useState<'text' | 'highlight' | null>(null);
 
     const selectionRef = React.useRef<any>(null); // To store selection for color picker
-    // User colors state
-    const [userColors, setUserColors] = React.useState<string[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const saved = localStorage.getItem('editor-user-colors');
-                return saved ? JSON.parse(saved) : [];
-            } catch (e) {
-                console.error('Failed to load user colors', e);
-                return [];
-            }
-        }
-        return [];
-    });
-
     const addUserColor = (color: string) => {
-        if (!userColors.includes(color)) {
+        if (!userColors.includes(color) && onUserColorsChange) {
             const newColors = [...userColors, color];
-            setUserColors(newColors);
-            localStorage.setItem('editor-user-colors', JSON.stringify(newColors));
+            onUserColorsChange(newColors);
         }
     };
 
     const removeUserColor = (colorToRemove: string) => {
-        const newColors = userColors.filter(c => c !== colorToRemove);
-        setUserColors(newColors);
-        localStorage.setItem('editor-user-colors', JSON.stringify(newColors));
+        if (onUserColorsChange) {
+            const newColors = userColors.filter(c => c !== colorToRemove);
+            onUserColorsChange(newColors);
+        }
     };
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -201,6 +201,9 @@ function App() {
 
   // Track local changes to prevent Auto-Sync from overwriting pending saves
   const lastLocalChange = useRef<number>(Date.now());
+  // Track the last successfully saved state to properly warn on exit
+  // CHANGED: Use State instead of Ref so UI checks (isDirty) trigger re-renders
+  const [lastSavedHash, setLastSavedHash] = useState<string>("");
 
   // Update timestamp on any change
   useEffect(() => {
@@ -213,6 +216,13 @@ function App() {
       loadData().then((data) => {
         if (data && data.projects && data.cards) {
           loadDataStore(data);
+          // Set initial hash to prevent false positives
+          const initialHash = stableStringify({
+            projects: data.projects,
+            cards: data.cards,
+            customColors: data.customColors || []
+          });
+          setLastSavedHash(initialHash);
           // console.log("Initial Cloud Sync Complete");
         }
         setIsCloudLoaded(true); // Enable auto-save after first attempt (even if file didn't exist yet)
@@ -227,12 +237,16 @@ function App() {
     // Don't save empty data (safety check)
     if (!projects || projects.length === 0) return;
 
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       // console.log("Auto-Save: Uploading changes to Dropbox...");
-      saveData({ projects, cards, customColors });
+      const currentData = { projects, cards, customColors };
+      const success = await saveData(currentData);
+
+      if (success) {
+        setLastSavedHash(stableStringify(currentData));
+      }
     }, 3000); // 3s Debounce
 
-    return () => clearTimeout(timeoutId);
     return () => clearTimeout(timeoutId);
   }, [projects, cards, customColors, isAuthenticated, isCloudLoaded, saveData]);
 
@@ -300,6 +314,7 @@ function App() {
             if (currentHash !== cloudHash) {
               console.log("Auto-Sync: CHANGE DETECTED. Updating...");
               loadDataStore(cloudData);
+              setLastSavedHash(cloudHash); // Update hash since we just loaded fresh data
             }
           }
         });
@@ -307,8 +322,31 @@ function App() {
     }, 30000);
 
     return () => clearInterval(intervalId);
-    return () => clearInterval(intervalId);
   }, [isAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
+
+  // 5. Unsaved Changes Warning (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Calculate current state hash
+      const currentHash = stableStringify({ projects, cards, customColors });
+      const isDirty = currentHash !== lastSavedHash;
+
+      // If syncing or dirty, warn the user
+      if (isSyncing || (isAuthenticated && isDirty)) {
+        e.preventDefault();
+        e.returnValue = ''; // Standard for modern browsers to trigger warning
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [projects, cards, customColors, isSyncing, isAuthenticated, lastSavedHash]);
+
+  // Derived state for UI
+  const currentHash = stableStringify({ projects, cards, customColors });
+  const isDirty = isAuthenticated && (currentHash !== lastSavedHash);
+  const isCloudSynced = !isDirty && !isSyncing;
 
   const handleDropboxLoad = async () => {
     const data = await loadData();
@@ -791,6 +829,8 @@ function App() {
                   className="text-gray-100" // Pass text color to form
                   customColors={customColors}
                   onUpdateCustomColors={setCustomColors}
+                  isCloudSynced={isCloudSynced}
+                  isSyncing={isSyncing}
                 />
               </>
             ) : (

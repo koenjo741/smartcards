@@ -37,6 +37,22 @@
   outline: none;
 }
 
+/* Force higher contrast for all text content */
+.ProseMirror,
+.ProseMirror p,
+.ProseMirror li,
+.ProseMirror ul,
+.ProseMirror ol {
+  color: #000000 !important;
+  font-weight: 490 !important;
+}
+
+.ProseMirror strong,
+.ProseMirror b {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
 .ProseMirror>*+* {
   margin-top: 0.75em;
 }

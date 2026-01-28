@@ -80,8 +80,8 @@ export function useDropbox() {
     }, []);
 
     // 3. Save Data (Upload)
-    const saveData = useCallback(async (data: any) => {
-        if (!dbx) return;
+    const saveData = useCallback(async (data: any): Promise<boolean> => {
+        if (!dbx) return false;
         setIsSyncing(true);
         try {
             const fileContent = JSON.stringify(data, null, 2);
@@ -95,6 +95,7 @@ export function useDropbox() {
 
             setLastSynced(new Date());
             setConnectionError(false);
+            return true;
         } catch (error: any) {
             console.error('Dropbox Upload Error:', error);
             if (error?.status === 401 || error?.error?.error_summary?.includes('expired_access_token')) {
@@ -103,6 +104,7 @@ export function useDropbox() {
             } else {
                 alert('Backup failed. Check internet connection.');
             }
+            return false;
         } finally {
             setIsSyncing(false);
         }

@@ -20,6 +20,8 @@ interface CardFormProps {
     className?: string; // Allow custom styling wrapper
     customColors?: string[];
     onUpdateCustomColors?: (colors: string[]) => void;
+    isCloudSynced?: boolean;
+    isSyncing?: boolean;
 }
 
 export const CardForm: React.FC<CardFormProps> = ({
@@ -31,7 +33,9 @@ export const CardForm: React.FC<CardFormProps> = ({
     onSelectCard,
     className,
     customColors = [],
-    onUpdateCustomColors
+    onUpdateCustomColors,
+    isCloudSynced,
+    isSyncing
 }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -757,7 +761,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                         </>
                     ) : (
                         <div className="text-sm text-gray-500 italic flex items-center">
-                            {saveStatus === 'saving' ? 'Saving...' : 'All changes saved'}
+                            {saveStatus === 'saving' ? 'Saving...' :
+                                (typeof isCloudSynced !== 'undefined' && !isCloudSynced) ?
+                                    (isSyncing ? 'Syncing to Dropbox...' : 'Pending Upload...') :
+                                    'All changes saved'}
                         </div>
                     )}
                 </div>

@@ -9,7 +9,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Plus, X } from 'lucide-react';
+import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Plus, X, Ban } from 'lucide-react';
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
@@ -159,8 +159,8 @@ const ColorPickerContent: React.FC<ColorPickerContentProps> = ({ type, onClose, 
     const applyColor = (color: string) => {
         if (selectionRef.current) {
             if (type === 'text') {
-                editor.chain().focus().setTextSelection(selectionRef.current).unsetMark('textStyle').run();
-                editor.chain().setTextSelection(selectionRef.current).setMark('textStyle', { color: color }).run();
+                // Use setColor to preserve other styles (fontSize, fontFamily)
+                editor.chain().focus().setTextSelection(selectionRef.current).setColor(color).run();
             } else {
                 editor.chain().focus().setTextSelection(selectionRef.current).unsetHighlight().run();
                 editor.chain().setTextSelection(selectionRef.current).toggleHighlight({ color: color }).run();
@@ -174,6 +174,26 @@ const ColorPickerContent: React.FC<ColorPickerContentProps> = ({ type, onClose, 
             ref={containerRef}
             className="p-3 bg-slate-800 border border-gray-700 shadow-xl rounded-lg z-50 flex flex-col gap-3 w-64"
         >
+            {/* No Color Button */}
+            <button
+                type="button"
+                onClick={() => {
+                    if (selectionRef.current) {
+                        if (type === 'text') {
+                            editor.chain().focus().setTextSelection(selectionRef.current).unsetColor().run();
+                        } else {
+                            editor.chain().focus().setTextSelection(selectionRef.current).unsetHighlight().run();
+                        }
+                    }
+                    onClose();
+                }}
+                className="flex items-center gap-2 w-full p-1.5 rounded hover:bg-slate-700 text-gray-300 hover:text-white transition-colors border border-gray-600 mb-1"
+                title="Remove color"
+            >
+                <Ban className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium">No Color</span>
+            </button>
+
             {/* Basic Colors */}
             <div>
                 <div className="text-xs text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Basic Colors</div>
@@ -446,7 +466,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     }
 
     return (
-        <div className="border border-gray-700 rounded-md overflow-hidden flex flex-col h-full text-gray-900 shadow-sm" style={{ backgroundColor: '#f3f4f6' }}>
+        <div className="border border-gray-700 rounded-md flex flex-col h-full shadow-sm" style={{ backgroundColor: '#f3f4f6' }}>
             <input
                 type="file"
                 ref={fileInputRef}
@@ -455,12 +475,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 onChange={handleImageUpload}
             />
             {editable && (
-                <div className="border-b border-gray-700 bg-slate-900 p-2 flex flex-wrap gap-1 sticky top-0 z-10">
+                <div className="rounded-t-md border-b border-gray-700 bg-slate-900 p-2 flex flex-wrap gap-1 sticky top-0 z-10">
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().toggleBold().run()}
                         className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bold') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Bold"
+                    // ... (omitting lines for brevity in prompt, but I need to be careful with the Replace tool)
+                    // Actually I should split this into chunks or use a larger block that includes the necessary parts.
+                    // I will target the container start, the toolbar start, and the content wrapper.
+
                     >
                         <Bold className="w-4 h-4" />
                     </button>
@@ -748,7 +772,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 </div>
             )}
 
-            <div className="flex-1 overflow-y-auto">
+            <div className={`flex-1 overflow-y-auto rounded-b-md ${!editable ? 'rounded-t-md' : ''}`}>
                 <EditorContent editor={editor} className="h-full" />
             </div>
         </div >

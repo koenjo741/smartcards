@@ -3,7 +3,9 @@ import { ConfirmModal } from './ConfirmModal';
 import { Check, FileText, Paperclip, Trash2, Loader2, ExternalLink, Eye, X, Link } from 'lucide-react';
 import type { Project, Card, Attachment } from '../types';
 import { RichTextEditor } from './RichTextEditor';
-import DatePicker from 'react-datepicker';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import { de } from 'date-fns/locale';
+registerLocale('de', de);
 import "react-datepicker/dist/react-datepicker.css";
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -472,6 +474,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                         placeholderText="Select due date"
                         isClearable
                         todayButton="Heute"
+                        locale="de"
                     />
                 </div>
             )}

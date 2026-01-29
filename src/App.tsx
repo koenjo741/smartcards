@@ -592,6 +592,18 @@ function App() {
     );
   }
 
+  // FORCE SYNC WAIT: Block UI until data is loaded from Cloud
+  if (isAuthenticated && !isCloudLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="text-gray-400 font-medium">Syncing with Cloud...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Layout
       projects={projects}

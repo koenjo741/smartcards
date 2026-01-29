@@ -812,12 +812,14 @@ function App() {
             expandedCardId && editingCard ? (
               <>
                 {/* Mobile Back Button */}
-                <button
-                  onClick={handleCloseExpanded}
-                  className="md:hidden mb-4 flex items-center text-blue-400 font-bold hover:text-blue-300 transition-colors"
-                >
-                  <span className="mr-1">←</span> Back to List
-                </button>
+                <div className="md:hidden flex justify-end mb-4">
+                  <button
+                    onClick={handleCloseExpanded}
+                    className="flex items-center text-blue-400 font-bold hover:text-blue-300 transition-colors"
+                  >
+                    <span className="mr-1">←</span> Back to List
+                  </button>
+                </div>
                 <CardForm
                   key={editingCard.id} // Force remount on card switch to ensure form resets
                   initialData={editingCard}

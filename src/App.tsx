@@ -283,45 +283,67 @@ function App() {
     }
   }, [projects, cards, isCloudLoaded, addProject, addCard, updateCard]);
 
-  // 4. Auto-Sync / Polling (Every 30 seconds)
+  // 4. Auto-Sync / Polling & Visibility Trigger
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const intervalId = setInterval(() => {
-      if (!isSyncing) {
+    const checkCloudUpdates = () => {
+      // Create an async function to handle the logic properly
+      const runCheck = async () => {
+        if (isSyncing) return;
+
         // PROTECTION: Skip sync if local data changed recently (last 15s)
-        // This gives the Auto-Save (3s debounce + network time) a chance to finish first
         const timeSinceLastChange = Date.now() - lastLocalChange.current;
         if (timeSinceLastChange < 15000) {
           // console.log("Auto-Sync: Skipped (Local changes pending/saving)");
           return;
         }
 
-        loadData().then(cloudData => {
-          if (cloudData && cloudData.projects && cloudData.projects.length > 0) { // Ensure validity
+        const cloudData = await loadData();
+        if (cloudData && cloudData.projects && cloudData.projects.length > 0) {
+          const currentProjects = projects || [];
+          const currentCards = cards || [];
 
-            // Compare only semantic data, stripping potential metadata
-            const currentProjects = projects || [];
-            const currentCards = cards || [];
+          const cloudProjects = cloudData.projects || [];
+          const cloudCards = cloudData.cards || [];
+          const cloudColors = cloudData.customColors || [];
 
-            const cloudProjects = cloudData.projects || [];
-            const cloudCards = cloudData.cards || [];
-            const cloudColors = cloudData.customColors || [];
+          const currentHash = stableStringify({ projects: currentProjects, cards: currentCards, customColors });
+          const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards, customColors: cloudColors });
 
-            const currentHash = stableStringify({ projects: currentProjects, cards: currentCards, customColors });
-            const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards, customColors: cloudColors });
-
-            if (currentHash !== cloudHash) {
-              console.log("Auto-Sync: CHANGE DETECTED. Updating...");
-              loadDataStore(cloudData);
-              setLastSavedHash(cloudHash); // Update hash since we just loaded fresh data
-            }
+          if (currentHash !== cloudHash) {
+            console.log("Auto-Sync: CHANGE DETECTED. Updating...");
+            loadDataStore(cloudData);
+            setLastSavedHash(cloudHash);
           }
-        });
-      }
-    }, 30000);
+        }
+      };
 
-    return () => clearInterval(intervalId);
+      runCheck().catch(console.error);
+    };
+
+    // Poll every 30s
+    const intervalId = setInterval(checkCloudUpdates, 30000);
+
+    // Immediate check on visibility/focus/online
+    const handleTrigger = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("App foregrounded/focused: Triggering sync check...");
+        checkCloudUpdates();
+      }
+    };
+
+    // Add listeners for more responsive sync on mobile/desktop
+    document.addEventListener('visibilitychange', handleTrigger);
+    window.addEventListener('focus', handleTrigger);
+    window.addEventListener('online', handleTrigger);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleTrigger);
+      window.removeEventListener('focus', handleTrigger);
+      window.removeEventListener('online', handleTrigger);
+    };
   }, [isAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
 
   // 5. Unsaved Changes Warning (beforeunload)

@@ -253,7 +253,7 @@ function App() {
 
   // 2. Auto-Save to Dropbox (Debounced 3s)
   useEffect(() => {
-    if (!isAuthenticated || !isCloudLoaded) return;
+    if (!isDropboxAuthenticated || !isCloudLoaded) return;
 
     // Don't save empty data (safety check)
     if (!projects || projects.length === 0) return;
@@ -269,7 +269,7 @@ function App() {
     }, 3000); // 3s Debounce
 
     return () => clearTimeout(timeoutId);
-  }, [projects, cards, customColors, isAuthenticated, isCloudLoaded, saveData]);
+  }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData]);
 
   // 3. Auto-initialize TODO Project and Card
   useEffect(() => {
@@ -306,7 +306,7 @@ function App() {
 
   // 4. Auto-Sync / Polling & Visibility Trigger
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isDropboxAuthenticated) return;
 
     const checkCloudUpdates = () => {
       // Create an async function to handle the logic properly
@@ -685,7 +685,7 @@ function App() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isDropboxAuthenticated) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-white p-4">
         <div className="max-w-md w-full text-center space-y-8">
@@ -722,7 +722,7 @@ function App() {
   }
 
   // FORCE SYNC WAIT: Block UI until data is loaded from Cloud
-  if (isAuthenticated && !isCloudLoaded) {
+  if (isDropboxAuthenticated && !isCloudLoaded) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
         <div className="flex flex-col items-center space-y-4">
@@ -1048,7 +1048,7 @@ function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={isDropboxAuthenticated}
         userName={userName}
         isSyncing={isSyncing}
         lastSynced={lastSynced}

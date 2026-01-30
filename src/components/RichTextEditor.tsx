@@ -772,7 +772,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 </div>
             )}
 
-            <div className={`flex-1 overflow-y-auto rounded-b-md ${!editable ? 'rounded-t-md' : ''}`}>
+            <div className={`flex-1 overflow-y-auto overflow-x-auto rounded-b-md ${!editable ? 'rounded-t-md' : ''}`}>
                 <EditorContent editor={editor} className="h-full" />
             </div>
         </div >

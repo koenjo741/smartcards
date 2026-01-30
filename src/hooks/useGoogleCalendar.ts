@@ -226,12 +226,54 @@ export const useGoogleCalendar = () => {
         }
     }, [ensureAuth]);
 
+    const updateEvent = useCallback(async (card: Card, eventId: string, calendarId: string = 'primary') => {
+        setIsLoading(true);
+        try {
+            const authed = await ensureAuth();
+            if (!authed) throw new Error("Auth failed");
+
+            if (!card.dueDate) throw new Error("No due date");
+
+            const event: any = {
+                'summary': card.title,
+                'description': card.content ? stripHtml(card.content) : '',
+                'start': {
+                    'date': card.dueDate,
+                },
+                'end': {
+                    'date': card.dueDate,
+                }
+            };
+
+            const startDate = new Date(card.dueDate);
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + 1);
+            event.end.date = endDate.toISOString().split('T')[0];
+
+            const request = window.gapi.client.calendar.events.patch({
+                'calendarId': calendarId,
+                'eventId': eventId,
+                'resource': event,
+            });
+
+            await request;
+            return true;
+
+        } catch (error) {
+            console.error("Error updating event", error);
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ensureAuth]);
+
     return {
         isReady: !!tokenClient && isGapiLoaded,
         isAuthenticated,
         login,
         createEvent,
         deleteEvent,
+        updateEvent,
         isLoading
     };
 };

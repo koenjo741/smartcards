@@ -76,7 +76,7 @@ import { matchesSearch } from './utils/search';
 
 function App() {
   const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore, customColors, setCustomColors } = useStore();
-  const { createEvent, deleteEvent } = useGoogleCalendar();
+  const { createEvent, deleteEvent, updateEvent } = useGoogleCalendar();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
@@ -448,19 +448,45 @@ function App() {
     }
   };
 
-  const handleSaveCard = useCallback((cardData: Omit<Card, 'id'> | Card) => {
+  const handleSaveCard = useCallback(async (cardData: Omit<Card, 'id'> | Card) => {
     if ('id' in cardData && (cardData as Card).id) {
       updateCard(cardData as Card);
       if (expandedCardId === (cardData as Card).id) {
         setEditingCard(cardData as Card);
       }
+
+      // Auto-Sync to Google Calendar if event exists
+      const existingCard = cards.find(c => c.id === (cardData as Card).id);
+      if (existingCard?.googleEventId) {
+        // Only update if relevant fields changed
+        const hasChanged =
+          existingCard.title !== cardData.title ||
+          existingCard.content !== cardData.content ||
+          existingCard.dueDate !== cardData.dueDate;
+
+        if (hasChanged) {
+          // Attempt update. ensureAuth() inside will check connection.
+          // We use 'await' but we don't block the UI update above, 
+          // though strict consistency might prefer waiting.
+          // For better UX (speed), we let UI update first.
+          if (!cardData.dueDate) {
+            // If due date was removed, we should probably delete the event?
+            // For now, let's just log a warning or do nothing, 
+            // as 'delete' is a separate explicit action usually.
+            // But if due date is missing, updateEvent will fail/throw anyway.
+          } else {
+            await updateEvent(cardData as Card, existingCard.googleEventId, existingCard.googleCalendarId);
+          }
+        }
+      }
+
     } else {
       const newId = crypto.randomUUID();
       const newCard = { ...cardData, id: newId } as Card;
       addCard(newCard);
       setIsModalOpen(false);
     }
-  }, [updateCard, addCard, expandedCardId]);
+  }, [updateCard, addCard, expandedCardId, cards, updateEvent]);
 
   const handleDeleteCard = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();

@@ -76,7 +76,12 @@ import { matchesSearch } from './utils/search';
 
 function App() {
   const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore, customColors, setCustomColors } = useStore();
-  const { createEvent, deleteEvent, updateEvent } = useGoogleCalendar();
+  const { createEvent, deleteEvent, updateEvent, isAuthenticated: isGoogleAuthenticated } = useGoogleCalendar();
+  // ... (lines 80-203 untouched in this replace, need to ensure context match)
+  // Actually, I cannot easily replace specific non-contiguous lines without MultiReplace or careful scoping.
+  // Let's do it in two steps or use MultiReplace.
+  // Better yet, I will use MultiReplace to fix both the declaration and the usage site.
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<Card | null>(null);
@@ -202,7 +207,7 @@ function App() {
 
   // Dropbox integration
   const {
-    isAuthenticated,
+    isAuthenticated: isDropboxAuthenticated,
     userName,
     isSyncing,
     lastSynced,
@@ -228,7 +233,7 @@ function App() {
 
   // 1. Initial Load on Connect
   useEffect(() => {
-    if (isAuthenticated && !isCloudLoaded) {
+    if (isDropboxAuthenticated && !isCloudLoaded) {
       loadData().then((data) => {
         if (data && data.projects && data.cards) {
           loadDataStore(data);
@@ -244,7 +249,7 @@ function App() {
         setIsCloudLoaded(true); // Enable auto-save after first attempt (even if file didn't exist yet)
       });
     }
-  }, [isAuthenticated, isCloudLoaded, loadData, loadDataStore]);
+  }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore]);
 
   // 2. Auto-Save to Dropbox (Debounced 3s)
   useEffect(() => {
@@ -360,7 +365,7 @@ function App() {
       window.removeEventListener('focus', handleTrigger);
       window.removeEventListener('online', handleTrigger);
     };
-  }, [isAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
+  }, [isDropboxAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
 
   // 5. Unsaved Changes Warning (beforeunload)
   useEffect(() => {
@@ -370,20 +375,21 @@ function App() {
       const isDirty = currentHash !== lastSavedHash;
 
       // If syncing or dirty, warn the user
-      if (isSyncing || (isAuthenticated && isDirty)) {
+      if (isSyncing || (isDropboxAuthenticated && isDirty)) {
         e.preventDefault();
         e.returnValue = ''; // Standard for modern browsers to trigger warning
         return '';
       }
     };
 
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [projects, cards, customColors, isSyncing, isAuthenticated, lastSavedHash]);
+  }, [projects, cards, customColors, isSyncing, isDropboxAuthenticated, lastSavedHash]);
 
   // Derived state for UI
   const currentHash = stableStringify({ projects, cards, customColors });
-  const isDirty = isAuthenticated && (currentHash !== lastSavedHash);
+  const isDirty = isDropboxAuthenticated && (currentHash !== lastSavedHash);
   const isCloudSynced = !isDirty && !isSyncing;
 
   const handleDropboxLoad = async () => {
@@ -793,7 +799,7 @@ function App() {
             )}
 
             <span className="hidden md:inline text-gray-600">|</span>
-            {isAuthenticated ? (
+            {isGoogleAuthenticated ? (
               <div className="flex items-center space-x-1 text-green-400 font-bold text-[10px] md:text-xs bg-green-500/10 px-1.5 py-0.5 rounded">
                 <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
                 <span>G-Cal</span>

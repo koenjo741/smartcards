@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Settings, Plus, Layers, Pencil, CalendarClock } from 'lucide-react';
+import { Layout, Settings, Plus, Layers, Pencil, CalendarClock, X } from 'lucide-react';
 import type { Project } from '../types';
 
 interface SidebarProps {
@@ -81,14 +81,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <span>Timeline</span>
                     </button>
 
-                    <div className="mt-4 mb-2">
+                    <div className="mt-4 mb-2 relative">
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => onSearchChange(e.target.value)}
-                            className="w-full bg-slate-800 border border-gray-700 text-gray-200 text-xs rounded px-2 py-1.5 focus:outline-none focus:border-blue-500 placeholder-gray-500"
+                            className="w-full bg-slate-800 border border-gray-700 text-gray-200 text-xs rounded px-2 py-1.5 pr-7 focus:outline-none focus:border-blue-500 placeholder-gray-500"
                         />
+                        {searchQuery && (
+                            <button
+                                onClick={() => onSearchChange('')}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-400"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        )}
                     </div>
 
                     <div className="px-3 py-2 mt-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">

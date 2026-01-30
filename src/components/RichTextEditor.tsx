@@ -466,7 +466,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     }
 
     return (
-        <div className="border border-gray-700 rounded-md flex flex-col h-full shadow-sm" style={{ backgroundColor: '#f3f4f6' }}>
+        <div className="border border-gray-700 rounded-md flex flex-col h-full shadow-sm w-full max-w-full" style={{ backgroundColor: '#f3f4f6' }}>
             <input
                 type="file"
                 ref={fileInputRef}
@@ -772,7 +772,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 </div>
             )}
 
-            <div className={`flex-1 overflow-y-auto overflow-x-auto rounded-b-md ${!editable ? 'rounded-t-md' : ''}`}>
+            <div className={`flex-1 overflow-y-auto overflow-x-auto rounded-b-md w-full max-w-full ${!editable ? 'rounded-t-md' : ''}`}>
                 <EditorContent editor={editor} className="h-full" />
             </div>
         </div >

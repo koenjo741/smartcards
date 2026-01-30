@@ -773,7 +773,7 @@ function App() {
               {selectedProject ? selectedProject.name : 'All Cards'}
             </h1>
           </div>
-          <div className="flex items-center space-x-2 mt-1">
+          <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
             <p className="hidden md:block text-gray-400">
               {selectedProject ? 'Cards for ' + selectedProject.name : 'Manage themes and ideas'}
             </p>

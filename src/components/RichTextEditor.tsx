@@ -9,13 +9,14 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Plus, X, Ban } from 'lucide-react';
+import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, Plus, X, Ban, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
+import TextAlign from '@tiptap/extension-text-align';
 
 const FontSize = Extension.create({
     name: 'fontSize',
@@ -433,6 +434,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 openOnClick: false,
                 linkOnPaste: true,
             }),
+            TextAlign.configure({
+                types: ['heading', 'paragraph'],
+            }),
         ],
         content,
         editable,
@@ -623,6 +627,40 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                             <Highlighter className="w-4 h-4" />
                         </button>
                     </div>
+                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                    <button
+                        type="button"
+                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        title="Align Left"
+                    >
+                        <AlignLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        title="Align Center"
+                    >
+                        <AlignCenter className="w-4 h-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        title="Align Right"
+                    >
+                        <AlignRight className="w-4 h-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'justify' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        title="Justify"
+                    >
+                        <AlignJustify className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
                     <button
                         type="button"
                         onClick={() => {

@@ -147,8 +147,12 @@ function App() {
     } else {
       // Fallback instructions
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      const isDesktop = /Windows|Macintosh|Linux/.test(navigator.userAgent);
+
       if (isIOS) {
         alert("To install on iOS:\n1. Tap the Share button (square with arrow)\n2. Scroll down and tap 'Add to Home Screen'");
+      } else if (isDesktop) {
+        alert("App Install:\nPlease look for the 'Install' icon ⊕ or ⬇ in your browser's address bar (right side).");
       } else {
         alert("To install:\nTap your browser menu (three dots) and select 'Add to Home Screen' or 'Install App'");
       }

@@ -106,7 +106,9 @@ export const useGoogleCalendar = () => {
 
             // Trigger flow
             if (window.gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({ prompt: 'consent' });
+                // Use empty prompt to avoid forcing consent screen every time.
+                // GIS handles necessary consents if scopes are missing.
+                tokenClient.requestAccessToken({ prompt: '' });
             } else {
                 tokenClient.requestAccessToken({ prompt: '' });
             }
@@ -230,9 +232,15 @@ export const useGoogleCalendar = () => {
         setIsLoading(true);
         try {
             const authed = await ensureAuth();
-            if (!authed) throw new Error("Auth failed");
+            if (!authed) {
+                console.warn("updateEvent: Auth failed");
+                return false;
+            }
 
-            if (!card.dueDate) throw new Error("No due date");
+            if (!card.dueDate) {
+                console.warn("updateEvent: No due date");
+                return false;
+            }
 
             const event: any = {
                 'summary': card.title,
@@ -250,6 +258,7 @@ export const useGoogleCalendar = () => {
             endDate.setDate(endDate.getDate() + 1);
             event.end.date = endDate.toISOString().split('T')[0];
 
+            console.log("updateEvent: Patching event", eventId, "in calendar", calendarId);
             const request = window.gapi.client.calendar.events.patch({
                 'calendarId': calendarId,
                 'eventId': eventId,
@@ -257,10 +266,17 @@ export const useGoogleCalendar = () => {
             });
 
             await request;
+            console.log("updateEvent: Success");
             return true;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating event", error);
+            if (error.status === 401 || error.status === 403) {
+                console.warn("Auth error detected, resetting auth state.");
+                setIsAuthenticated(false);
+                // Optionally: try to re-login once? overly complex for now.
+                // Resetting state ensures next attempt triggers login.
+            }
             return false;
         } finally {
             setIsLoading(false);

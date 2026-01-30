@@ -89,6 +89,7 @@ function App() {
 
   const [searchQuery, setSearchQuery] = useState(''); // New Search State
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+  const [googleSyncStatus, setGoogleSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'deleted'>('idle');
 
   // Confirmation State
   const [confirmState, setConfirmState] = useState<{
@@ -163,7 +164,17 @@ function App() {
           // Pass the stored calendarId (or undefined, which defaults to 'primary')
           const success = await deleteEvent(card.googleEventId!, card.googleCalendarId);
           if (success) {
-            updateCard({ ...card, googleEventId: undefined, googleCalendarId: undefined });
+            const updatedCard = { ...card, googleEventId: undefined, googleCalendarId: undefined };
+            updateCard(updatedCard);
+            // CRITICAL FIX: Update editingCard if it matches, to prevent CardForm from having stale data (and re-adding without ID)
+            if (editingCard?.id === card.id) {
+              // Preserve local changes if any? No, CardForm handles "initialData" updates by resetting.
+              // Ideally we should merge? But simplest is to just update.
+              // Note: If user has unsaved text changes, this might overwrite them if we just replace editingCard.
+              // But handleCalendarToggle usually happens from the LIST view.
+              // If it happens from list view while card is open, we MUST update editingCard.
+              setEditingCard(updatedCard);
+            }
           }
         }
       });
@@ -175,11 +186,16 @@ function App() {
 
       const result = await createEvent(card);
       if (result) {
-        updateCard({
+        const updatedCard = {
           ...card,
           googleEventId: result.eventId,
           googleCalendarId: result.calendarId
-        });
+        };
+        updateCard(updatedCard);
+        // CRITICAL FIX: Update editingCard if it matches
+        if (editingCard?.id === card.id) {
+          setEditingCard(updatedCard);
+        }
       }
     }
   };
@@ -449,37 +465,96 @@ function App() {
   };
 
   const handleSaveCard = useCallback(async (cardData: Omit<Card, 'id'> | Card) => {
+    // console.log("App: handleSaveCard called", cardData.title);
     if ('id' in cardData && (cardData as Card).id) {
-      updateCard(cardData as Card);
-      if (expandedCardId === (cardData as Card).id) {
-        setEditingCard(cardData as Card);
+      let dataToSave = { ...(cardData as Card) };
+
+      // Defensive Fix: Check if googleEventId is being accidentally dropped while dueDate exists
+      // This happens if CardForm's local initialData is stale or logic fails
+      const existingCard = cards.find(c => c.id === dataToSave.id);
+      if (existingCard?.googleEventId && dataToSave.dueDate && !dataToSave.googleEventId) {
+        console.warn("App: Restoring Google Event ID lost in update payload", {
+          existing: existingCard.googleEventId,
+          incoming: dataToSave.googleEventId
+        });
+        dataToSave.googleEventId = existingCard.googleEventId;
+        dataToSave.googleCalendarId = existingCard.googleCalendarId;
+      }
+
+      updateCard(dataToSave);
+      if (expandedCardId === dataToSave.id) {
+        setEditingCard(dataToSave);
       }
 
       // Auto-Sync to Google Calendar if event exists
-      const existingCard = cards.find(c => c.id === (cardData as Card).id);
+      // Note: We use existingCard here (pre-update) (store state)
       if (existingCard?.googleEventId) {
-        // Only update if relevant fields changed
-        const hasChanged =
-          existingCard.title !== cardData.title ||
-          existingCard.content !== cardData.content ||
-          existingCard.dueDate !== cardData.dueDate;
+        // CASE 1: Date Removed -> Delete Event
+        if (!cardData.dueDate && existingCard.dueDate) {
+          console.log("App: Due date removed, deleting Google Calendar event...");
+          setGoogleSyncStatus('syncing');
+          try {
+            const success = await deleteEvent(existingCard.googleEventId, existingCard.googleCalendarId);
+            if (success) {
+              setGoogleSyncStatus('deleted');
+              // Explicitly ensure the card is updated to remove the ID (if not already done by updateCard logic)
+              // updateCard(cardData) above should have sent { ...card, dueDate: '' }.
+              // But we want to ensure googleEventId is cleared in store if logic elsewhere preserved it.
+              // The Defensive Fix below ensures we KEEP it if dueDate exists.
+              // If dueDate is gone, we let it go.
+              // Just to be safe/clean:
+              updateCard({ ...(cardData as Card), googleEventId: undefined, googleCalendarId: undefined });
 
-        if (hasChanged) {
-          // Attempt update. ensureAuth() inside will check connection.
-          // We use 'await' but we don't block the UI update above, 
-          // though strict consistency might prefer waiting.
-          // For better UX (speed), we let UI update first.
-          if (!cardData.dueDate) {
-            // If due date was removed, we should probably delete the event?
-            // For now, let's just log a warning or do nothing, 
-            // as 'delete' is a separate explicit action usually.
-            // But if due date is missing, updateEvent will fail/throw anyway.
-          } else {
-            await updateEvent(cardData as Card, existingCard.googleEventId, existingCard.googleCalendarId);
+              setTimeout(() => setGoogleSyncStatus('idle'), 4000);
+            } else {
+              setGoogleSyncStatus('error');
+            }
+          } catch (err) {
+            console.error("App: Delete failed", err);
+            setGoogleSyncStatus('error');
           }
         }
-      }
+        // CASE 2: Update Event
+        else {
+          // Only update if relevant fields changed
+          const hasChanged =
+            existingCard.title !== cardData.title ||
+            existingCard.content !== cardData.content ||
+            existingCard.dueDate !== cardData.dueDate;
 
+          // DEBUGGING: Check why sync might be skipped
+          /*
+          console.log("App: handleSaveCard check", {
+              existingId: existingCard?.googleEventId,
+              cardId: (cardData as Card).id,
+              hasChanged,
+              isDelete: !cardData.dueDate
+          });
+          */
+
+          if (hasChanged && cardData.dueDate) {
+            console.log("App: Changes detected, attempting sync...");
+
+            // Attempt update. ensureAuth() inside will check connection.
+            // We use 'await' but we don't block the UI update above, 
+            // though strict consistency might prefer waiting.
+            // For better UX (speed), we let UI update first.
+
+            setGoogleSyncStatus('syncing');
+            const success = await updateEvent(cardData as Card, existingCard.googleEventId, existingCard.googleCalendarId);
+            if (success) {
+              setGoogleSyncStatus('success');
+              setTimeout(() => setGoogleSyncStatus('idle'), 3000); // Clear success message after 3s
+            } else {
+              setGoogleSyncStatus('error');
+            }
+          } else {
+            // console.log("App: No relevant changes for Google Calendar");
+          }
+        }
+      } else {
+        console.log("App: No Google Event ID found for card", existingCard?.title);
+      }
     } else {
       const newId = crypto.randomUUID();
       const newCard = { ...cardData, id: newId } as Card;
@@ -666,6 +741,29 @@ function App() {
       currentView={viewMode}
       onViewChange={setViewMode}
     >
+      <CardModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        projects={projects}
+        onSave={handleSaveCard}
+        cards={cards}
+        googleSyncStatus={googleSyncStatus}
+      />
+
+      {/* Edit Modal (reuses CardModal structure effectively) */}
+      {editingCard && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          {/* Mobile Overlay handling - actually Layout handles mobile view usually? 
+                 Wait, the current App structure has "Persistent 3-Column Layout".
+                 "editingCard" triggers the right column on desktop.
+                 On mobile it might need a modal if not handled by layout.
+                 Let's check where CardForm is rendered.
+                 
+                 Line 698 starts the 3-column layout.
+                 Line 847 is where the Right Column (Card Detail) starts.
+             */}
+        </div>
+      )}
       {/* ... Header ... */}
       <header className="mb-4 md:mb-6 flex justify-between items-center">
         <div>
@@ -680,16 +778,30 @@ function App() {
               {selectedProject ? 'Cards for ' + selectedProject.name : 'Manage themes and ideas'}
             </p>
             {/* ... Connection Status ... */}
+            {/* ... Connection Status ... */}
             <span className="hidden md:inline text-gray-600">|</span>
             {connectionError ? (
               <div className="flex items-center space-x-1 text-yellow-500 font-bold text-[10px] md:text-xs bg-yellow-500/10 px-1.5 py-0.5 rounded animate-pulse">
                 <span>⚠️</span>
-                <span>Disconnected</span>
+                <span>Dropbox: Disconnected</span>
               </div>
             ) : (
               <div className="flex items-center space-x-1 text-blue-400 font-bold text-[10px] md:text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">
                 <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
                 <span>Dropbox</span>
+              </div>
+            )}
+
+            <span className="hidden md:inline text-gray-600">|</span>
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-1 text-green-400 font-bold text-[10px] md:text-xs bg-green-500/10 px-1.5 py-0.5 rounded">
+                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
+                <span>G-Cal</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1 text-gray-500 font-bold text-[10px] md:text-xs bg-gray-500/10 px-1.5 py-0.5 rounded" title="Not connected to Google Calendar">
+                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>
+                <span>G-Cal</span>
               </div>
             )}
 
@@ -893,6 +1005,7 @@ function App() {
                   onUpdateCustomColors={setCustomColors}
                   isCloudSynced={isCloudSynced}
                   isSyncing={isSyncing}
+                  googleSyncStatus={googleSyncStatus}
                 />
               </>
             ) : (

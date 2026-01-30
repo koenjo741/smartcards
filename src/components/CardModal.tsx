@@ -10,6 +10,7 @@ interface CardModalProps {
     projects: Project[];
     cards: Card[];
     initialData?: Card | null;
+    googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
 }
 
 export const CardModal: React.FC<CardModalProps> = ({
@@ -18,7 +19,8 @@ export const CardModal: React.FC<CardModalProps> = ({
     onSave,
     projects,
     cards,
-    initialData
+    initialData,
+    googleSyncStatus
 }) => {
     if (!isOpen) return null;
 
@@ -42,6 +44,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                     projects={projects}
                     cards={cards} // Pass cards for linking
                     initialData={initialData}
+                    googleSyncStatus={googleSyncStatus}
                 />
             </div>
         </div>

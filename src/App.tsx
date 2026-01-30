@@ -551,20 +551,7 @@ function App() {
         googleSyncStatus={googleSyncStatus}
       />
 
-      {/* Edit Modal (reuses CardModal structure effectively) */}
-      {editingCard && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          {/* Mobile Overlay handling - actually Layout handles mobile view usually? 
-                 Wait, the current App structure has "Persistent 3-Column Layout".
-                 "editingCard" triggers the right column on desktop.
-                 On mobile it might need a modal if not handled by layout.
-                 Let's check where CardForm is rendered.
-                 
-                 Line 698 starts the 3-column layout.
-                 Line 847 is where the Right Column (Card Detail) starts.
-             */}
-        </div>
-      )}
+
       {/* ... Header ... */}
       <Header
         selectedProject={selectedProject}
@@ -578,7 +565,7 @@ function App() {
       />
 
       {/* Persistent 3-Column Layout */}
-      <div className="flex flex-col md:flex-row h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] gap-6 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-6 overflow-hidden">
         {/* Middle Column: Card List (30% or fixed width) */}
         <div className={clsx(
           "w-full md:w-[30%] md:min-w-[300px] flex flex-col border-gray-700 md:border-r bg-slate-900 rounded-lg p-4 h-full",

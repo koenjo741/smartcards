@@ -75,7 +75,7 @@ export const Layout: React.FC<LayoutProps> = ({
                 currentView={currentView}
                 onViewChange={onViewChange}
             />
-            <main className="flex-1 overflow-y-auto bg-slate-950 p-4 md:p-8">
+            <main className="flex-1 overflow-hidden bg-slate-950 p-4 md:p-8">
                 <div className="w-full mx-auto h-full flex flex-col">
                     {children}
                 </div>

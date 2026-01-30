@@ -765,7 +765,7 @@ function App() {
         </div>
       )}
       {/* ... Header ... */}
-      <header className="mb-4 md:mb-6 flex justify-between items-center">
+      <header className="mb-4 md:mb-6 flex justify-between items-center sticky md:static top-0 z-10 bg-slate-950/95 backdrop-blur py-2 md:py-0 -mx-4 px-4 md:mx-0 md:px-0 border-b md:border-none border-gray-800">
         <div>
           {/* ... Header Content ... */}
           <div className="flex items-center space-x-2">
@@ -799,7 +799,7 @@ function App() {
                 <span>G-Cal</span>
               </div>
             ) : (
-              <div className="flex items-center space-x-1 text-gray-500 font-bold text-[10px] md:text-xs bg-gray-500/10 px-1.5 py-0.5 rounded" title="Not connected to Google Calendar">
+              <div className="flex items-center space-x-1 text-gray-400 font-bold text-[10px] md:text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700" title="Not connected to Google Calendar">
                 <div className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>
                 <span>G-Cal</span>
               </div>

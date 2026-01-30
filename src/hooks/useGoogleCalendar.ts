@@ -74,6 +74,10 @@ export const useGoogleCalendar = () => {
                     if (response.error !== undefined) {
                         throw response;
                     }
+                    // CRITICAL FIX: Manually set the token for GAPI to use
+                    if (window.gapi.client) {
+                        window.gapi.client.setToken(response);
+                    }
                     setIsAuthenticated(true);
                 },
             });
@@ -99,6 +103,10 @@ export const useGoogleCalendar = () => {
                     console.error(resp);
                     resolve(false);
                     return;
+                }
+                // CRITICAL FIX: Manually set the token for GAPI to use
+                if (window.gapi.client) {
+                    window.gapi.client.setToken(resp);
                 }
                 setIsAuthenticated(true);
                 resolve(true);

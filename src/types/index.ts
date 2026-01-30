@@ -23,3 +23,9 @@ export interface Card {
   googleEventId?: string;
   googleCalendarId?: string;
 }
+
+export interface BackupData {
+  projects: Project[];
+  cards: Card[];
+  customColors?: string[];
+}

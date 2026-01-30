@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { ConfirmModal } from './ConfirmModal';
-import { Check, FileText, Paperclip, Trash2, Loader2, ExternalLink, Eye, X, Link } from 'lucide-react';
+import { Check, Loader2, Trash2 } from 'lucide-react';
 import type { Project, Card, Attachment } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { de } from 'date-fns/locale';
 registerLocale('de', de);
 import "react-datepicker/dist/react-datepicker.css";
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import { useDropbox } from '../hooks/useDropbox';
-// import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+// import { jsPDF } from 'jspdf';
+// import html2canvas from 'html2canvas';
+// import { useDropbox } from '../hooks/useDropbox'; // Handled in components now
+import { ProjectSelector } from './ProjectSelector';
+import { AttachmentManager } from './AttachmentManager';
+import { LinkedCardsManager } from './LinkedCardsManager';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -46,7 +48,7 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
     const [dueDate, setDueDate] = useState('');
     const [linkedCardIds, setLinkedCardIds] = useState<string[]>([]);
-    const [linkSearch, setLinkSearch] = useState('');
+    // const [linkSearch, setLinkSearch] = useState(''); // Moved to LinkedCardsManager
 
     // Confirmation State
     const [confirmState, setConfirmState] = useState<{
@@ -63,9 +65,7 @@ export const CardForm: React.FC<CardFormProps> = ({
 
     // Attachment State
     const [attachments, setAttachments] = useState<Attachment[]>([]);
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-    const { uploadFile, getFileContent, deleteFile } = useDropbox();
+    // Logic moved to AttachmentManager
     // Preview State & Effect removed (unused)
 
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
@@ -167,43 +167,12 @@ export const CardForm: React.FC<CardFormProps> = ({
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-2 text-gray-300">
-                    Projects
-                </label>
-                <div className="flex flex-wrap gap-1.5 md:gap-2">
-                    {projects.map(p => {
-                        const isSelected = selectedProjectIds.includes(p.id);
-                        const isDisabled = !!isTodoCard;
-
-                        // NEW: Hide TODO project button unless the card is ALREADY in it (to allow removal)
-                        // or if we are editing the primary TODO card itself.
-                        if (p.name === 'TODO' && !isSelected) {
-                            return null;
-                        }
-
-                        return (
-                            <button
-                                key={p.id}
-                                type="button"
-                                disabled={isDisabled}
-                                onClick={() => toggleProject(p.id)}
-                                className={`
-                  inline-flex items-center space-x-1 px-1.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-sm font-medium transition-all border
-                  ${isSelected
-                                        ? 'border-transparent shadow-sm text-white'
-                                        : 'bg-slate-800 border-gray-700 text-gray-400 hover:bg-slate-700 hover:text-gray-200'}
-                  ${isDisabled && !isSelected ? 'opacity-30 cursor-not-allowed' : ''}
-                  ${isDisabled && isSelected ? 'cursor-default' : ''}
-                `}
-                                style={isSelected ? { backgroundColor: p.color } : {}}
-                            >
-                                <span>{p.name}</span>
-                                {isSelected && <Check className="w-3 h-3 ml-1" />}
-                            </button>
-                        )
-                    })}
-
-                </div>
+                <ProjectSelector
+                    projects={projects}
+                    selectedProjectIds={selectedProjectIds}
+                    onToggleProject={toggleProject}
+                    isTodoCard={!!isTodoCard}
+                />
             </div>
 
             <div>
@@ -248,16 +217,20 @@ export const CardForm: React.FC<CardFormProps> = ({
             )}
 
             <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300 flex items-center gap-2">
-                    <Link className="w-4 h-4" />
-                    Linked Cards
-                </label>
+                <AttachmentManager
+                    attachments={attachments}
+                    onAttachmentsChange={setAttachments}
+                />
+            </div>
 
-                {/* List of linked cards */}
-                <div className="flex flex-wrap gap-2 mb-2">
-                    {/* ... */}
-                </div>
-                {/* ... */}
+            <div>
+                <LinkedCardsManager
+                    linkedCardIds={linkedCardIds}
+                    allCards={cards}
+                    currentCardId={initialData?.id}
+                    onUpdateLinks={setLinkedCardIds}
+                    onNavigate={onSelectCard}
+                />
             </div>
             {/* ... skipping to footer ... */}
             <div className="flex justify-end items-center pt-4 space-x-2 border-t border-gray-700 mt-6">
@@ -265,7 +238,19 @@ export const CardForm: React.FC<CardFormProps> = ({
                 <div className="flex items-center space-x-2">
                     {!initialData ? (
                         <>
-                            {/* ... */}
+                            <button
+                                type="button"
+                                onClick={onCancel}
+                                className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium shadow-lg hover:shadow-blue-500/20"
+                            >
+                                Create Card
+                            </button>
                         </>
                     ) : (
                         <div className="text-sm text-gray-500 italic flex items-center space-x-2">

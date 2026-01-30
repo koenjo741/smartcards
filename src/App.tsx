@@ -1,72 +1,26 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useStore } from './hooks/useStore';
 import { Layout } from './components/Layout';
 import { CardModal } from './components/CardModal';
 import { ProjectModal } from './components/ProjectModal';
 import { CardForm } from './components/CardForm';
-import { Plus, Download } from 'lucide-react'; // Added Download icon
+// import { Plus, Download, Loader2 } from 'lucide-react'; // Removed unused icons
 import type { Card, Project } from './types';
 import clsx from 'clsx';
 
 import { SortAsc, Calendar } from 'lucide-react';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
-import { useDropbox, DROPBOX_APP_KEY } from './hooks/useDropbox';
+import { useAppSync } from './hooks/useAppSync';
+import { DROPBOX_APP_KEY } from './hooks/useDropbox';
+import { getPreviewText } from './utils/helpers';
+import { Header } from './components/Header';
+import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
 import { TimelineView } from './components/TimelineView';
 import { ConfirmModal } from './components/ConfirmModal';
 import { useEffect } from 'react';
 
-// Helper for stable JSON stringify to avoid false positives in Sync
-const stableStringify = (obj: any): string => {
-  // Normalize: Remove keys with null values but KEEP undefined/empty arrays if they are part of the schema
-  // Actually, for consistency, let's just sort keys.
-  const clean = (input: any): any => {
-    if (Array.isArray(input)) return input.map(clean);
-    if (typeof input === 'object' && input !== null) {
-      const newObj: any = {};
-      Object.keys(input).sort().forEach(key => {
-        const val = input[key];
-        // Keep everything except null/undefined, but allow empty strings/arrays
-        if (val !== null && val !== undefined) {
-          newObj[key] = clean(val);
-        }
-      });
-      return newObj;
-    }
-    return input;
-  };
-  return JSON.stringify(clean(obj));
-};
 
-const stripHtml = (html: string) => {
-  try {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    return (doc.body.textContent || "").trim();
-  } catch (e) {
-    // Fallback for environments where DOMParser might fail (rare in browser)
-    const tmp = document.createElement("DIV");
-    tmp.innerHTML = html;
-    return (tmp.textContent || tmp.innerText || "").trim();
-  }
-};
-
-const getPreviewText = (html: string) => {
-  // Replace block tags with newlines to preserve structure
-  const withNewlines = html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/li>/gi, '\n');
-
-  const text = stripHtml(withNewlines);
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const firstLine = lines[0] || "";
-
-  if (firstLine.length > 50) {
-    return firstLine.substring(0, 50) + '...';
-  }
-  return firstLine;
-};
 
 type SortOption = 'alpha' | 'date';
 
@@ -90,8 +44,6 @@ function App() {
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('date');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState(''); // New Search State
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
   const [googleSyncStatus, setGoogleSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'deleted'>('idle');
@@ -209,71 +161,27 @@ function App() {
     }
   };
 
-  // Dropbox integration
+  // Dropbox integration via hook
   const {
-    isAuthenticated: isDropboxAuthenticated,
-    userName,
+    isDropboxAuthenticated,
+    isAuthChecking,
+    isCloudLoaded,
     isSyncing,
-    lastSynced,
+    connectionError,
     connect,
     disconnect,
     saveData,
     loadData,
     deleteFile,
-    connectionError,
-    isAuthChecking
-  } = useDropbox();
+    lastSynced,
+    userName,
+    isCloudSynced
+  } = useAppSync();
 
-  // Track local changes to prevent Auto-Sync from overwriting pending saves
-  const lastLocalChange = useRef<number>(Date.now());
-  // Track the last successfully saved state to properly warn on exit
-  // CHANGED: Use State instead of Ref so UI checks (isDirty) trigger re-renders
-  const [lastSavedHash, setLastSavedHash] = useState<string>("");
-
-  // Update timestamp on any change
-  useEffect(() => {
-    lastLocalChange.current = Date.now();
-  }, [projects, cards, customColors]);
-
-  // 1. Initial Load on Connect
-  useEffect(() => {
-    if (isDropboxAuthenticated && !isCloudLoaded) {
-      loadData().then((data) => {
-        if (data && data.projects && data.cards) {
-          loadDataStore(data);
-          // Set initial hash to prevent false positives
-          const initialHash = stableStringify({
-            projects: data.projects,
-            cards: data.cards,
-            customColors: data.customColors || []
-          });
-          setLastSavedHash(initialHash);
-          // console.log("Initial Cloud Sync Complete");
-        }
-        setIsCloudLoaded(true); // Enable auto-save after first attempt (even if file didn't exist yet)
-      });
-    }
-  }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore]);
-
-  // 2. Auto-Save to Dropbox (Debounced 3s)
-  useEffect(() => {
-    if (!isDropboxAuthenticated || !isCloudLoaded) return;
-
-    // Don't save empty data (safety check)
-    if (!projects || projects.length === 0) return;
-
-    const timeoutId = setTimeout(async () => {
-      // console.log("Auto-Save: Uploading changes to Dropbox...");
-      const currentData = { projects, cards, customColors };
-      const success = await saveData(currentData);
-
-      if (success) {
-        setLastSavedHash(stableStringify(currentData));
-      }
-    }, 3000); // 3s Debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData]);
+  // Auto-initialize TODO Project and Card (Keep in App.tsx for now or move to useAppSync? 
+  // It uses addProject/addCard which are from store. 
+  // It's business logic. Lets keep it here or move to a useInitTodos hook.
+  // For clarity, let's keep it here but simplified.)
 
   // 3. Auto-initialize TODO Project and Card
   useEffect(() => {
@@ -308,93 +216,8 @@ function App() {
     }
   }, [projects, cards, isCloudLoaded, addProject, addCard, updateCard]);
 
-  // 4. Auto-Sync / Polling & Visibility Trigger
-  useEffect(() => {
-    if (!isDropboxAuthenticated) return;
+  // Sync logic moved to useAppSync
 
-    const checkCloudUpdates = () => {
-      // Create an async function to handle the logic properly
-      const runCheck = async () => {
-        if (isSyncing) return;
-
-        // PROTECTION: Skip sync if local data changed recently (last 15s)
-        const timeSinceLastChange = Date.now() - lastLocalChange.current;
-        if (timeSinceLastChange < 15000) {
-          // console.log("Auto-Sync: Skipped (Local changes pending/saving)");
-          return;
-        }
-
-        const cloudData = await loadData();
-        if (cloudData && cloudData.projects && cloudData.projects.length > 0) {
-          const currentProjects = projects || [];
-          const currentCards = cards || [];
-
-          const cloudProjects = cloudData.projects || [];
-          const cloudCards = cloudData.cards || [];
-          const cloudColors = cloudData.customColors || [];
-
-          const currentHash = stableStringify({ projects: currentProjects, cards: currentCards, customColors });
-          const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards, customColors: cloudColors });
-
-          if (currentHash !== cloudHash) {
-            console.log("Auto-Sync: CHANGE DETECTED. Updating...");
-            loadDataStore(cloudData);
-            setLastSavedHash(cloudHash);
-          }
-        }
-      };
-
-      runCheck().catch(console.error);
-    };
-
-    // Poll every 30s
-    const intervalId = setInterval(checkCloudUpdates, 30000);
-
-    // Immediate check on visibility/focus/online
-    const handleTrigger = () => {
-      if (document.visibilityState === 'visible') {
-        console.log("App foregrounded/focused: Triggering sync check...");
-        checkCloudUpdates();
-      }
-    };
-
-    // Add listeners for more responsive sync on mobile/desktop
-    document.addEventListener('visibilitychange', handleTrigger);
-    window.addEventListener('focus', handleTrigger);
-    window.addEventListener('online', handleTrigger);
-
-    return () => {
-      clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleTrigger);
-      window.removeEventListener('focus', handleTrigger);
-      window.removeEventListener('online', handleTrigger);
-    };
-  }, [isDropboxAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
-
-  // 5. Unsaved Changes Warning (beforeunload)
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Calculate current state hash
-      const currentHash = stableStringify({ projects, cards, customColors });
-      const isDirty = currentHash !== lastSavedHash;
-
-      // If syncing or dirty, warn the user
-      if (isSyncing || (isDropboxAuthenticated && isDirty)) {
-        e.preventDefault();
-        e.returnValue = ''; // Standard for modern browsers to trigger warning
-        return '';
-      }
-    };
-
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [projects, cards, customColors, isSyncing, isDropboxAuthenticated, lastSavedHash]);
-
-  // Derived state for UI
-  const currentHash = stableStringify({ projects, cards, customColors });
-  const isDirty = isDropboxAuthenticated && (currentHash !== lastSavedHash);
-  const isCloudSynced = !isDirty && !isSyncing;
 
   const handleDropboxLoad = async () => {
     const data = await loadData();
@@ -690,39 +513,7 @@ function App() {
   }
 
   if (!isDropboxAuthenticated) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 text-white p-4">
-        <div className="max-w-md w-full text-center space-y-8">
-          <div>
-            <h1 className="text-4xl font-bold mb-4">SmartCards 🧠</h1>
-            <p className="text-gray-400 text-lg">
-              Manage your ideas and projects with secure Dropbox sync.
-            </p>
-          </div>
-
-          <div className="bg-slate-900 p-8 rounded-xl border border-gray-800 shadow-2xl">
-            <div className="mb-6">
-              <div className="w-16 h-16 bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold">Connect to Start</h2>
-              <p className="text-sm text-gray-500 mt-2">
-                Your data is stored safely in your own Dropbox. We never see your files.
-              </p>
-            </div>
-
-            <button
-              onClick={handleConnect}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2"
-            >
-              <span>Connect Dropbox</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <EmptyState onConnect={handleConnect} />;
   }
 
   // FORCE SYNC WAIT: Block UI until data is loaded from Cloud
@@ -775,72 +566,16 @@ function App() {
         </div>
       )}
       {/* ... Header ... */}
-      <header className="mb-4 md:mb-6 flex justify-between items-center sticky md:static top-0 z-10 bg-slate-950/95 backdrop-blur py-2 md:py-0 -mx-4 px-4 md:mx-0 md:px-0 border-b md:border-none border-gray-800">
-        <div>
-          {/* ... Header Content ... */}
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl md:text-3xl font-bold text-white">
-              {selectedProject ? selectedProject.name : 'All Cards'}
-            </h1>
-          </div>
-          <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
-            <p className="hidden md:block text-gray-400">
-              {selectedProject ? 'Cards for ' + selectedProject.name : 'Manage themes and ideas'}
-            </p>
-            {/* ... Connection Status ... */}
-            {/* ... Connection Status ... */}
-            <span className="hidden md:inline text-gray-600">|</span>
-            {connectionError ? (
-              <div className="flex items-center space-x-1 text-yellow-500 font-bold text-[10px] md:text-xs bg-yellow-500/10 px-1.5 py-0.5 rounded animate-pulse">
-                <span>⚠️</span>
-                <span>Dropbox: Disconnected</span>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-1 text-blue-400 font-bold text-[10px] md:text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                <span>Dropbox</span>
-              </div>
-            )}
-
-            <span className="hidden md:inline text-gray-600">|</span>
-            {isGoogleAuthenticated ? (
-              <div className="flex items-center space-x-1 text-green-400 font-bold text-[10px] md:text-xs bg-green-500/10 px-1.5 py-0.5 rounded">
-                <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                <span>G-Cal</span>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-1 text-gray-400 font-bold text-[10px] md:text-xs bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700" title="Not connected to Google Calendar">
-                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>
-                <span>G-Cal</span>
-              </div>
-            )}
-
-            {/* PWA Install Button */}
-            {!isStandalone && (
-              <>
-                <span className="hidden md:inline text-gray-600">|</span>
-                <button
-                  onClick={handleInstallClick}
-                  className="flex items-center space-x-1 text-green-400 hover:text-green-300 font-bold text-[10px] md:text-xs bg-green-500/10 hover:bg-green-500/20 px-1.5 py-0.5 rounded transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  <span className="hidden md:inline">Install</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-        {!expandedCardId && (!selectedProject || selectedProject.name !== 'TODO') && (
-          <button
-            onClick={handleOpenNewCard}
-            disabled={connectionError}
-            className={`flex items-center space-x-1 md:space-x-2 px-3 py-1.5 md:px-4 md:py-2 rounded-lg transition-colors shadow-sm ${connectionError ? 'bg-gray-600 cursor-not-allowed opacity-50' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-          >
-            <Plus className="w-4 h-4 md:w-5 md:h-5" />
-            <span className="text-sm md:text-base whitespace-nowrap">New Card</span>
-          </button>
-        )}
-      </header>
+      <Header
+        selectedProject={selectedProject}
+        connectionError={connectionError}
+        isSyncing={isSyncing}
+        isGoogleAuthenticated={isGoogleAuthenticated}
+        isStandalone={isStandalone}
+        onInstallClick={handleInstallClick}
+        onOpenNewCard={handleOpenNewCard}
+        expandedCardId={expandedCardId}
+      />
 
       {/* Persistent 3-Column Layout */}
       <div className="flex flex-col md:flex-row h-[calc(100vh-80px)] md:h-[calc(100vh-140px)] gap-6 overflow-hidden">

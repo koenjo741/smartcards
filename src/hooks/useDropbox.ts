@@ -1,5 +1,6 @@
 import { Dropbox } from 'dropbox';
 import { useState, useCallback, useEffect } from 'react';
+import type { BackupData } from '../types';
 
 // REPLACE THIS WITH YOUR DROPBOX APP KEY
 export const DROPBOX_APP_KEY = 'ag0x9i8pgyothjr';
@@ -80,7 +81,7 @@ export function useDropbox() {
     }, []);
 
     // 3. Save Data (Upload)
-    const saveData = useCallback(async (data: any): Promise<boolean> => {
+    const saveData = useCallback(async (data: BackupData): Promise<boolean> => {
         if (!dbx) return false;
         setIsSyncing(true);
         try {
@@ -96,9 +97,10 @@ export function useDropbox() {
             setLastSynced(new Date());
             setConnectionError(false);
             return true;
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Dropbox Upload Error:', error);
-            if (error?.status === 401 || error?.error?.error_summary?.includes('expired_access_token')) {
+            const dbxError = error as { status?: number; error?: { error_summary?: string } };
+            if (dbxError?.status === 401 || dbxError?.error?.error_summary?.includes('expired_access_token')) {
                 setConnectionError(true);
                 setIsAuthenticated(false); // Force disconnect state logically
             } else {
@@ -111,16 +113,16 @@ export function useDropbox() {
     }, [dbx]);
 
     // 4. Load Data (Download)
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (): Promise<BackupData | null> => {
         if (!dbx) return null;
         setIsSyncing(true);
         try {
             const response = await dbx.filesDownload({ path: '/smartcards.json' });
-            const blob = (response.result as any).fileBlob;
+            const blob = (response.result as unknown as { fileBlob: Blob }).fileBlob;
             const text = await blob.text();
 
             setLastSynced(new Date());
-            return JSON.parse(text);
+            return JSON.parse(text) as BackupData;
         } catch (error) {
             console.error('Dropbox Download Error:', error);
             // It's okay if file doesn't exist yet (new user)
@@ -180,7 +182,7 @@ export function useDropbox() {
         if (!dbx) return null;
         try {
             const response = await dbx.filesDownload({ path });
-            return (response.result as any).fileBlob as Blob;
+            return (response.result as unknown as { fileBlob: Blob }).fileBlob;
         } catch (error) {
             console.error("Error downloading file content:", error);
             return null;
@@ -193,9 +195,10 @@ export function useDropbox() {
         try {
             await dbx.filesDeleteV2({ path });
             return true;
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const dbxError = error as { error?: { error_summary?: string } };
             // If file is already gone (path_lookup/not_found), consider it a success so UI updates
-            if (error?.error?.error_summary?.includes('path_lookup/not_found')) {
+            if (dbxError?.error?.error_summary?.includes('path_lookup/not_found')) {
                 console.warn("File already deleted from Dropbox, removing from local list.");
                 return true;
             }

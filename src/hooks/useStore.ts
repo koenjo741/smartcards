@@ -39,10 +39,46 @@ export function useStore() {
     };
 
     const updateCard = (updatedCard: Card) => {
-        setData(prev => ({
-            ...prev,
-            cards: prev.cards.map(c => c.id === updatedCard.id ? updatedCard : c)
-        }));
+        setData(prev => {
+            const oldCard = prev.cards.find(c => c.id === updatedCard.id);
+            if (!oldCard) return prev; // Should not happen in normal flow
+
+            const oldLinks = oldCard.linkedCardIds || [];
+            const newLinks = updatedCard.linkedCardIds || [];
+
+            // 1. Identify added and removed links
+            const addedLinks = newLinks.filter(id => !oldLinks.includes(id));
+            const removedLinks = oldLinks.filter(id => !newLinks.includes(id));
+
+            // 2. Update cards
+            const newCards = prev.cards.map(c => {
+                // Case A: The card itself being updated
+                if (c.id === updatedCard.id) return updatedCard;
+
+                // Case B: A card that was just linked (Add back-link)
+                if (addedLinks.includes(c.id)) {
+                    const currentLinks = c.linkedCardIds || [];
+                    // Avoid duplicates
+                    if (!currentLinks.includes(updatedCard.id)) {
+                        return { ...c, linkedCardIds: [...currentLinks, updatedCard.id] };
+                    }
+                }
+
+                // Case C: A card that was just unlinked (Remove back-link)
+                if (removedLinks.includes(c.id)) {
+                    const currentLinks = c.linkedCardIds || [];
+                    return { ...c, linkedCardIds: currentLinks.filter(id => id !== updatedCard.id) };
+                }
+
+                // Case D: Unaffected card
+                return c;
+            });
+
+            return {
+                ...prev,
+                cards: newCards
+            };
+        });
     };
 
     const deleteCard = (id: string) => {

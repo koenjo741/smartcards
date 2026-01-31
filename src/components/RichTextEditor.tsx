@@ -129,6 +129,21 @@ interface RichTextEditorProps {
     onUserColorsChange?: (colors: string[]) => void;
 }
 
+const CustomTable = Table.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            align: {
+                default: 'left',
+                parseHTML: element => element.getAttribute('align'),
+                renderHTML: attributes => ({
+                    align: attributes.align,
+                }),
+            },
+        };
+    },
+});
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, editable = true, userColors = [], onUserColorsChange }) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [showColorPopover, setShowColorPopover] = React.useState<'text' | 'highlight' | null>(null);
@@ -172,7 +187,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
             StarterKit,
             Superscript,
             Subscript,
-            Table.configure({
+            CustomTable.configure({
                 resizable: true,
             }),
             TableRow,
@@ -639,6 +654,31 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                                 title="Delete Table"
                             >
                                 <Trash2 className="w-4 h-4" />
+                            </button>
+                            <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                            <button
+                                type="button"
+                                onClick={() => editor.chain().focus().updateAttributes('table', { align: 'left' }).run()}
+                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                title="Align Table Left"
+                            >
+                                <AlignLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => editor.chain().focus().updateAttributes('table', { align: 'center' }).run()}
+                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                title="Align Table Center"
+                            >
+                                <AlignCenter className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => editor.chain().focus().updateAttributes('table', { align: 'right' }).run()}
+                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                title="Align Table Right"
+                            >
+                                <AlignRight className="w-4 h-4" />
                             </button>
                         </>
                     )}

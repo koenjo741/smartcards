@@ -89,9 +89,24 @@
   border-collapse: collapse;
   table-layout: auto;
   width: max-content;
-  min-width: 100%;
+  /* min-width: 100%; Removed to allow alignment */
   margin: 0;
   /* overflow: hidden; Removed to allow scrolling in parent */
+}
+
+.ProseMirror table[align='center'] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ProseMirror table[align='right'] {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.ProseMirror table[align='left'] {
+  margin-right: auto;
+  margin-left: 0;
 }
 
 .ProseMirror td,

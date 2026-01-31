@@ -89,12 +89,16 @@ export const CardForm: React.FC<CardFormProps> = ({
 
     useEffect(() => {
         if (initialData) {
-            setTitle(initialData.title);
-            setContent(initialData.content);
-            setSelectedProjectIds(initialData.projectIds || []);
-            setDueDate(initialData.dueDate || '');
-            setAttachments(initialData.attachments || []);
-            setLinkedCardIds(initialData.linkedCardIds || []);
+            // Update state if initialData changes (e.g. from Sync)
+            // We check if value is different to avoid unnecessary re-renders, 
+            // though React state updates are cheap if value is same.
+            // The critical part is that we DO update if the server sent new data.
+            setTitle(prev => initialData.title !== prev ? initialData.title : prev);
+            setContent(prev => initialData.content !== prev ? initialData.content : prev);
+            setSelectedProjectIds(prev => JSON.stringify(initialData.projectIds) !== JSON.stringify(prev) ? (initialData.projectIds || []) : prev);
+            setDueDate(prev => (initialData.dueDate || '') !== prev ? (initialData.dueDate || '') : prev);
+            setAttachments(prev => JSON.stringify(initialData.attachments) !== JSON.stringify(prev) ? (initialData.attachments || []) : prev);
+            setLinkedCardIds(prev => JSON.stringify(initialData.linkedCardIds) !== JSON.stringify(prev) ? (initialData.linkedCardIds || []) : prev);
         } else {
             setTitle('');
             setContent('');
@@ -103,7 +107,7 @@ export const CardForm: React.FC<CardFormProps> = ({
             setAttachments([]);
             setLinkedCardIds([]);
         }
-    }, [initialData?.id]);
+    }, [initialData]);
 
     useEffect(() => {
         if (!initialDataRef.current) return;

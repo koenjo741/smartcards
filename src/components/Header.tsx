@@ -60,13 +60,22 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
 
                     {hasConflict && (
-                        <button
-                            onClick={() => onResolveConflict?.('accept_cloud')}
-                            className="ml-2 flex items-center space-x-1 animate-pulse text-white font-bold text-[10px] md:text-xs bg-red-600 hover:bg-red-500 px-2 py-0.5 rounded shadow-lg border border-red-400 transition-colors"
-                            title="Click to update to the latest version from server"
-                        >
-                            <span>⚠️ Update Available</span>
-                        </button>
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => onResolveConflict?.('keep_local')}
+                                className="ml-2 flex items-center space-x-1 animate-pulse text-white font-bold text-[10px] md:text-xs bg-red-600 hover:bg-red-500 px-2 py-0.5 rounded shadow-lg border border-red-400 transition-colors"
+                                title="Overwrite cloud with local version"
+                            >
+                                <span>⚠️ Force Push</span>
+                            </button>
+                            <button
+                                onClick={() => onResolveConflict?.('accept_cloud')}
+                                className="flex items-center space-x-1 text-white font-bold text-[10px] md:text-xs bg-blue-600 hover:bg-blue-500 px-2 py-0.5 rounded shadow-lg border border-blue-400 transition-colors"
+                                title="Update to the latest version from server"
+                            >
+                                <span>⬇️ Pull Cloud</span>
+                            </button>
+                        </div>
                     )}
 
                     <span className="hidden md:inline text-gray-600">|</span>

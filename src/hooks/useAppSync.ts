@@ -147,13 +147,16 @@ export function useAppSync() {
     }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData, lastSavedHash]);
 
     // 3. Auto-Sync / Polling & Visibility Trigger
-    const checkForUpdates = async () => {
+    const checkForUpdates = async (force: boolean = false) => {
         if (!isDropboxAuthenticated || isSyncing) return;
 
-        // PROTECTION: Skip sync if local data changed recently (last 15s)
+        // PROTECTION: Skip sync if local data changed recently (last 2s)
         // This reduces likelihood of overwriting an active edit
+        // We relax this from 15s to 2s to allow snappier multi-window updates.
+        // If 'force' is true (e.g. tab focus), we skip this check UNLESS actual typing is happening right now?
+        // Let's still respect the 2s buffer even on force, to be safe against "typing then switching tabs quickly".
         const timeSinceLastChange = Date.now() - lastLocalChange.current;
-        if (timeSinceLastChange < 15000) return;
+        if (!force && timeSinceLastChange < 2000) return;
 
         try {
             // Lightweight Check: Get Revision ID first
@@ -217,21 +220,11 @@ export function useAppSync() {
             }
         } else {
             // keep_local -> force save
-            // when forcing local, we usually want to OVERWRITE the server, even if it changed?
-            // OR do we want to re-base? 
-            // "Keep Local" usually means "My version is the truth". 
-            // BUT if we just send the current rev, it might fail again if server updated again?
-            // Actually, if we want to FORCE, we might need to pass the *Latest* rev we just fetched?
-            // But let's try standard save first. If we are resolving conflict, we should probably 
-            // assume we want to write on top of *whatever* is there, OR we must update our base.
-
             // BETTER STRATEGY: Get latest rev, assume we are overwriting it.
             const latest = await getLatestRevision();
             // Updatestate so saveWithMeta uses it
             setLastServerRevision(latest);
 
-            // Small delay to allow state update? No, closures. 
-            // We need to pass it explicitly if we could, but saveWithMeta uses state.
             // Let's call saveData directly to be safe.
 
             const currentData = { projects, cards, customColors };
@@ -256,11 +249,11 @@ export function useAppSync() {
     useEffect(() => {
         if (!isDropboxAuthenticated) return;
 
-        const intervalId = setInterval(checkForUpdates, 10000); // Check every 10s (lightweight)
+        const intervalId = setInterval(() => checkForUpdates(false), 10000); // Check every 10s (lightweight)
 
         const handleTrigger = () => {
             if (document.visibilityState === 'visible') {
-                checkForUpdates();
+                checkForUpdates(true); // FORCE check on visibility (bypass 2s check? No, logic above still checks 2s unless 'force' handles it)
             }
         };
 

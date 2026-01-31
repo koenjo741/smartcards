@@ -299,7 +299,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                             ? 'Saved to Dropbox & Google Calendar'
                                             : 'Saved to Dropbox'}
                                 <span className="text-xs text-yellow-400 font-mono ml-2">
-                                    DEBUG: V {debugRevision ? debugRevision.slice(-8) : 'NULL'}
+                                    DEBUG: V {debugRevision ? debugRevision.slice(9, 17) : 'NULL'}
                                     @ {debugTimestamp ? debugTimestamp.toLocaleTimeString() : 'NoTime'}
                                     / Sync: {isCloudSynced ? 'Y' : 'N'}
                                     / Hdlr: {onResolveConflict ? 'Y' : 'N'}

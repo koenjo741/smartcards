@@ -11,6 +11,8 @@ interface HeaderProps {
     onInstallClick: () => void;
     onOpenNewCard: () => void;
     expandedCardId: string | null;
+    hasConflict?: boolean;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -21,7 +23,9 @@ export const Header: React.FC<HeaderProps> = ({
     isStandalone,
     onInstallClick,
     onOpenNewCard,
-    expandedCardId
+    expandedCardId,
+    hasConflict,
+    onResolveConflict
 }) => {
     return (
         <header className="mb-4 md:mb-6 flex justify-between items-center sticky md:static top-0 z-10 bg-slate-950/95 backdrop-blur py-2 md:py-0 -mx-4 px-4 md:mx-0 md:px-0 border-b md:border-none border-gray-800">
@@ -53,6 +57,16 @@ export const Header: React.FC<HeaderProps> = ({
                             <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
                             <span>Dropbox</span>
                         </div>
+                    )}
+
+                    {hasConflict && (
+                        <button
+                            onClick={() => onResolveConflict?.('accept_cloud')}
+                            className="ml-2 flex items-center space-x-1 animate-pulse text-white font-bold text-[10px] md:text-xs bg-red-600 hover:bg-red-500 px-2 py-0.5 rounded shadow-lg border border-red-400 transition-colors"
+                            title="Click to update to the latest version from server"
+                        >
+                            <span>⚠️ Update Available</span>
+                        </button>
                     )}
 
                     <span className="hidden md:inline text-gray-600">|</span>

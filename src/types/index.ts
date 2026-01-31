@@ -28,4 +28,8 @@ export interface BackupData {
   projects: Project[];
   cards: Card[];
   customColors?: string[];
+  _meta?: {
+    lastSaved: number;
+    appVersion?: string;
+  };
 }

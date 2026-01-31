@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from './useStore';
 import { useDropbox } from './useDropbox';
 
-// Helper for stable JSON stringify to avoid false positives in Sync
+// Helper for stable JSON stringify (excludes _meta to prevent infinite loops)
 const stableStringify = (obj: any): string => {
+    const { _meta, ...rest } = obj; // Exclude _meta from hash comparison
     const clean = (input: any): any => {
         if (Array.isArray(input)) return input.map(clean);
         if (typeof input === 'object' && input !== null) {
@@ -19,7 +20,7 @@ const stableStringify = (obj: any): string => {
         }
         return input;
     };
-    return JSON.stringify(clean(obj));
+    return JSON.stringify(clean(rest));
 };
 
 export function useAppSync() {
@@ -35,11 +36,14 @@ export function useAppSync() {
         isAuthChecking,
         userName,
         lastSynced,
-        deleteFile
+        deleteFile,
+        getLatestRevision
     } = useDropbox();
 
     const [isCloudLoaded, setIsCloudLoaded] = useState(false);
     const [lastSavedHash, setLastSavedHash] = useState<string>("");
+    const [lastServerRevision, setLastServerRevision] = useState<string | null>(null);
+    const [hasConflict, setHasConflict] = useState(false);
 
     // Track local changes to prevent Auto-Sync from overwriting pending saves
     const lastLocalChange = useRef<number>(Date.now());
@@ -52,21 +56,43 @@ export function useAppSync() {
     // 1. Initial Load on Connect
     useEffect(() => {
         if (isDropboxAuthenticated && !isCloudLoaded) {
-            loadData().then((data) => {
+            loadData().then((result) => {
+                if (!result) return;
+                const { data, rev } = result;
+
+                // Check if we have unsaved local changes from a previous session
+                const storedHash = localStorage.getItem('sm_last_synced_hash_v3');
+                const currentHash = stableStringify({ projects, cards, customColors });
+
+                // Allow initial overwrite if we are establishing a fresh sync protocol (v3)
+                // or if the stored hash matches current state.
+                const hasUnsavedLocalChanges = storedHash && storedHash !== currentHash;
+
+                if (hasUnsavedLocalChanges) {
+                    console.warn("Sync: Unsaved local changes detected from previous session. SKIPPING cloud overwrite.");
+                    setLastSavedHash(storedHash || "");
+                    setLastServerRevision(rev); // Update revision anyway so we know what's upstream
+                    setIsCloudLoaded(true);
+                    return;
+                }
+
                 if (data && data.projects && data.cards) {
+                    console.log("Sync: Cloud data loaded. Overwriting local state (Clean session). Rev:", rev);
                     loadDataStore(data);
-                    // Set initial hash to prevent false positives
-                    const initialHash = stableStringify({
+
+                    const newHash = stableStringify({
                         projects: data.projects,
                         cards: data.cards,
                         customColors: data.customColors || []
                     });
-                    setLastSavedHash(initialHash);
+                    setLastSavedHash(newHash);
+                    setLastServerRevision(rev);
+                    localStorage.setItem('sm_last_synced_hash_v3', newHash);
                 }
-                setIsCloudLoaded(true); // Enable auto-save after first attempt
+                setIsCloudLoaded(true); // Enable auto-save
             });
         }
-    }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore]);
+    }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore, projects, cards, customColors]);
 
     // 2. Auto-Save to Dropbox (Debounced 3s)
     useEffect(() => {
@@ -74,64 +100,167 @@ export function useAppSync() {
         if (!projects || projects.length === 0) return;
 
         const timeoutId = setTimeout(async () => {
+            // OPTIMISTIC LOCK CHECK: Before saving, check if server is ahead
+            // If we save now, we might overwrite someone else's work (Last Write Wins)
+            // Ideally, we want to stop if server has a newer revision.
+
+            // Only check if we haven't already detected a conflict
+            if (hasConflict) {
+                console.warn("Auto-Save Suspended: Conflict active.");
+                return;
+            }
+
+            // Redundancy Check: If data has already been saved (e.g. by manual save), skip.
             const currentData = { projects, cards, customColors };
-            const success = await saveData(currentData);
+            if (stableStringify(currentData) === lastSavedHash) {
+                // console.log("Auto-Save Skipped: Data already matches last saved state.");
+                return;
+            }
+
+            // Lightweight check (optional but safer)
+            // Note: This adds latency to every save. Maybe only do it if some time passed?
+            // For safety, let's do it.
+            const serverRev = await getLatestRevision();
+            if (serverRev && lastServerRevision && serverRev !== lastServerRevision) {
+                console.warn("Auto-Save Aborted: Server has newer revision (Split Brain detected).");
+                setHasConflict(true);
+                return;
+            }
+
+            const { success, rev, conflict } = await saveWithMeta(currentData);
+
+            if (conflict) {
+                console.warn("Auto-Save Aborted: Revision Mismatch (Optimistic Lock).");
+                setHasConflict(true);
+                return;
+            }
+
             if (success) {
-                setLastSavedHash(stableStringify(currentData));
+                const newHash = stableStringify(currentData);
+                setLastSavedHash(newHash);
+                if (rev) setLastServerRevision(rev);
+                localStorage.setItem('sm_last_synced_hash_v3', newHash);
             }
         }, 3000); // 3s Debounce
 
         return () => clearTimeout(timeoutId);
-    }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData]);
+    }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData, lastSavedHash]);
 
     // 3. Auto-Sync / Polling & Visibility Trigger
+    const checkForUpdates = async () => {
+        if (!isDropboxAuthenticated || isSyncing) return;
+
+        // PROTECTION: Skip sync if local data changed recently (last 15s)
+        // This reduces likelihood of overwriting an active edit
+        const timeSinceLastChange = Date.now() - lastLocalChange.current;
+        if (timeSinceLastChange < 15000) return;
+
+        try {
+            // Lightweight Check: Get Revision ID first
+            const latestRev = await getLatestRevision();
+
+            if (!latestRev || latestRev === lastServerRevision) {
+                // If strictly equal, no update needed.
+                if (hasConflict && latestRev === lastServerRevision) {
+                    // Conflict might be stale if revisions match
+                }
+                return;
+            }
+
+            console.log(`Sync: New revision detected (${latestRev}). Checking safety...`);
+
+            // If we are Dirty AND Server Changed -> Conflict
+            if (lastSavedHash && currentHash !== lastSavedHash) {
+                console.warn("Sync Conflict: Server has new revision, but Local has unsaved changes.");
+                setHasConflict(true);
+                return;
+            }
+
+            const result = await loadData(latestRev);
+            if (result && result.data && result.data.projects.length > 0) {
+                const cloudData = result.data;
+                const rev = result.rev;
+                const cloudHash = stableStringify({ projects: cloudData.projects, cards: cloudData.cards, customColors: cloudData.customColors || [] });
+
+                if (currentHash === lastSavedHash || lastSavedHash === "") {
+                    console.log("Auto-Sync: Cloud update applied. New Rev:", rev);
+                    loadDataStore(cloudData);
+                    setLastSavedHash(cloudHash);
+                    setLastServerRevision(rev);
+                    localStorage.setItem('sm_last_synced_hash_v3', cloudHash);
+                    setHasConflict(false);
+                } else {
+                    console.warn("Sync Conflict: Local changed during download.");
+                    setHasConflict(true);
+                }
+            }
+        } catch (error) {
+            console.error("Auto-Sync Error:", error);
+        }
+    };
+
+    // Explicit Conflict Resolution
+    const resolveConflict = async (strategy: 'accept_cloud' | 'keep_local') => {
+        if (strategy === 'accept_cloud') {
+            console.log("Resolving Conflict: Accepting Cloud...");
+            // Force get latest rev securely first
+            const secureRev = await getLatestRevision();
+            const result = await loadData(secureRev || undefined);
+
+            if (result && result.data) {
+                const cloudHash = stableStringify({ projects: result.data.projects, cards: result.data.cards, customColors: result.data.customColors || [] });
+                loadDataStore(result.data);
+                setLastSavedHash(cloudHash);
+                setLastServerRevision(result.rev);
+                localStorage.setItem('sm_last_synced_hash_v3', cloudHash);
+                setHasConflict(false);
+            }
+        } else {
+            // keep_local -> force save
+            // when forcing local, we usually want to OVERWRITE the server, even if it changed?
+            // OR do we want to re-base? 
+            // "Keep Local" usually means "My version is the truth". 
+            // BUT if we just send the current rev, it might fail again if server updated again?
+            // Actually, if we want to FORCE, we might need to pass the *Latest* rev we just fetched?
+            // But let's try standard save first. If we are resolving conflict, we should probably 
+            // assume we want to write on top of *whatever* is there, OR we must update our base.
+
+            // BETTER STRATEGY: Get latest rev, assume we are overwriting it.
+            const latest = await getLatestRevision();
+            // Updatestate so saveWithMeta uses it
+            setLastServerRevision(latest);
+
+            // Small delay to allow state update? No, closures. 
+            // We need to pass it explicitly if we could, but saveWithMeta uses state.
+            // Let's call saveData directly to be safe.
+
+            const currentData = { projects, cards, customColors };
+            const payload = {
+                ...currentData,
+                _meta: { lastSaved: Date.now(), appVersion: '1.0.1' }
+            };
+
+            // We pass 'latest' (or null) to force update on top of it.
+            const { success, rev } = await saveData(payload, latest);
+
+            if (success) {
+                const newHash = stableStringify(currentData);
+                setLastSavedHash(newHash);
+                if (rev) setLastServerRevision(rev);
+                localStorage.setItem('sm_last_synced_hash_v3', newHash);
+                setHasConflict(false);
+            }
+        }
+    };
+
     useEffect(() => {
         if (!isDropboxAuthenticated) return;
 
-        const checkCloudUpdates = () => {
-            const runCheck = async () => {
-                if (isSyncing) return;
-
-                // PROTECTION: Skip sync if local data changed recently (last 15s)
-                const timeSinceLastChange = Date.now() - lastLocalChange.current;
-                if (timeSinceLastChange < 15000) return;
-
-                const cloudData = await loadData();
-                if (cloudData && cloudData.projects && cloudData.projects.length > 0) {
-                    const currentProjects = projects || [];
-                    const currentCards = cards || [];
-
-                    const cloudProjects = cloudData.projects || [];
-                    const cloudCards = cloudData.cards || [];
-                    const cloudColors = cloudData.customColors || [];
-
-                    const currentHash = stableStringify({ projects: currentProjects, cards: currentCards, customColors });
-                    const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards, customColors: cloudColors });
-
-                    if (currentHash !== cloudHash) {
-                        // CRITICAL: Only overwrite local data if local data is CLEAN (synced)
-                        // If currentHash != lastSavedHash, user has unsaved changes that haven't been pushed yet.
-                        // We must NOT overwrite them.
-                        if (currentHash === lastSavedHash) {
-                            console.log("Auto-Sync: Cloud update detected (Local is clean). Updating...");
-                            loadDataStore(cloudData);
-                            setLastSavedHash(cloudHash);
-                        } else {
-                            console.warn("Auto-Sync: Cloud update detected BUT Local has unsaved changes. Skipping overwrite to prevent data loss.");
-                            // Optional: Trigger a save immediately?
-                            // For now, just protecting local data is priority.
-                        }
-                    }
-                }
-            };
-            runCheck().catch(console.error);
-        };
-
-        const intervalId = setInterval(checkCloudUpdates, 30000);
+        const intervalId = setInterval(checkForUpdates, 10000); // Check every 10s (lightweight)
 
         const handleTrigger = () => {
             if (document.visibilityState === 'visible') {
-                checkCloudUpdates();
+                checkForUpdates();
             }
         };
 
@@ -145,7 +274,7 @@ export function useAppSync() {
             window.removeEventListener('focus', handleTrigger);
             window.removeEventListener('online', handleTrigger);
         };
-    }, [isDropboxAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors]);
+    }, [isDropboxAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors, lastServerRevision, lastSavedHash]);
 
     // Derived state
     const currentHash = stableStringify({ projects, cards, customColors });
@@ -164,6 +293,57 @@ export function useAppSync() {
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [isSyncing, isDropboxAuthenticated, isDirty]);
 
+    // 7. Wrapped Manual Save (Updates Local State & Checks Conflicts)
+    const handleManualSave = async (data: any = { projects, cards, customColors }): Promise<{ success: boolean; rev?: string }> => {
+        // Optimistic Lock Check
+        if (hasConflict) {
+            console.warn("Manual Save Aborted: Conflict active.");
+            return { success: false };
+        }
+
+        const serverRev = await getLatestRevision();
+        if (serverRev && lastServerRevision && serverRev !== lastServerRevision) {
+            console.warn("Manual Save Aborted: Server has newer revision (Split Brain detected).");
+            setHasConflict(true);
+            return { success: false };
+        }
+
+        console.log("[SYNC-DEBUG] Manual Save Initiated...");
+        // Inject Meta here too
+        const { success, rev, conflict } = await saveWithMeta(data);
+        console.log("[SYNC-DEBUG] Raw Save Result:", { success, rev, conflict });
+
+        if (conflict) {
+            console.warn("Manual Save Failed: Conflict verified by Server.");
+            setHasConflict(true);
+            return { success: false };
+        }
+
+        if (success) {
+            console.log("[SYNC-DEBUG] Manual Save Success. Logic: Updating Local State. New Rev:", rev);
+            const newHash = stableStringify(data);
+            setLastSavedHash(newHash);
+            if (rev) {
+                setLastServerRevision(rev);
+                console.log("[SYNC-DEBUG] setLastServerRevision CALLED with:", rev);
+            } else {
+                console.warn("[SYNC-DEBUG] Warning: Save Success but NO Revision returned!");
+            }
+            localStorage.setItem('sm_last_synced_hash_v3', newHash);
+        }
+        return { success, rev };
+    };
+
+    // 8. Wrapped Save Data for internal Auto-Save with Meta Injection
+    const saveWithMeta = async (data: any) => {
+        const payload = {
+            ...data,
+            _meta: { lastSaved: Date.now(), appVersion: '1.0.1' }
+        };
+        // Always pass the last known server revision to enable Optimistic Locking
+        return saveData(payload, lastServerRevision);
+    };
+
     return {
         isDropboxAuthenticated,
         isAuthChecking,
@@ -173,10 +353,14 @@ export function useAppSync() {
         connect,
         disconnect,
         loadData,
-        saveData,
+        saveData: handleManualSave, // Export wrapped version
         deleteFile,
         lastSynced,
         isCloudSynced,
-        userName
+        userName,
+        checkForUpdates, // Export for manual trigger (e.g. Card Focus)
+        hasConflict,
+        resolveConflict,
+        lastServerRevision
     };
 }

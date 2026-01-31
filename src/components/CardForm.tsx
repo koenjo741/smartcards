@@ -27,6 +27,10 @@ interface CardFormProps {
     isCloudSynced?: boolean;
     isSyncing?: boolean;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
+    debugRevision?: string | null;
+    debugTimestamp?: Date | null;
+    hasConflict?: boolean;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => Promise<void>;
 }
 
 export const CardForm: React.FC<CardFormProps> = ({
@@ -41,7 +45,11 @@ export const CardForm: React.FC<CardFormProps> = ({
     onUpdateCustomColors,
     isCloudSynced,
     isSyncing,
-    googleSyncStatus = 'idle'
+    googleSyncStatus = 'idle',
+    debugRevision,
+    debugTimestamp,
+    hasConflict,
+    onResolveConflict
 }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -290,6 +298,23 @@ export const CardForm: React.FC<CardFormProps> = ({
                                         (initialData?.googleEventId && googleSyncStatus === 'idle')
                                             ? 'Saved to Dropbox & Google Calendar'
                                             : 'Saved to Dropbox'}
+                                <span className="text-xs text-yellow-400 font-mono ml-2">
+                                    DEBUG: V {debugRevision ? debugRevision.slice(-8) : 'NULL'}
+                                    @ {debugTimestamp ? debugTimestamp.toLocaleTimeString() : 'NoTime'}
+                                    / Sync: {isCloudSynced ? 'Y' : 'N'}
+                                    / Hdlr: {onResolveConflict ? 'Y' : 'N'}
+                                </span>
+                                {/* FORCE SYNC BUTTON for Deadlock Scenarios */}
+                                {(!isCloudSynced || hasConflict) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => onResolveConflict ? onResolveConflict('keep_local') : alert('Fehler: Konflikt-Löser nicht verfügbar!')}
+                                        className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded ml-2 uppercase font-bold tracking-wider"
+                                        title="Overwrite Cloud with Local Version"
+                                    >
+                                        FORCE SAVE NOW
+                                    </button>
+                                )}
                             </span>
                         </div>
                     )}

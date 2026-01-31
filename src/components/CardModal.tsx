@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import type { Project, Card } from '../types';
 import { CardForm } from './CardForm';
 
+
 interface CardModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -11,6 +12,11 @@ interface CardModalProps {
     cards: Card[];
     initialData?: Card | null;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
+    debugRevision?: string | null;
+    debugTimestamp?: Date | null;
+    isCloudSynced?: boolean;
+    hasConflict?: boolean;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => Promise<void>;
 }
 
 export const CardModal: React.FC<CardModalProps> = ({
@@ -20,8 +26,20 @@ export const CardModal: React.FC<CardModalProps> = ({
     projects,
     cards,
     initialData,
-    googleSyncStatus
+    googleSyncStatus,
+    debugRevision,
+    debugTimestamp,
+    isCloudSynced,
+    hasConflict,
+    onResolveConflict
 }) => {
+    // Removed redundant useAppSync call. App.tsx handles sync.
+    // React.useEffect(() => {
+    //     if (isOpen) {
+    //         // checkForUpdates();
+    //     }
+    // }, [isOpen]);
+
     if (!isOpen) return null;
 
     return (
@@ -45,6 +63,11 @@ export const CardModal: React.FC<CardModalProps> = ({
                     cards={cards} // Pass cards for linking
                     initialData={initialData}
                     googleSyncStatus={googleSyncStatus}
+                    debugRevision={debugRevision}
+                    debugTimestamp={debugTimestamp}
+                    isCloudSynced={isCloudSynced}
+                    hasConflict={hasConflict}
+                    onResolveConflict={onResolveConflict}
                 />
             </div>
         </div>

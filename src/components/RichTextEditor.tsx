@@ -15,7 +15,7 @@ import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
-import Link from '@tiptap/extension-link';
+// import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
 
 const FontSize = Extension.create({
@@ -138,13 +138,17 @@ const CustomTable = Table.extend({
                 parseHTML: element => element.getAttribute('data-align') || element.getAttribute('align'),
                 renderHTML: attributes => {
                     const align = attributes.align;
-                    let style = '';
+                    // Width: min 60%, max 95%, fit-content.
+                    // We re-add inline margins because now that width is fixed, they will actually work.
+                    let style = 'min-width: 60% !important; max-width: 95% !important; width: fit-content !important; display: table !important;';
+
                     if (align === 'center') {
-                        style = 'margin-left: auto; margin-right: auto; display: table;';
+                        style += 'margin-left: auto !important; margin-right: auto !important;';
                     } else if (align === 'right') {
-                        style = 'margin-left: auto; margin-right: 0; display: table;';
+                        style += 'margin-left: auto !important; margin-right: 0 !important;';
                     } else {
-                        style = 'margin-right: auto; margin-left: 0; display: table;';
+                        // Left (default)
+                        style += 'margin-right: auto !important; margin-left: 0 !important;';
                     }
 
                     return {
@@ -302,11 +306,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
             }),
             Color.configure({ types: [TextStyle.name] }),
             Highlight.configure({ multicolor: true }),
-            Link.configure({
-                autolink: true,
-                openOnClick: false,
-                linkOnPaste: true,
-            }),
+            // Link.configure({ // Removed
+            //     autolink: true,
+            //     openOnClick: false,
+            //     linkOnPaste: true,
+            // }),
             TextAlign.configure({
                 types: ['heading', 'paragraph'],
             }),
@@ -503,24 +507,42 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                     <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
                     <button
                         type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        onClick={() => {
+                            if (editor.isActive('table')) {
+                                editor.chain().focus().updateAttributes('table', { align: 'left' }).run();
+                            } else {
+                                editor.chain().focus().setTextAlign('left').run();
+                            }
+                        }}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) || editor.isActive('table', { align: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Align Left"
                     >
                         <AlignLeft className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('center').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        onClick={() => {
+                            if (editor.isActive('table')) {
+                                editor.chain().focus().updateAttributes('table', { align: 'center' }).run();
+                            } else {
+                                editor.chain().focus().setTextAlign('center').run();
+                            }
+                        }}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) || editor.isActive('table', { align: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Align Center"
                     >
                         <AlignCenter className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('right').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        onClick={() => {
+                            if (editor.isActive('table')) {
+                                editor.chain().focus().updateAttributes('table', { align: 'right' }).run();
+                            } else {
+                                editor.chain().focus().setTextAlign('right').run();
+                            }
+                        }}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) || editor.isActive('table', { align: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Align Right"
                     >
                         <AlignRight className="w-4 h-4" />
@@ -620,7 +642,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                     <button
                         type="button"
                         onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-                        className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
+                        disabled={editor.isActive('table')}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table') ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-gray-400'}`}
                         title="Insert Table"
                     >
                         <TableIcon className="w-4 h-4" />

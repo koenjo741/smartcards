@@ -85,31 +85,37 @@
   line-height: 1.1;
 }
 
-.ProseMirror table {
+/* Allow table to shrink to content */
+/* We use high specificity to override Tailwind .prose table { width: 100% } */
+/* Allow table to shrink to content */
+/* Fix: Removed space because classes are on the same element. Using chained selector for specificity. */
+.prose.ProseMirror table {
+  width: fit-content !important;
+  min-width: 60% !important;
+  max-width: 95% !important;
+  display: table !important;
   border-collapse: collapse;
-  table-layout: auto;
-  width: max-content;
-  /* min-width: 100%; Removed to allow alignment */
   margin: 0;
-  /* overflow: hidden; Removed to allow scrolling in parent */
 }
 
-.ProseMirror table[align='center'] {
-  margin-left: auto;
-  margin-right: auto;
+/* Force margins based on data-align */
+/* Force margins based on data-align */
+/* Specificity: .prose.ProseMirror (2 classes) + table[data-align] (1 tag + 1 attr) = very high */
+.prose.ProseMirror table[data-align='center'] {
+  margin-left: auto !important;
+  margin-right: auto !important;
 }
 
-.ProseMirror table[align='right'] {
-  margin-left: auto;
-  margin-right: 0;
+.prose.ProseMirror table[data-align='right'] {
+  margin-left: auto !important;
+  margin-right: 0 !important;
 }
 
-.ProseMirror table[align='left'] {
-  margin-right: auto;
-  margin-left: 0;
+.prose.ProseMirror table[data-align='left'] {
+  margin-right: auto !important;
+  margin-left: 0 !important;
 }
 
-.ProseMirror td,
 .ProseMirror th {
   min-width: 1em;
   border: 2px solid #ced4da;

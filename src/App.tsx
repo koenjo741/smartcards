@@ -161,7 +161,6 @@ function App() {
     }
   };
 
-  // Dropbox integration via hook
   const {
     isDropboxAuthenticated,
     isAuthChecking,
@@ -175,8 +174,22 @@ function App() {
     deleteFile,
     lastSynced,
     userName,
-    isCloudSynced
+    isCloudSynced,
+    hasConflict,
+    resolveConflict,
+    lastServerRevision
   } = useAppSync();
+
+  // DEBUG LOG
+  if (Math.random() > 0.95) console.log("App: Sync State", {
+    rev: lastServerRevision,
+    hasHandler: !!resolveConflict,
+    isCloudSynced
+  });
+
+  // ... (omitted lines)
+
+
 
   // Auto-initialize TODO Project and Card (Keep in App.tsx for now or move to useAppSync? 
   // It uses addProject/addCard which are from store. 
@@ -220,9 +233,9 @@ function App() {
 
 
   const handleDropboxLoad = async () => {
-    const data = await loadData();
-    if (data && data.projects && data.cards) {
-      loadDataStore(data);
+    const result = await loadData();
+    if (result && result.data && result.data.projects && result.data.cards) {
+      loadDataStore(result.data);
       setIsSettingsOpen(false);
     }
   };
@@ -319,9 +332,47 @@ function App() {
         setEditingCard(dataToSave);
       }
 
+      // FORCE SYNC: Manually trigger save with the updated data
+      // We must replicate the Backlink Logic from useStore to ensure Consistency
+
+      // 1. Identify added and removed links (Logic from useStore.ts)
+      const oldCard = cards.find(c => c.id === dataToSave.id);
+      const oldLinks = oldCard?.linkedCardIds || [];
+      const newLinks = dataToSave.linkedCardIds || [];
+      const addedLinks = newLinks.filter(id => !oldLinks.includes(id));
+      const removedLinks = oldLinks.filter(id => !newLinks.includes(id));
+
+      const updatedCards = cards.map(c => {
+        // Case A: The card itself
+        if (c.id === dataToSave.id) return dataToSave;
+
+        // Case B: Add back-link
+        if (addedLinks.includes(c.id)) {
+          const current = c.linkedCardIds || [];
+          if (!current.includes(dataToSave.id)) {
+            return { ...c, linkedCardIds: [...current, dataToSave.id] };
+          }
+        }
+        // Case C: Remove back-link
+        if (removedLinks.includes(c.id)) {
+          const current = c.linkedCardIds || [];
+          return { ...c, linkedCardIds: current.filter(id => id !== dataToSave.id) };
+        }
+        return c;
+      });
+
+      saveData({ projects, cards: updatedCards, customColors }).then(res => {
+        if (res.success) {
+          console.log("App: Manual Save Triggered Successful Sync");
+        } else {
+          console.warn("App: Manual Save Triggered Sync FAILED");
+        }
+      });
+
       // Auto-Sync to Google Calendar if event exists
       // Note: We use existingCard here (pre-update) (store state)
       if (existingCard?.googleEventId) {
+        // ... (lines 331-393)
         // CASE 1: Date Removed -> Delete Event
         if (!cardData.dueDate && existingCard.dueDate) {
           console.log("App: Due date removed, deleting Google Calendar event...");
@@ -331,12 +382,12 @@ function App() {
             if (success) {
               setGoogleSyncStatus('deleted');
               // Explicitly ensure the card is updated to remove the ID (if not already done by updateCard logic)
-              // updateCard(cardData) above should have sent { ...card, dueDate: '' }.
-              // But we want to ensure googleEventId is cleared in store if logic elsewhere preserved it.
-              // The Defensive Fix below ensures we KEEP it if dueDate exists.
-              // If dueDate is gone, we let it go.
-              // Just to be safe/clean:
-              updateCard({ ...(cardData as Card), googleEventId: undefined, googleCalendarId: undefined });
+              const cleanedCard = { ...(cardData as Card), googleEventId: undefined, googleCalendarId: undefined };
+              updateCard(cleanedCard);
+
+              // Force Sync Again for Cleanup
+              const cleanedCards = cards.map(c => c.id === cleanedCard.id ? cleanedCard : c);
+              saveData({ projects, cards: cleanedCards, customColors });
 
               setTimeout(() => setGoogleSyncStatus('idle'), 4000);
             } else {
@@ -355,24 +406,8 @@ function App() {
             existingCard.content !== cardData.content ||
             existingCard.dueDate !== cardData.dueDate;
 
-          // DEBUGGING: Check why sync might be skipped
-          /*
-          console.log("App: handleSaveCard check", {
-              existingId: existingCard?.googleEventId,
-              cardId: (cardData as Card).id,
-              hasChanged,
-              isDelete: !cardData.dueDate
-          });
-          */
-
           if (hasChanged && cardData.dueDate) {
             console.log("App: Changes detected, attempting sync...");
-
-            // Attempt update. ensureAuth() inside will check connection.
-            // We use 'await' but we don't block the UI update above, 
-            // though strict consistency might prefer waiting.
-            // For better UX (speed), we let UI update first.
-
             setGoogleSyncStatus('syncing');
             const success = await updateEvent(cardData as Card, existingCard.googleEventId, existingCard.googleCalendarId);
             if (success) {
@@ -381,17 +416,15 @@ function App() {
             } else {
               setGoogleSyncStatus('error');
             }
-          } else {
-            // console.log("App: No relevant changes for Google Calendar");
           }
         }
-      } else {
-        // console.log("App: No Google Event ID found for card", existingCard?.title);
       }
     } else {
       const newId = crypto.randomUUID();
       const newCard = { ...cardData, id: newId } as Card;
       addCard(newCard);
+      // FORCE SYNC (New Card)
+      saveData({ projects, cards: [...cards, newCard], customColors });
       setIsModalOpen(false);
     }
   }, [updateCard, addCard, expandedCardId, cards, updateEvent]);
@@ -542,13 +575,20 @@ function App() {
       currentView={viewMode}
       onViewChange={setViewMode}
     >
+      {/* DEBUG LOG */}
+      {/* {console.log("App Render: lastServerRevision =", lastServerRevision)} */}
       <CardModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         projects={projects}
         onSave={handleSaveCard}
-        cards={cards}
+        cards={cards} // Pass cards for linking
         googleSyncStatus={googleSyncStatus}
+        debugRevision={lastServerRevision}
+        debugTimestamp={lastSynced}
+        isCloudSynced={isCloudSynced}
+        hasConflict={hasConflict}
+        onResolveConflict={resolveConflict}
       />
 
 
@@ -562,6 +602,8 @@ function App() {
         onInstallClick={handleInstallClick}
         onOpenNewCard={handleOpenNewCard}
         expandedCardId={expandedCardId}
+        hasConflict={hasConflict}
+        onResolveConflict={resolveConflict}
       />
 
       {/* Persistent 3-Column Layout */}
@@ -738,6 +780,10 @@ function App() {
                   isCloudSynced={isCloudSynced}
                   isSyncing={isSyncing}
                   googleSyncStatus={googleSyncStatus}
+                  debugRevision={lastServerRevision}
+                  debugTimestamp={lastSynced}
+                  hasConflict={hasConflict}
+                  onResolveConflict={resolveConflict}
                 />
               </>
             ) : (

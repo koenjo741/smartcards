@@ -81,48 +81,132 @@ export function useDropbox() {
     }, []);
 
     // 3. Save Data (Upload)
-    const saveData = useCallback(async (data: BackupData): Promise<boolean> => {
-        if (!dbx) return false;
+    const saveData = useCallback(async (data: BackupData, parentRev?: string | null): Promise<{ success: boolean; rev?: string; conflict?: boolean }> => {
+        if (!dbx) return { success: false };
         setIsSyncing(true);
         try {
             const fileContent = JSON.stringify(data, null, 2);
             const blob = new Blob([fileContent], { type: 'application/json' });
 
-            await dbx.filesUpload({
+            // OPTIMISTIC LOCKING STRATEGY
+            // If we have a known parent revision, we tell Dropbox: "Only save this if the current file is still at this revision".
+            // If the revisions don't match, Dropbox rejects the upload with a conflict error.
+            const mode = parentRev ? { '.tag': 'update' as const, 'update': parentRev } : { '.tag': 'overwrite' as const };
+
+            console.log(`[SYNC-DEBUG] Saving with mode:`, mode);
+
+            const response = await dbx.filesUpload({
                 path: '/smartcards.json',
                 contents: blob,
-                mode: { '.tag': 'overwrite' } // Always overwrite for now
+                mode: mode
             });
 
+            const rev = response.result.rev;
             setLastSynced(new Date());
             setConnectionError(false);
-            return true;
-        } catch (error: unknown) {
+            console.log("[SYNC-DEBUG] Save Successful. New Rev:", rev);
+            return { success: true, rev };
+        } catch (error: any) {
             console.error('Dropbox Upload Error:', error);
+
+            // Handle Specific Conflict Error
+            const errorSummary = error?.error?.error_summary; // e.g., "path/conflict/..."
+            if (errorSummary && errorSummary.includes('conflict')) {
+                console.warn("[SYNC-DEBUG] CONFLICT DETECTED by Dropbox (Optimistic Lock).");
+                return { success: false, conflict: true };
+            }
+
             const dbxError = error as { status?: number; error?: { error_summary?: string } };
             if (dbxError?.status === 401 || dbxError?.error?.error_summary?.includes('expired_access_token')) {
                 setConnectionError(true);
                 setIsAuthenticated(false); // Force disconnect state logically
             } else {
-                alert('Backup failed. Check internet connection.');
+                // Determine if it's a network error vs logical error
+                // alert('Backup failed. Check internet connection.');
             }
-            return false;
+            return { success: false };
         } finally {
             setIsSyncing(false);
         }
     }, [dbx]);
 
+    // 4.5 Get Latest Revision (Lightweight Check) - Bypassing SDK Cache
+    const getLatestRevision = useCallback(async (): Promise<string | null> => {
+        const accessToken = localStorage.getItem('dropbox_token');
+
+        // Strategy A: Try raw fetch for cache busting
+        if (accessToken) {
+            try {
+                const response = await fetch('https://api.dropboxapi.com/2/files/get_metadata', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        path: '/smartcards.json',
+                        include_media_info: false,
+                        include_deleted: false,
+                        include_has_explicit_shared_members: false
+                    }),
+                    // Fetch API Cache Mode (This keeps the browser from caching)
+                    cache: 'no-store'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("[SYNC-DEBUG] Latest Rev on Server (Fetch):", data.rev);
+                    return data.rev;
+                } else {
+                    console.warn("[SYNC-DEBUG] Fetch Metadata failed, falling back to SDK. Status:", response.status);
+                }
+            } catch (error) {
+                console.error("[SYNC-DEBUG] Fetch Metadata Error:", error);
+            }
+        }
+
+        // Strategy B: Fallback to SDK (Might be cached, but better than null)
+        if (!dbx) return null;
+        try {
+            console.log("[SYNC-DEBUG] Using SDK for Metadata (Fallback)");
+            const meta = await dbx.filesGetMetadata({ path: '/smartcards.json' });
+            const rev = (meta.result as any).rev;
+            console.log("[SYNC-DEBUG] Latest Rev on Server (SDK):", rev);
+            return rev;
+        } catch (error) {
+            console.error("[SYNC-DEBUG] SDK Metadata Error:", error);
+            // File might not exist yet
+            return null;
+        }
+    }, [dbx]);
+
     // 4. Load Data (Download)
-    const loadData = useCallback(async (): Promise<BackupData | null> => {
+    // 4. Load Data (Download)
+    const loadData = useCallback(async (knownRev?: string): Promise<{ data: BackupData; rev: string } | null> => {
         if (!dbx) return null;
         setIsSyncing(true);
         try {
-            const response = await dbx.filesDownload({ path: '/smartcards.json' });
+            let rev = knownRev;
+
+            // Step 1: If Rev not provided, Get Metadata using ROBUST strategy
+            if (!rev) {
+                const latestRev = await getLatestRevision();
+                if (!latestRev) {
+                    console.warn("Sync: Could not determine latest revision. Aborting load.");
+                    return null;
+                }
+                rev = latestRev;
+            }
+
+            console.log("Sync: Downloading revision:", rev);
+
+            // Step 2: Download specific revision
+            const response = await dbx.filesDownload({ path: `rev:${rev}` });
             const blob = (response.result as unknown as { fileBlob: Blob }).fileBlob;
             const text = await blob.text();
 
             setLastSynced(new Date());
-            return JSON.parse(text) as BackupData;
+            return { data: JSON.parse(text) as BackupData, rev: rev! };
         } catch (error) {
             console.error('Dropbox Download Error:', error);
             // It's okay if file doesn't exist yet (new user)
@@ -130,7 +214,9 @@ export function useDropbox() {
         } finally {
             setIsSyncing(false);
         }
-    }, [dbx]);
+    }, [dbx, getLatestRevision]);
+
+
 
     // 5. Logout
     const disconnect = useCallback(() => {
@@ -221,6 +307,7 @@ export function useDropbox() {
         uploadFile,
         getFileContent,
         deleteFile,
-        getFileLink
+        getFileLink,
+        getLatestRevision
     };
 }

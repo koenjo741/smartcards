@@ -135,10 +135,23 @@ const CustomTable = Table.extend({
             ...this.parent?.(),
             align: {
                 default: 'left',
-                parseHTML: element => element.getAttribute('align'),
-                renderHTML: attributes => ({
-                    align: attributes.align,
-                }),
+                parseHTML: element => element.getAttribute('data-align') || element.getAttribute('align'),
+                renderHTML: attributes => {
+                    const align = attributes.align;
+                    let style = '';
+                    if (align === 'center') {
+                        style = 'margin-left: auto; margin-right: auto; display: table;';
+                    } else if (align === 'right') {
+                        style = 'margin-left: auto; margin-right: 0; display: table;';
+                    } else {
+                        style = 'margin-right: auto; margin-left: 0; display: table;';
+                    }
+
+                    return {
+                        'data-align': align,
+                        style: style,
+                    };
+                },
             },
         };
     },
@@ -614,7 +627,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                     </button>
 
                     {editor.isActive('table') && (
-                        <>
+                        <div className="flex items-center gap-1 bg-slate-800 rounded px-2 py-1 ml-1 border border-slate-600">
+                            <span className="text-xs text-gray-400 mr-1 font-medium select-none">Table:</span>
                             <button
                                 type="button"
                                 onClick={() => editor.chain().focus().addColumnAfter().run()}
@@ -647,15 +661,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                             >
                                 <Rows className="w-4 h-4" />
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().deleteTable().run()}
-                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
-                                title="Delete Table"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                            <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                            <div className="w-px h-4 bg-gray-600 mx-1 self-center" />
                             <button
                                 type="button"
                                 onClick={() => editor.chain().focus().updateAttributes('table', { align: 'left' }).run()}
@@ -680,7 +686,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                             >
                                 <AlignRight className="w-4 h-4" />
                             </button>
-                        </>
+
+                            <div className="w-px h-4 bg-gray-600 mx-1 self-center" />
+                            <button
+                                type="button"
+                                onClick={() => editor.chain().focus().deleteTable().run()}
+                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
+                                title="Delete Table"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     )}
 
                     <div className="w-px h-6 bg-gray-300 mx-1 self-center" />

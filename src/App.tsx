@@ -386,7 +386,7 @@ function App() {
           }
         }
       } else {
-        console.log("App: No Google Event ID found for card", existingCard?.title);
+        // console.log("App: No Google Event ID found for card", existingCard?.title);
       }
     } else {
       const newId = crypto.randomUUID();

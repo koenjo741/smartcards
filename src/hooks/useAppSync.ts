@@ -109,9 +109,18 @@ export function useAppSync() {
                     const cloudHash = stableStringify({ projects: cloudProjects, cards: cloudCards, customColors: cloudColors });
 
                     if (currentHash !== cloudHash) {
-                        console.log("Auto-Sync: CHANGE DETECTED. Updating...");
-                        loadDataStore(cloudData);
-                        setLastSavedHash(cloudHash);
+                        // CRITICAL: Only overwrite local data if local data is CLEAN (synced)
+                        // If currentHash != lastSavedHash, user has unsaved changes that haven't been pushed yet.
+                        // We must NOT overwrite them.
+                        if (currentHash === lastSavedHash) {
+                            console.log("Auto-Sync: Cloud update detected (Local is clean). Updating...");
+                            loadDataStore(cloudData);
+                            setLastSavedHash(cloudHash);
+                        } else {
+                            console.warn("Auto-Sync: Cloud update detected BUT Local has unsaved changes. Skipping overwrite to prevent data loss.");
+                            // Optional: Trigger a save immediately?
+                            // For now, just protecting local data is priority.
+                        }
                     }
                 }
             };

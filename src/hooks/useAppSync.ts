@@ -78,12 +78,26 @@ export function useAppSync() {
 
                 if (data && data.projects && data.cards) {
                     console.log("Sync: Cloud data loaded. Overwriting local state (Clean session). Rev:", rev);
-                    loadDataStore(data);
+
+                    // NORMALIZE DATA: Consistent with auto-sync
+                    const normalizedData = {
+                        ...data,
+                        projects: data.projects || [],
+                        cards: (data.cards || []).map((c: any) => ({
+                            ...c,
+                            projectIds: c.projectIds || [],
+                            attachments: c.attachments || [],
+                            linkedCardIds: c.linkedCardIds || []
+                        })),
+                        customColors: data.customColors || []
+                    };
+
+                    loadDataStore(normalizedData);
 
                     const newHash = stableStringify({
-                        projects: data.projects,
-                        cards: data.cards,
-                        customColors: data.customColors || []
+                        projects: normalizedData.projects,
+                        cards: normalizedData.cards,
+                        customColors: normalizedData.customColors
                     });
                     setLastSavedHash(newHash);
                     setLastServerRevision(rev);
@@ -180,10 +194,25 @@ export function useAppSync() {
             }
 
             const result = await loadData(latestRev);
-            if (result && result.data && result.data.projects.length > 0) {
-                const cloudData = result.data;
+            if (result && result.data && result.data.projects) {
+                const cloudDataRaw = result.data;
                 const rev = result.rev;
-                const cloudHash = stableStringify({ projects: cloudData.projects, cards: cloudData.cards, customColors: cloudData.customColors || [] });
+
+                // NORMALIZE DATA: Ensure arrays are present to match Store/Component behavior
+                // This prevents hash mismatch (undefined vs []) which causes "Phantom Dirty State"
+                const cloudData = {
+                    ...cloudDataRaw,
+                    projects: cloudDataRaw.projects || [],
+                    cards: (cloudDataRaw.cards || []).map((c: any) => ({
+                        ...c,
+                        projectIds: c.projectIds || [],
+                        attachments: c.attachments || [],
+                        linkedCardIds: c.linkedCardIds || []
+                    })),
+                    customColors: cloudDataRaw.customColors || []
+                };
+
+                const cloudHash = stableStringify({ projects: cloudData.projects, cards: cloudData.cards, customColors: cloudData.customColors });
 
                 if (currentHash === lastSavedHash || lastSavedHash === "") {
                     console.log("Auto-Sync: Cloud update applied. New Rev:", rev);

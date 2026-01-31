@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { useStore } from './useStore';
 import { useDropbox } from './useDropbox';
 
 // Helper for stable JSON stringify (excludes _meta to prevent infinite loops)
@@ -23,8 +22,15 @@ const stableStringify = (obj: any): string => {
     return JSON.stringify(clean(rest));
 };
 
-export function useAppSync() {
-    const { projects, cards, customColors, loadData: loadDataStore } = useStore();
+interface UseAppSyncProps {
+    projects: any[];
+    cards: any[];
+    customColors: string[];
+    loadDataStore: (data: any) => void;
+}
+
+export function useAppSync({ projects, cards, customColors, loadDataStore }: UseAppSyncProps) {
+    // const { projects, cards, customColors, loadData: loadDataStore } = useStore(); // REMOVED: Now passed as props
     const {
         isAuthenticated: isDropboxAuthenticated,
         isSyncing,

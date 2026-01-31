@@ -191,7 +191,12 @@ function App() {
     hasConflict,
     resolveConflict,
     lastServerRevision
-  } = useAppSync();
+  } = useAppSync({
+    projects,
+    cards,
+    customColors,
+    loadDataStore // Uses the one destructured from useStore above
+  });
 
   // DEBUG LOG
   if (Math.random() > 0.95) console.log("App: Sync State", {

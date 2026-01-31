@@ -79,6 +79,19 @@ function App() {
     return () => window.removeEventListener('resize', checkStandalone);
   }, []);
 
+  // Sync editingCard with store for real-time updates (Fix for multi-client sync)
+  useEffect(() => {
+    if (expandedCardId) {
+      const liveCard = cards.find(c => c.id === expandedCardId);
+      // Only update if reference changed (store implies new reference on update)
+      // and if liveCard exists (not deleted checking handled by Layout/lists usually)
+      if (liveCard && liveCard !== editingCard) {
+        // console.log("App: Syncing editingCard with live store data", liveCard.id);
+        setEditingCard(liveCard);
+      }
+    }
+  }, [cards, expandedCardId, editingCard]);
+
   // Catch PWA Install Prompt
   useEffect(() => {
     const handler = (e: any) => {

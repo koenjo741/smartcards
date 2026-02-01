@@ -53,6 +53,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
     // Track local changes to prevent Auto-Sync from overwriting pending saves
     const lastLocalChange = useRef<number>(Date.now());
+    const isInitializingRef = useRef(false); // Guard against double-firing initial load
 
     // Update timestamp on any change
     useEffect(() => {
@@ -61,9 +62,22 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
     // 1. Initial Load on Connect
     useEffect(() => {
-        if (isDropboxAuthenticated && !isCloudLoaded) {
+        // Guard: Authenticated, Not Loaded, AND Not currently initializing
+        if (isDropboxAuthenticated && !isCloudLoaded && !isInitializingRef.current) {
+            isInitializingRef.current = true; // Lock immediately
+
+            console.log("Sync: Starting Initial Load...");
             loadData().then((result) => {
-                if (!result) return;
+                if (!result) {
+                    console.warn("Sync: Initial Load failed or empty.");
+                    // If failed, maybe allow retry? For now, unlock but keep isCloudLoaded false?
+                    // Or set isCloudLoaded true to enable empty state?
+                    // Let's assume if it returns null, we are offline or empty.
+                    // Better to set isCloudLoaded = true to allow local work if we can't fetch?
+                    // For now, let's just log.
+                    // isInitializingRef.current = false; // Optional: Allow retry
+                    return;
+                }
                 const { data, rev } = result;
 
                 // Check if we have unsaved local changes from a previous session
@@ -110,6 +124,9 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     localStorage.setItem('sm_last_synced_hash_v3', newHash);
                 }
                 setIsCloudLoaded(true); // Enable auto-save
+            }).catch(err => {
+                console.error("Sync: Initial Load Error", err);
+                isInitializingRef.current = false; // Allow retry on error
             });
         }
     }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore, projects, cards, customColors]);

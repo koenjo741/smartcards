@@ -190,7 +190,8 @@ function App() {
     isCloudSynced,
     hasConflict,
     resolveConflict,
-    lastServerRevision
+    lastServerRevision,
+    debugDiff
   } = useAppSync({
     projects,
     cards,
@@ -802,6 +803,7 @@ function App() {
                   debugTimestamp={lastSynced}
                   hasConflict={hasConflict}
                   onResolveConflict={resolveConflict}
+                  debugDiff={debugDiff} // Pass Diagnostic Probe
                 />
               </>
             ) : (
@@ -826,6 +828,11 @@ function App() {
         projects={projects}
         cards={cards} // Pass cards for linking
         initialData={null}
+        googleSyncStatus={googleSyncStatus} // Pass sync status for visual feedback
+        isCloudSynced={isCloudSynced}
+        hasConflict={hasConflict}
+        onResolveConflict={resolveConflict}
+        debugDiff={debugDiff}
       />
 
       <ProjectModal

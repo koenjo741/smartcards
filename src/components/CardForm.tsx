@@ -31,6 +31,7 @@ interface CardFormProps {
     debugTimestamp?: Date | null;
     hasConflict?: boolean;
     onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => Promise<void>;
+    debugDiff?: any; // Diagnostic Probe
 }
 
 export const CardForm: React.FC<CardFormProps> = ({
@@ -49,8 +50,16 @@ export const CardForm: React.FC<CardFormProps> = ({
     debugRevision,
     debugTimestamp,
     hasConflict,
-    onResolveConflict
+    onResolveConflict,
+    debugDiff
 }) => {
+    // ... (lines 54-297 untouched) ...
+    // Note: I can't preserve 200 lines easily. I will only target the Props definition first.
+    // Wait, replace_file_content works on blocks.
+    // I can do the props definition update in one call, and the render update in another.
+    // Actually, I can target the top lines 32-53 for props.
+    // and lines 305-322 for rendering.
+    // I will do props definition first.
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -320,6 +329,13 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     </button>
                                 )}
                             </span>
+                            {/* DIAGNOSTIC PROBE OUTPUT */}
+                            {debugDiff && (
+                                <div className="absolute bottom-16 left-6 p-4 bg-yellow-900/90 border border-yellow-500 rounded text-xs font-mono text-yellow-200 z-50 max-w-sm overflow-auto max-h-48 shadow-2xl">
+                                    <div className="font-bold underline mb-1">SYNC BLOCKED: Unknown Changes Detected</div>
+                                    <pre>{JSON.stringify(debugDiff, null, 2)}</pre>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

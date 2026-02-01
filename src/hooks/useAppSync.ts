@@ -1,26 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDropbox } from './useDropbox';
-
-// Helper for stable JSON stringify (excludes _meta to prevent infinite loops)
-const stableStringify = (obj: any): string => {
-    const { _meta, ...rest } = obj; // Exclude _meta from hash comparison
-    const clean = (input: any): any => {
-        if (Array.isArray(input)) return input.map(clean);
-        if (typeof input === 'object' && input !== null) {
-            const newObj: any = {};
-            Object.keys(input).sort().forEach(key => {
-                const val = input[key];
-                // Keep everything except null/undefined, but allow empty strings/arrays
-                if (val !== null && val !== undefined) {
-                    newObj[key] = clean(val);
-                }
-            });
-            return newObj;
-        }
-        return input;
-    };
-    return JSON.stringify(clean(rest));
-};
+import { stableStringify, getObjectDiff } from '../utils/helpers';
 
 interface UseAppSyncProps {
     projects: any[];
@@ -50,6 +30,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     const [lastSavedHash, setLastSavedHash] = useState<string>("");
     const [lastServerRevision, setLastServerRevision] = useState<string | null>(null);
     const [hasConflict, setHasConflict] = useState(false);
+    const [debugDiff, setDebugDiff] = useState<any>(null); // DIAGNOSTIC STATE
 
     // Track local changes to prevent Auto-Sync from overwriting pending saves
     const lastLocalChange = useRef<number>(Date.now());
@@ -212,6 +193,51 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             // If we are Dirty AND Server Changed -> Conflict
             if (lastSavedHash && currentHash !== lastSavedHash) {
                 console.warn("Sync Conflict: Server has new revision, but Local has unsaved changes.");
+
+                // DIAGNOSTIC PROBE: Calculate Diff
+                try {
+                    // We need to compare currentData against what we THINK is last saved.
+                    // We only have the hash. But to diff, we should probably compare against what we just downloaded?
+                    // No, the conflict is "Local vs LastSaved". 
+                    // But we don't store the full LastSaved object, only hash or local storage.
+                    // Actually, we can compare currentData vs CloudData (which we haven't downloaded yet fully, or we can fetch it).
+                    // BETTER: Compare currentData vs a theoretical clean state? 
+                    // Wait, we have 'projects', 'cards', 'customColors'.
+                    // Discrepancy is: stableStringify(current) !== lastSavedHash.
+                    // We can't diff against a hash.
+
+                    // Strategy: If we have a stored lastSavedHash, we assume the previous state was 'X'.
+                    // We don't have 'X'.
+                    // But we can enable the "Ignore" strategy if the diff is trivial?
+                    // Diagnosing: We can't show "Old vs New" if we don't have "Old".
+
+                    // ALTERNATIVE: Just output the currentData structure to console so user can send it?
+                    // Or, maybe we compare against the *incoming* cloud data?
+                    // Yes, showing "Local vs Cloud" diff would be useful.
+
+                    const result = await loadData(latestRev); // We fetch it to compare!
+                    if (result && result.data) {
+                        const cloudDataRaw = result.data;
+                        const cloudData = {
+                            ...cloudDataRaw,
+                            projects: cloudDataRaw.projects || [],
+                            cards: (cloudDataRaw.cards || []).map((c: any) => ({
+                                ...c,
+                                projectIds: c.projectIds || [],
+                                attachments: c.attachments || [],
+                                linkedCardIds: c.linkedCardIds || []
+                            })),
+                            customColors: cloudDataRaw.customColors || []
+                        };
+                        const currentData = { projects, cards, customColors };
+                        const diff = getObjectDiff(cloudData, currentData); // Cloud vs Local
+                        console.warn("DIAGNOSTIC DIFF (Cloud vs Local):", diff);
+                        setDebugDiff(diff);
+                    }
+                } catch (e) {
+                    console.error("Diff calc failed", e);
+                }
+
                 setHasConflict(true);
                 return;
             }
@@ -406,6 +432,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         checkForUpdates, // Export for manual trigger (e.g. Card Focus)
         hasConflict,
         resolveConflict,
-        lastServerRevision
+        lastServerRevision,
+        debugDiff
     };
 }

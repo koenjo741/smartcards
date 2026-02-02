@@ -35,10 +35,24 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     // Track local changes to prevent Auto-Sync from overwriting pending saves
     const lastLocalChange = useRef<number>(Date.now());
     const isInitializingRef = useRef(false); // Guard against double-firing initial load
+    // NEW: Track pending cloud load to sync hash after store update
+    const pendingCloudLoadRef = useRef<{ rev: string } | null>(null);
 
-    // Update timestamp on any change
+    // Update timestamp on any change (and Handle Post-Store Hash Sync)
     useEffect(() => {
-        lastLocalChange.current = Date.now();
+        if (pendingCloudLoadRef.current) {
+            console.log("Sync: Calculating hash AFTER store update...", pendingCloudLoadRef.current.rev);
+            const newHash = stableStringify({ projects, cards, customColors });
+            setLastSavedHash(newHash);
+            setLastServerRevision(pendingCloudLoadRef.current.rev);
+            localStorage.setItem('sm_last_synced_hash_v3', newHash);
+
+            // Clear pending flag
+            pendingCloudLoadRef.current = null;
+            // NOTE: We do NOT update lastLocalChange here. This acts as a "silent" baseline set.
+        } else {
+            lastLocalChange.current = Date.now();
+        }
     }, [projects, cards, customColors]);
 
     // 1. Initial Load on Connect
@@ -78,7 +92,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 }
 
                 if (data && data.projects && data.cards) {
-                    console.log("Sync: Cloud data loaded. Overwriting local state (Clean session). Rev:", rev);
+                    console.log("Sync: Cloud data loaded. Pushing to Store... Rev:", rev);
 
                     // NORMALIZE DATA: Consistent with auto-sync
                     const normalizedData = {
@@ -95,14 +109,10 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
                     loadDataStore(normalizedData);
 
-                    const newHash = stableStringify({
-                        projects: normalizedData.projects,
-                        cards: normalizedData.cards,
-                        customColors: normalizedData.customColors
-                    });
-                    setLastSavedHash(newHash);
-                    setLastServerRevision(rev);
-                    localStorage.setItem('sm_last_synced_hash_v3', newHash);
+                    // DEFER HASH CALCULATION:
+                    // We set this ref so the NEXT render (which has the updated store data)
+                    // will calculate the hash. This ensures hash matches what useStore actually contains.
+                    pendingCloudLoadRef.current = { rev };
                 }
                 setIsCloudLoaded(true); // Enable auto-save
             }).catch(err => {

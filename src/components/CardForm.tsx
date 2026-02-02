@@ -317,8 +317,8 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     / Sync: {isCloudSynced ? 'Y' : 'N'}
                                     / Hdlr: {onResolveConflict ? 'Y' : 'N'}
                                 </span>
-                                {/* FORCE SYNC BUTTON for Deadlock Scenarios */}
-                                {(!isCloudSynced || hasConflict) && (
+                                {/* FORCE SYNC BUTTON for Deadlock Scenarios (Only show on Conflict) */}
+                                {hasConflict && (
                                     <button
                                         type="button"
                                         onClick={() => {

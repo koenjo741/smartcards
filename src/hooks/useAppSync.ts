@@ -148,12 +148,16 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             // Lightweight check (optional but safer)
             // Note: This adds latency to every save. Maybe only do it if some time passed?
             // For safety, let's do it.
+            // REDUNDANT CHECK REMOVED: We rely on Dropbox's atomic 'update' mode to catch conflicts.
+            // This prevents false positives where client check thinks we are behind but we are just out of sync with ACKs.
+            /*
             const serverRev = await getLatestRevision();
             if (serverRev && lastServerRevision && serverRev !== lastServerRevision) {
                 console.warn("Auto-Save Aborted: Server has newer revision (Split Brain detected).");
                 setHasConflict(true);
                 return;
             }
+            */
 
             const { success, rev, conflict } = await saveWithMeta(currentData);
 
@@ -384,12 +388,15 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             return { success: false };
         }
 
+        // REDUNDANT CHECK REMOVED: Rely on Dropbox response
+        /*
         const serverRev = await getLatestRevision();
         if (serverRev && lastServerRevision && serverRev !== lastServerRevision) {
             console.warn("Manual Save Aborted: Server has newer revision (Split Brain detected).");
             setHasConflict(true);
             return { success: false };
         }
+        */
 
         console.log("[SYNC-DEBUG] Manual Save Initiated...");
         // Inject Meta here too

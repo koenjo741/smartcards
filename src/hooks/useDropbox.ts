@@ -81,7 +81,7 @@ export function useDropbox() {
     }, []);
 
     // 3. Save Data (Upload)
-    const saveData = useCallback(async (data: BackupData, parentRev?: string | null): Promise<{ success: boolean; rev?: string; conflict?: boolean }> => {
+    const saveData = useCallback(async (data: BackupData, parentRev?: string | null): Promise<{ success: boolean; rev?: string; conflict?: boolean; errorType?: 'conflict' | 'auth' | 'server_error' | 'network' }> => {
         if (!dbx) return { success: false };
         setIsSyncing(true);
         try {
@@ -109,22 +109,32 @@ export function useDropbox() {
         } catch (error: any) {
             console.error('Dropbox Upload Error:', error);
 
-            // Handle Specific Conflict Error
+            // 1. Handle Conflict (409 or Specific Error Summary)
             const errorSummary = error?.error?.error_summary; // e.g., "path/conflict/..."
-            if (errorSummary && errorSummary.includes('conflict')) {
+            const status = error?.status;
+
+            if ((errorSummary && errorSummary.includes('conflict')) || status === 409) {
                 console.warn("[SYNC-DEBUG] CONFLICT DETECTED by Dropbox (Optimistic Lock).");
-                return { success: false, conflict: true };
+                return { success: false, conflict: true, errorType: 'conflict' };
             }
 
+            // 2. Handle 503 Service Unavailable (Common source of "Ghost Saves")
+            if (status === 503) {
+                console.warn("[SYNC-DEBUG] 503 Service Unavailable. The save MIGHT have worked. Proceed with caution.");
+                // We return specific type so the caller can decide to POLL immediately to see what happened.
+                return { success: false, errorType: 'server_error' };
+            }
+
+            // 3. Handle Auth Errors
             const dbxError = error as { status?: number; error?: { error_summary?: string } };
             if (dbxError?.status === 401 || dbxError?.error?.error_summary?.includes('expired_access_token')) {
                 setConnectionError(true);
                 setIsAuthenticated(false); // Force disconnect state logically
-            } else {
-                // Determine if it's a network error vs logical error
-                // alert('Backup failed. Check internet connection.');
+                return { success: false, errorType: 'auth' };
             }
-            return { success: false };
+
+            // 4. Other/Network
+            return { success: false, errorType: 'network' };
         } finally {
             setIsSyncing(false);
         }

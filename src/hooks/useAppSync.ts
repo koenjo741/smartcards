@@ -206,30 +206,12 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
             // If we are Dirty AND Server Changed -> Conflict
             if (lastSavedHash && currentHash !== lastSavedHash) {
-                console.warn("Sync Conflict: Server has new revision, but Local has unsaved changes.");
+                console.warn("Sync Conflict: Server has new revision, but Local has unsaved changes. Initiating SMART CHECK...");
 
-                // DIAGNOSTIC PROBE: Calculate Diff
+                // SMART CONFLICT DETECTION
+                // 1. Fetch the server data
                 try {
-                    // We need to compare currentData against what we THINK is last saved.
-                    // We only have the hash. But to diff, we should probably compare against what we just downloaded?
-                    // No, the conflict is "Local vs LastSaved". 
-                    // But we don't store the full LastSaved object, only hash or local storage.
-                    // Actually, we can compare currentData vs CloudData (which we haven't downloaded yet fully, or we can fetch it).
-                    // BETTER: Compare currentData vs a theoretical clean state? 
-                    // Wait, we have 'projects', 'cards', 'customColors'.
-                    // Discrepancy is: stableStringify(current) !== lastSavedHash.
-                    // We can't diff against a hash.
-
-                    // Strategy: If we have a stored lastSavedHash, we assume the previous state was 'X'.
-                    // We don't have 'X'.
-                    // But we can enable the "Ignore" strategy if the diff is trivial?
-                    // Diagnosing: We can't show "Old vs New" if we don't have "Old".
-
-                    // ALTERNATIVE: Just output the currentData structure to console so user can send it?
-                    // Or, maybe we compare against the *incoming* cloud data?
-                    // Yes, showing "Local vs Cloud" diff would be useful.
-
-                    const result = await loadData(latestRev); // We fetch it to compare!
+                    const result = await loadData(latestRev);
                     if (result && result.data) {
                         const cloudDataRaw = result.data;
                         const cloudData = {
@@ -243,13 +225,34 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                             })),
                             customColors: cloudDataRaw.customColors || []
                         };
-                        const currentData = { projects, cards, customColors };
-                        const diff = getObjectDiff(cloudData, currentData); // Cloud vs Local
+
+                        // 2. Compare Content (Ignoring _meta)
+                        // stableStringify is good, but let's be explicitly excluding _meta
+                        // Ideally we construct the exact same object shape we save.
+                        const cloudContentParams = { projects: cloudData.projects, cards: cloudData.cards, customColors: cloudData.customColors };
+                        const localContentParams = { projects, cards, customColors };
+
+                        const cloudContentHash = stableStringify(cloudContentParams);
+                        const localContentHash = stableStringify(localContentParams);
+
+                        if (cloudContentHash === localContentHash) {
+                            console.log("Sync: FALSE CONFLICT DETECTED. Content is identical. Auto-resolving.");
+                            // Auto-heal: Accept the server's revision as the new baseline
+                            setLastServerRevision(latestRev);
+                            setLastSavedHash(localContentHash);
+                            localStorage.setItem('sm_last_synced_hash_v3', localContentHash);
+                            setHasConflict(false);
+                            return; // Done!
+                        }
+
+                        // 3. If genuinely different, show diff
+                        console.warn("Sync: Real Conflict Verified. Content differs.");
+                        const diff = getObjectDiff(cloudContentParams, localContentParams); // Cloud vs Local
                         console.warn("DIAGNOSTIC DIFF (Cloud vs Local):", diff);
                         setDebugDiff(diff);
                     }
                 } catch (e) {
-                    console.error("Diff calc failed", e);
+                    console.error("Smart Conflict Check failed", e);
                 }
 
                 setHasConflict(true);

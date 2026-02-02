@@ -30,7 +30,7 @@ interface CardFormProps {
     debugRevision?: string | null;
     debugTimestamp?: Date | null;
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => Promise<void>;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => Promise<void>;
     debugDiff?: any; // Diagnostic Probe
 }
 
@@ -321,9 +321,44 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 {(!isCloudSynced || hasConflict) && (
                                     <button
                                         type="button"
-                                        onClick={() => onResolveConflict ? onResolveConflict('keep_local') : alert('Fehler: Konflikt-Löser nicht verfügbar!')}
+                                        onClick={() => {
+                                            if (!onResolveConflict) return;
+
+                                            // Construct Current State Manually to Bypass React State Delay
+                                            const currentData = initialData;
+                                            const updatedCard = {
+                                                ...(currentData || {}),
+                                                title,
+                                                content,
+                                                projectIds: selectedProjectIds,
+                                                dueDate: dueDate || undefined,
+                                                attachments,
+                                                linkedCardIds: linkedCardIds || [],
+                                                googleEventId: dueDate ? currentData?.googleEventId : undefined,
+                                                googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
+                                            } as Card;
+
+                                            // Save locally first (UI update)
+                                            onSave(updatedCard);
+
+                                            // Construct Full Payload for Upload
+                                            const updatedCards = cards.map(c => c.id === updatedCard.id ? updatedCard : c);
+                                            // If new card (no ID match), append it? 
+                                            // Force Push usually happens on existing cards. 
+                                            // If new card, 'cards' prop won't have it yet.
+                                            // But 'initialData' usually implies existing.
+
+                                            const payload = {
+                                                projects,
+                                                cards: updatedCards,
+                                                customColors
+                                            };
+
+                                            console.log("FORCE SAVE: Pushing overrides...", payload);
+                                            onResolveConflict('keep_local', payload);
+                                        }}
                                         className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded ml-2 uppercase font-bold tracking-wider"
-                                        title="Overwrite Cloud with Local Version"
+                                        title="Overwrite Cloud with Local Version (Includes current edits)"
                                     >
                                         FORCE SAVE NOW
                                     </button>

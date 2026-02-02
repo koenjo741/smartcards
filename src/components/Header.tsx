@@ -12,7 +12,7 @@ interface HeaderProps {
     onOpenNewCard: () => void;
     expandedCardId: string | null;
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => void;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({

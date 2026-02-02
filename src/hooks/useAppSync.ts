@@ -291,7 +291,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     };
 
     // Explicit Conflict Resolution
-    const resolveConflict = async (strategy: 'accept_cloud' | 'keep_local') => {
+    const resolveConflict = async (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => {
         if (strategy === 'accept_cloud') {
             console.log("Resolving Conflict: Accepting Cloud...");
             // Force get latest rev securely first
@@ -315,7 +315,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
             // Let's call saveData directly to be safe.
 
-            const currentData = { projects, cards, customColors };
+            const currentData = dataOverride || { projects, cards, customColors };
             const payload = {
                 ...currentData,
                 _meta: { lastSaved: Date.now(), appVersion: '1.0.1' }

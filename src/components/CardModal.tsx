@@ -16,7 +16,7 @@ interface CardModalProps {
     debugTimestamp?: Date | null;
     isCloudSynced?: boolean;
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local') => Promise<void>;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => Promise<void>;
     debugDiff?: any; // Diagnostic Probe
 }
 

@@ -332,7 +332,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
         if (editor && content !== undefined) {
             // Only update if content is actually different to avoid cursor jumps / loops
             // We compare loosely or just trust setContent to handle diff
-            const currentContent = editor.getHTML();
+            // const currentContent = editor.getHTML(); // Removed unused var
             // Only update if not focused OR if content is wildly different (like completely new card)
             // For the "Switch Card" case, the editor is likely not focused or we want to force update anyway.
             // Actually, simpler check:

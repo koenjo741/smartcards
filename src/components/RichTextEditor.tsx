@@ -330,14 +330,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     // Update editor content when prop changes (external change, e.g. switching cards)
     useEffect(() => {
         if (editor && content !== undefined) {
-            // Only update if content is actually different to avoid cursor jumps / loops
-            // We compare loosely or just trust setContent to handle diff
-            // const currentContent = editor.getHTML(); // Removed unused var
-            // Only update if not focused OR if content is wildly different (like completely new card)
-            // For the "Switch Card" case, the editor is likely not focused or we want to force update anyway.
-            // Actually, simpler check:
-            // Pass emitUpdate: false to prevent triggering onChange -> isDirty -> blocked sync
-            editor.commands.setContent(content, { emitUpdate: false } as any);
+            const currentContent = editor.getHTML();
+            // Prevent re-render loop if content is semantically same (prevents cursor jump)
+            if (currentContent !== content) {
+                editor.commands.setContent(content, { emitUpdate: false } as any);
+            }
         }
     }, [content, editor]);
 

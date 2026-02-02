@@ -366,9 +366,13 @@ export const CardForm: React.FC<CardFormProps> = ({
                             </span>
                             {/* DIAGNOSTIC PROBE OUTPUT */}
                             {debugDiff && (
-                                <div className="absolute bottom-16 left-6 p-4 bg-yellow-900/90 border border-yellow-500 rounded text-xs font-mono text-yellow-200 z-50 max-w-sm overflow-auto max-h-48 shadow-2xl">
-                                    <div className="font-bold underline mb-1">SYNC BLOCKED: Unknown Changes Detected</div>
-                                    <pre>{JSON.stringify(debugDiff, null, 2)}</pre>
+                                <div className="absolute bottom-16 left-6 p-4 bg-yellow-900/90 border border-yellow-500 rounded text-xs font-mono text-yellow-200 z-50 max-w-sm overflow-auto max-h-64 shadow-2xl">
+                                    <div className="font-bold underline mb-1">SYNC CONFLICT DETECTED</div>
+                                    <div className="mb-2">The server has a newer version than your local copy, and you have unsaved changes. Auto-sync is paused to prevent data loss.</div>
+                                    <details>
+                                        <summary className="cursor-pointer hover:text-white">Show Technical Diff (Cloud vs Local)</summary>
+                                        <pre className="mt-2 text-[10px]">{JSON.stringify(debugDiff, null, 2)}</pre>
+                                    </details>
                                 </div>
                             )}
                         </div>

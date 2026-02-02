@@ -305,6 +305,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 setLastServerRevision(result.rev);
                 localStorage.setItem('sm_last_synced_hash_v3', cloudHash);
                 setHasConflict(false);
+                setDebugDiff(null);
             }
         } else {
             // keep_local -> force save
@@ -330,6 +331,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 if (rev) setLastServerRevision(rev);
                 localStorage.setItem('sm_last_synced_hash_v3', newHash);
                 setHasConflict(false);
+                setDebugDiff(null);
             }
         }
     };

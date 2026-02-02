@@ -77,7 +77,7 @@ export const getObjectDiff = (obj1: any, obj2: any): any => {
                 // but deep diff might be better.
                 // For arrays, if they differ, just return comparison
                 if (Array.isArray(val1) || Array.isArray(val2)) {
-                    diff[key] = { local: val1, saved: val2, type: 'array_mismatch' };
+                    diff[key] = { val1: val1, val2: val2, type: 'array_mismatch' };
                 } else {
                     const nestedDiff = getObjectDiff(val1, val2);
                     if (Object.keys(nestedDiff).length > 0) {
@@ -85,7 +85,7 @@ export const getObjectDiff = (obj1: any, obj2: any): any => {
                     }
                 }
             } else {
-                diff[key] = { local: val1, saved: val2 };
+                diff[key] = { val1: val1, val2: val2 };
             }
         }
     });

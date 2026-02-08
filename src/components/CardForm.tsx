@@ -268,7 +268,12 @@ export const CardForm: React.FC<CardFormProps> = ({
                             </button>
                             <button
                                 type="submit"
-                                className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium shadow-lg hover:shadow-blue-500/20"
+                                disabled={selectedProjectIds.length === 0}
+                                className={`px-4 py-2 text-sm text-white rounded-md transition-colors font-medium shadow-lg ${selectedProjectIds.length === 0
+                                        ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                                        : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20'
+                                    }`}
+                                title={selectedProjectIds.length === 0 ? "Please select a project first" : undefined}
                             >
                                 Create Card
                             </button>

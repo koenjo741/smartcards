@@ -596,19 +596,7 @@ function App() {
     >
       {/* DEBUG LOG */}
       {/* {console.log("App Render: lastServerRevision =", lastServerRevision)} */}
-      <CardModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        projects={projects}
-        onSave={handleSaveCard}
-        cards={cards} // Pass cards for linking
-        googleSyncStatus={googleSyncStatus}
-        debugRevision={lastServerRevision}
-        debugTimestamp={lastSynced}
-        isCloudSynced={isCloudSynced}
-        hasConflict={hasConflict}
-        onResolveConflict={resolveConflict}
-      />
+
 
 
       {/* ... Header ... */}
@@ -833,6 +821,10 @@ function App() {
         hasConflict={hasConflict}
         onResolveConflict={resolveConflict}
         debugDiff={debugDiff}
+        customColors={customColors}
+        onUpdateCustomColors={setCustomColors}
+        debugRevision={lastServerRevision}
+        debugTimestamp={lastSynced}
       />
 
       <ProjectModal

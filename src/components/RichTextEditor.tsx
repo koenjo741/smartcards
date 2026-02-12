@@ -135,20 +135,24 @@ const CustomTable = Table.extend({
             ...this.parent?.(),
             align: {
                 default: 'left',
-                parseHTML: element => element.getAttribute('data-align') || element.getAttribute('align'),
+                parseHTML: element => element.getAttribute('data-align'),
                 renderHTML: attributes => {
                     const align = attributes.align;
-                    // Width: min 60%, max 95%, fit-content.
-                    // We re-add inline margins because now that width is fixed, they will actually work.
-                    let style = 'min-width: 60% !important; max-width: 95% !important; width: fit-content !important; display: table !important;';
+
+                    // Robust Inline Styles
+                    // Using float for right alignment as it is very strong
+                    // Using margin auto for center
+                    // Ensuring box-sizing is border-box
+
+                    let style = 'border-collapse: collapse; display: table; width: fit-content; max-width: 100%; margin-top: 1rem; margin-bottom: 1rem; box-sizing: border-box;';
 
                     if (align === 'center') {
-                        style += 'margin-left: auto !important; margin-right: auto !important;';
+                        style += 'margin-left: auto; margin-right: auto;';
                     } else if (align === 'right') {
-                        style += 'margin-left: auto !important; margin-right: 0 !important;';
+                        // Float is often more effective than margin-left: auto if width is tricky
+                        style += 'float: right; margin-left: 1rem;';
                     } else {
-                        // Left (default)
-                        style += 'margin-right: auto !important; margin-left: 0 !important;';
+                        style += 'margin-right: auto; margin-left: 0;';
                     }
 
                     return {
@@ -162,6 +166,7 @@ const CustomTable = Table.extend({
 });
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, editable = true, userColors = [], onUserColorsChange }) => {
+    // ... (lines 160-197 omitted for brevity, they remain unchanged)
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [showColorPopover, setShowColorPopover] = React.useState<'text' | 'highlight' | null>(null);
 
@@ -205,7 +210,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
             Superscript,
             Subscript,
             CustomTable.configure({
-                resizable: true,
+                resizable: false, // Disabling resizable to prevent width conflicts
             }),
             TableRow,
             TableHeader,
@@ -341,6 +346,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
     if (!editor) {
         return null;
     }
+
+    // Helper to check if cursor is inside a table (robust check)
+    const isTableActive = editor ? (
+        editor.isActive('table') ||
+        editor.isActive('tableRow') ||
+        editor.isActive('tableCell') ||
+        editor.isActive('tableHeader')
+    ) : false;
 
     return (
         <div className="border border-gray-700 rounded-md flex flex-col h-full shadow-sm w-full max-w-full" style={{ backgroundColor: '#f3f4f6' }}>
@@ -503,42 +516,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                     <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
                     <button
                         type="button"
-                        onClick={() => {
-                            if (editor.isActive('table')) {
-                                editor.chain().focus().updateAttributes('table', { align: 'left' }).run();
-                            } else {
-                                editor.chain().focus().setTextAlign('left').run();
-                            }
-                        }}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) || editor.isActive('table', { align: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Align Left"
                     >
                         <AlignLeft className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
-                            if (editor.isActive('table')) {
-                                editor.chain().focus().updateAttributes('table', { align: 'center' }).run();
-                            } else {
-                                editor.chain().focus().setTextAlign('center').run();
-                            }
-                        }}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) || editor.isActive('table', { align: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Align Center"
                     >
                         <AlignCenter className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
-                            if (editor.isActive('table')) {
-                                editor.chain().focus().updateAttributes('table', { align: 'right' }).run();
-                            } else {
-                                editor.chain().focus().setTextAlign('right').run();
-                            }
-                        }}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) || editor.isActive('table', { align: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                        onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
                         title="Align Right"
                     >
                         <AlignRight className="w-4 h-4" />
@@ -635,18 +630,24 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                         <Outdent className="w-4 h-4" />
                     </button>
                     <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+
+                    {/* Insert Table Button - Disabled if inside a table */}
                     <button
                         type="button"
-                        onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-                        disabled={editor.isActive('table')}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table') ? 'opacity-50 cursor-not-allowed text-gray-500' : 'text-gray-400'}`}
-                        title="Insert Table"
+                        onClick={() => {
+                            if (isTableActive) return; // Prevent nested tables
+                            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                        }}
+                        disabled={isTableActive}
+                        className={`p-1.5 rounded hover:bg-slate-700 ${isTableActive ? 'opacity-30 cursor-not-allowed text-gray-600' : 'text-gray-400'}`}
+                        title={isTableActive ? "Table Controls Active" : "Insert Table"}
                     >
                         <TableIcon className="w-4 h-4" />
                     </button>
 
-                    {editor.isActive('table') && (
-                        <div className="flex items-center gap-1 bg-slate-800 rounded px-2 py-1 ml-1 border border-slate-600">
+                    {/* Table Controls - Shown when inside a table (Robust check) */}
+                    {isTableActive && (
+                        <div className="flex items-center gap-1 bg-slate-800 rounded px-2 py-1 ml-1 border border-slate-600 animate-in fade-in zoom-in duration-200">
                             <span className="text-xs text-gray-400 mr-1 font-medium select-none">Table:</span>
                             <button
                                 type="button"

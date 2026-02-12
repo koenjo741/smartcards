@@ -18,6 +18,8 @@ interface CardModalProps {
     hasConflict?: boolean;
     onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => Promise<void>;
     debugDiff?: any; // Diagnostic Probe
+    customColors?: string[];
+    onUpdateCustomColors?: (colors: string[]) => void;
 }
 
 export const CardModal: React.FC<CardModalProps> = ({
@@ -33,7 +35,9 @@ export const CardModal: React.FC<CardModalProps> = ({
     isCloudSynced,
     hasConflict,
     onResolveConflict,
-    debugDiff
+    debugDiff,
+    customColors,
+    onUpdateCustomColors
 }) => {
     // Removed redundant useAppSync call. App.tsx handles sync.
     // React.useEffect(() => {
@@ -71,6 +75,8 @@ export const CardModal: React.FC<CardModalProps> = ({
                     hasConflict={hasConflict}
                     onResolveConflict={onResolveConflict}
                     debugDiff={debugDiff}
+                    customColors={customColors}
+                    onUpdateCustomColors={onUpdateCustomColors}
                 />
             </div>
         </div>

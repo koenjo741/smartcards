@@ -453,6 +453,21 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         }
     };
 
+    // Force re-render on editor updates (selection changes, transactions) to sync toolbar
+    const [, forceUpdate] = React.useState({});
+    useEffect(() => {
+        if (editor) {
+            const handleUpdate = () => forceUpdate({});
+            editor.on('transaction', handleUpdate);
+            editor.on('selectionUpdate', handleUpdate);
+
+            return () => {
+                editor.off('transaction', handleUpdate);
+                editor.off('selectionUpdate', handleUpdate);
+            };
+        }
+    }, [editor]);
+
     if (!editor) {
         return null;
     }

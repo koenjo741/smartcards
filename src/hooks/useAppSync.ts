@@ -2,6 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useDropbox } from './useDropbox';
 import { stableStringify, getObjectDiff } from '../utils/helpers';
 
+const safeSetItem = (key: string, value: string) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch (e) {
+        console.error(`Failed to set localStorage item ${key}:`, e);
+    }
+};
+
 interface UseAppSyncProps {
     projects: any[];
     cards: any[];
@@ -45,7 +53,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             const newHash = stableStringify({ projects, cards, customColors });
             setLastSavedHash(newHash);
             setLastServerRevision(pendingCloudLoadRef.current.rev);
-            localStorage.setItem('sm_last_synced_hash_v3', newHash);
+            safeSetItem('sm_last_synced_hash_v3', newHash);
 
             // Clear pending flag
             pendingCloudLoadRef.current = null;
@@ -171,7 +179,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 const newHash = stableStringify(currentData);
                 setLastSavedHash(newHash);
                 if (rev) setLastServerRevision(rev);
-                localStorage.setItem('sm_last_synced_hash_v3', newHash);
+                safeSetItem('sm_last_synced_hash_v3', newHash);
             }
         }, 3000); // 3s Debounce
 
@@ -240,7 +248,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                             // Auto-heal: Accept the server's revision as the new baseline
                             setLastServerRevision(latestRev);
                             setLastSavedHash(localContentHash);
-                            localStorage.setItem('sm_last_synced_hash_v3', localContentHash);
+                            safeSetItem('sm_last_synced_hash_v3', localContentHash);
                             setHasConflict(false);
                             return; // Done!
                         }
@@ -285,7 +293,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     loadDataStore(cloudData);
                     setLastSavedHash(cloudHash);
                     setLastServerRevision(rev);
-                    localStorage.setItem('sm_last_synced_hash_v3', cloudHash);
+                    safeSetItem('sm_last_synced_hash_v3', cloudHash);
                     setHasConflict(false);
                 } else {
                     console.warn("Sync Conflict: Local changed during download.");
@@ -310,7 +318,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 loadDataStore(result.data);
                 setLastSavedHash(cloudHash);
                 setLastServerRevision(result.rev);
-                localStorage.setItem('sm_last_synced_hash_v3', cloudHash);
+                safeSetItem('sm_last_synced_hash_v3', cloudHash);
                 setHasConflict(false);
                 setDebugDiff(null);
             }
@@ -336,7 +344,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 const newHash = stableStringify(currentData);
                 setLastSavedHash(newHash);
                 if (rev) setLastServerRevision(rev);
-                localStorage.setItem('sm_last_synced_hash_v3', newHash);
+                safeSetItem('sm_last_synced_hash_v3', newHash);
                 setHasConflict(false);
                 setDebugDiff(null);
             }
@@ -422,7 +430,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             } else {
                 console.warn("[SYNC-DEBUG] Warning: Save Success but NO Revision returned!");
             }
-            localStorage.setItem('sm_last_synced_hash_v3', newHash);
+            safeSetItem('sm_last_synced_hash_v3', newHash);
         }
         return { success, rev };
     };

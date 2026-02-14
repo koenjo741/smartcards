@@ -18,6 +18,7 @@ import Highlight from '@tiptap/extension-highlight';
 // import Link from '@tiptap/extension-link';
 import { ColorPicker } from './ColorPicker';
 import TextAlign from '@tiptap/extension-text-align';
+import { resizeImage } from '../utils/imageUtils';
 
 const FontSize = Extension.create({
     name: 'fontSize',
@@ -215,22 +216,19 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         }
     };
 
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            if (file.size > 1024 * 1024) { // 1MB limit
-                alert("Image too large. Please select an image under 1MB.");
-                return;
-            }
+            try {
+                // Resize image before inserting (max 800px, JPEG 0.7)
+                // This prevents LocalStorage Quota Exceeded errors
+                const resizedDataUrl = await resizeImage(file, 800, 800, 0.7);
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const result = e.target?.result;
-                if (typeof result === 'string') {
-                    editor?.chain().focus().setImage({ src: result }).run();
-                }
-            };
-            reader.readAsDataURL(file);
+                editor?.chain().focus().setImage({ src: resizedDataUrl }).run();
+            } catch (err) {
+                console.error("Image Upload/Resize Error:", err);
+                alert("Failed to process image. Please try another one.");
+            }
         }
     };
 
@@ -359,6 +357,51 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             attributes: {
                 class: 'prose prose-sm max-w-none focus:outline-none min-h-[300px] p-2',
             },
+            handlePaste: (view, event, slice) => {
+                const items = Array.from(event.clipboardData?.items || []);
+                const imageItem = items.find(item => item.type.startsWith('image/'));
+
+                if (imageItem) {
+                    const file = imageItem.getAsFile();
+                    if (file) {
+                        event.preventDefault(); // Prevent default paste behavior
+                        resizeImage(file, 800, 800, 0.7).then(resizedDataUrl => {
+                            view.dispatch(view.state.tr.replaceSelectionWith(
+                                view.state.schema.nodes.image.create({ src: resizedDataUrl })
+                            ));
+                        }).catch(err => {
+                            console.error("Paste Image Resize Error:", err);
+                            alert("Failed to process pasted image.");
+                        });
+                        return true; // We handled it
+                    }
+                }
+                return false; // Default behavior
+            },
+            handleDrop: (view, event, slice, moved) => {
+                const hasFiles = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0;
+                if (!moved && hasFiles) {
+                    const file = event.dataTransfer?.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        event.preventDefault(); // Prevent default drop
+                        resizeImage(file, 800, 800, 0.7).then(resizedDataUrl => {
+                            // Calculate position from coordinates
+                            const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+                            if (coordinates) {
+                                view.dispatch(view.state.tr.insert(coordinates.pos, view.state.schema.nodes.image.create({ src: resizedDataUrl })));
+                            } else {
+                                // Fallback to current selection
+                                view.dispatch(view.state.tr.replaceSelectionWith(view.state.schema.nodes.image.create({ src: resizedDataUrl })));
+                            }
+                        }).catch(err => {
+                            console.error("Drop Image Resize Error:", err);
+                            alert("Failed to process dropped image.");
+                        });
+                        return true; // We handled it
+                    }
+                }
+                return false;
+            }
         },
     });
 

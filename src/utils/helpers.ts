@@ -21,15 +21,23 @@ export const stableStringify = (obj: any): string => {
 };
 
 export const stripHtml = (html: string) => {
+    if (!html || typeof html !== 'string') return "";
+    // Safety check: if HTML is suspiciously long (e.g. detailed base64 image without split), 
+    // we might want to truncate or handle differently. 
+    // For now, just try detailed parsing but wrap in try/catch to be safe.
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         return (doc.body.textContent || "").trim();
     } catch (e) {
         // Fallback for environments where DOMParser might fail (rare in browser)
         if (typeof document !== 'undefined') {
-            const tmp = document.createElement("DIV");
-            tmp.innerHTML = html;
-            return (tmp.textContent || tmp.innerText || "").trim();
+            try {
+                const tmp = document.createElement("DIV");
+                tmp.innerHTML = html;
+                return (tmp.textContent || tmp.innerText || "").trim();
+            } catch (err) {
+                return "";
+            }
         }
         return html.replace(/<[^>]*>?/gm, '');
     }

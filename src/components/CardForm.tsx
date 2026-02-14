@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ConfirmModal } from './ConfirmModal';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import type { Project, Card, Attachment } from '../types';
 import { RichTextEditor } from './RichTextEditor';
@@ -217,14 +218,16 @@ export const CardForm: React.FC<CardFormProps> = ({
                     Content
                 </label>
                 <div className="flex-1 min-h-[400px]">
-                    <RichTextEditor
-                        content={content}
-                        onChange={setContent}
-                        userColors={customColors}
-                        onUserColorsChange={onUpdateCustomColors}
-                        isStandAlone={!!isTodoCard}
-                        gcalEvents={gcalEvents}
-                    />
+                    <ErrorBoundary fallbackTitle="Editor Error" fallbackMessage="Could not load the text editor.">
+                        <RichTextEditor
+                            content={content}
+                            onChange={setContent}
+                            userColors={customColors}
+                            onUserColorsChange={onUpdateCustomColors}
+                            isStandAlone={!!isTodoCard}
+                            gcalEvents={gcalEvents}
+                        />
+                    </ErrorBoundary>
                 </div>
             </div>
 

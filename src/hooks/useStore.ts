@@ -31,7 +31,14 @@ export function useStore() {
     });
 
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (error) {
+            console.error("Failed to save to localStorage:", error);
+            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
+                alert("Storage Quota Exceeded! Your changes cannot be saved locally because the storage is full. Please remove large images or attachments.");
+            }
+        }
     }, [data]);
 
     const addCard = (card: Card) => {

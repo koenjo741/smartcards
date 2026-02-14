@@ -417,16 +417,16 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }, [content, editor]);
 
     // Focus Listener for Dashboard
-    useEffect(() => {
-        if (!editor) return;
-        const updateFocus = () => setIsEditorFocused(editor.isFocused);
-        editor.on('focus', updateFocus);
-        editor.on('blur', updateFocus);
-        return () => {
-            editor.off('focus', updateFocus);
-            editor.off('blur', updateFocus);
-        };
-    }, [editor]);
+    const handleContainerFocus = () => {
+        setIsEditorFocused(true);
+    };
+
+    const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+        // Only lose focus if moving outside the component
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setIsEditorFocused(false);
+        }
+    };
 
     if (!editor) {
         return null;
@@ -441,7 +441,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     ) : false;
 
     return (
-        <div className="border border-gray-700 rounded-md flex flex-col h-full shadow-sm w-full max-w-full" style={{ backgroundColor: '#f3f4f6' }}>
+        <div
+            className="border border-gray-700 rounded-md flex flex-col h-full shadow-sm w-full max-w-full"
+            style={{ backgroundColor: '#f3f4f6' }}
+            onFocus={handleContainerFocus}
+            onBlur={handleContainerBlur}
+        >
             <input
                 type="file"
                 ref={fileInputRef}
@@ -532,6 +537,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                     (editor.commands as any).setFontFamily(font);
                                 }
                             }}
+                            value={editor.getAttributes('textStyle').fontFamily || 'default'}
                             className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer mr-1"
                             title="Font Family"
                             style={{ width: '150px' }}
@@ -539,17 +545,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                             <optgroup label="Proportional">
                                 <option value="default">Inter</option>
                                 <option value="Roboto, sans-serif">Roboto</option>
-                                <option value="'Open Sans', sans-serif">Open Sans</option>
+                                <option value="Open Sans, sans-serif">Open Sans</option>
                                 <option value="Lato, sans-serif">Lato</option>
                                 <option value="Montserrat, sans-serif">Montserrat</option>
-                                <option value="'Source Sans 3', sans-serif">Source Sans</option>
+                                <option value="Source Sans 3, sans-serif">Source Sans</option>
                                 <option value="Nunito, sans-serif">Nunito</option>
                                 <option value="Rubik, sans-serif">Rubik</option>
+                                <option value="Merriweather, serif">Merriweather</option>
                             </optgroup>
                             <optgroup label="Monospaced">
-                                <option value="'Roboto Mono', monospace">Roboto Mono</option>
-                                <option value="'Source Code Pro', monospace">Source Code Pro</option>
-                                <option value="'Fira Code', monospace">Fira Code</option>
+                                <option value="Roboto Mono, monospace">Roboto Mono</option>
+                                <option value="Source Code Pro, monospace">Source Code Pro</option>
+                                <option value="Fira Code, monospace">Fira Code</option>
                             </optgroup>
                         </select>
 

@@ -357,7 +357,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             attributes: {
                 class: 'prose prose-sm max-w-none focus:outline-none min-h-[300px] p-2',
             },
-            handlePaste: (view, event, slice) => {
+            handlePaste: (view, event) => {
                 const items = Array.from(event.clipboardData?.items || []);
                 const imageItem = items.find(item => item.type.startsWith('image/'));
 
@@ -378,7 +378,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 }
                 return false; // Default behavior
             },
-            handleDrop: (view, event, slice, moved) => {
+            handleDrop: (view, event, _slice, moved) => {
                 const hasFiles = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0;
                 if (!moved && hasFiles) {
                     const file = event.dataTransfer?.files[0];

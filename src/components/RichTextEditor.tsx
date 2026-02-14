@@ -20,6 +20,31 @@ import { ColorPicker } from './ColorPicker';
 import TextAlign from '@tiptap/extension-text-align';
 import { resizeImage } from '../utils/imageUtils';
 
+const FONT_FAMILIES = [
+    {
+        label: 'Proportional',
+        options: [
+            { label: 'Inter', value: 'default' },
+            { label: 'Roboto', value: 'Roboto, sans-serif' },
+            { label: 'Open Sans', value: "'Open Sans', sans-serif" },
+            { label: 'Lato', value: 'Lato, sans-serif' },
+            { label: 'Montserrat', value: 'Montserrat, sans-serif' },
+            { label: 'Source Sans', value: "'Source Sans 3', sans-serif" },
+            { label: 'Nunito', value: 'Nunito, sans-serif' },
+            { label: 'Rubik', value: 'Rubik, sans-serif' },
+            { label: 'Merriweather', value: 'Merriweather, serif' },
+        ]
+    },
+    {
+        label: 'Monospaced',
+        options: [
+            { label: 'Roboto Mono', value: "'Roboto Mono', monospace" },
+            { label: 'Source Code Pro', value: "'Source Code Pro', monospace" },
+            { label: 'Fira Code', value: "'Fira Code', monospace" },
+        ]
+    }
+];
+
 const FontSize = Extension.create({
     name: 'fontSize',
     addOptions() {
@@ -537,27 +562,34 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                                     (editor.commands as any).setFontFamily(font);
                                 }
                             }}
-                            value={editor.getAttributes('textStyle').fontFamily || 'default'}
+                            value={(function () {
+                                const currentFont = editor.getAttributes('textStyle').fontFamily;
+                                if (!currentFont) return 'default';
+                                // Robust matching: compare values with quotes stripped
+                                const strippedCurrent = currentFont.replace(/['"]+/g, '').replace(/\s*,\s*/g, ',');
+                                const match = [
+                                    { value: 'default', label: 'Inter' }, // Add default to search
+                                    ...FONT_FAMILIES.flatMap(g => g.options)
+                                ].find(opt => {
+                                    if (opt.value === 'default') return false;
+                                    const strippedOption = opt.value.replace(/['"]+/g, '').replace(/\s*,\s*/g, ',');
+                                    return strippedOption === strippedCurrent;
+                                });
+                                return match ? match.value : 'default';
+                            })()}
                             className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer mr-1"
                             title="Font Family"
                             style={{ width: '150px' }}
                         >
-                            <optgroup label="Proportional">
-                                <option value="default">Inter</option>
-                                <option value="Roboto, sans-serif">Roboto</option>
-                                <option value="Open Sans, sans-serif">Open Sans</option>
-                                <option value="Lato, sans-serif">Lato</option>
-                                <option value="Montserrat, sans-serif">Montserrat</option>
-                                <option value="Source Sans 3, sans-serif">Source Sans</option>
-                                <option value="Nunito, sans-serif">Nunito</option>
-                                <option value="Rubik, sans-serif">Rubik</option>
-                                <option value="Merriweather, serif">Merriweather</option>
-                            </optgroup>
-                            <optgroup label="Monospaced">
-                                <option value="Roboto Mono, monospace">Roboto Mono</option>
-                                <option value="Source Code Pro, monospace">Source Code Pro</option>
-                                <option value="Fira Code, monospace">Fira Code</option>
-                            </optgroup>
+                            {FONT_FAMILIES.map(group => (
+                                <optgroup key={group.label} label={group.label}>
+                                    {group.options.map(opt => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            ))}
                         </select>
 
                         {/* Font Size Select */}

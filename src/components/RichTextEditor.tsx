@@ -418,9 +418,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                             </h3>
                             <div className="space-y-1">
                                 {todayEvents.length > 0 ? todayEvents.map(e => (
-                                    <div key={e.id} className="text-xs text-gray-300 truncate flex items-baseline">
+                                    <div key={e.id} className="text-[10px] md:text-xs text-gray-300 truncate flex items-baseline">
                                         {e.start.dateTime && (
-                                            <span className="text-gray-400 text-xs font-mono mr-2 w-10 shrink-0">
+                                            <span className="text-gray-400 text-[10px] md:text-xs font-mono mr-2 w-8 md:w-10 shrink-0">
                                                 {formatTime(e.start.dateTime)}
                                             </span>
                                         )}
@@ -440,9 +440,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                             </h3>
                             <div className="space-y-1">
                                 {tomorrowEvents.length > 0 ? tomorrowEvents.map(e => (
-                                    <div key={e.id} className="text-xs text-gray-300 truncate flex items-baseline">
+                                    <div key={e.id} className="text-[10px] md:text-xs text-gray-300 truncate flex items-baseline">
                                         {e.start.dateTime && (
-                                            <span className="text-gray-400 text-xs font-mono mr-2 w-10 shrink-0">
+                                            <span className="text-gray-400 text-[10px] md:text-xs font-mono mr-2 w-8 md:w-10 shrink-0">
                                                 {formatTime(e.start.dateTime)}
                                             </span>
                                         )}

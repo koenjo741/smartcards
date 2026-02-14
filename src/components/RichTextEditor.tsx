@@ -9,13 +9,14 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, Calendar } from 'lucide-react';
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 // import Link from '@tiptap/extension-link';
+import { ColorPicker } from './ColorPicker';
 import TextAlign from '@tiptap/extension-text-align';
 
 const FontSize = Extension.create({
@@ -112,21 +113,10 @@ interface RichTextEditorProps {
     content: string;
     onChange: (content: string) => void;
     editable?: boolean;
-}
-
-
-
-
-
-
-import { ColorPicker } from './ColorPicker';
-
-interface RichTextEditorProps {
-    content: string;
-    onChange: (content: string) => void;
-    editable?: boolean;
     userColors?: string[];
     onUserColorsChange?: (colors: string[]) => void;
+    isStandAlone?: boolean;
+    gcalEvents?: any[];
 }
 
 const CustomTable = Table.extend({
@@ -165,10 +155,50 @@ const CustomTable = Table.extend({
     },
 });
 
-export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChange, editable = true, userColors = [], onUserColorsChange }) => {
-    // ... (lines 160-197 omitted for brevity, they remain unchanged)
+export const RichTextEditor: React.FC<RichTextEditorProps> = ({
+    content,
+    onChange,
+    editable = true,
+    userColors = [],
+    onUserColorsChange,
+    isStandAlone = false,
+    gcalEvents = []
+}) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [showColorPopover, setShowColorPopover] = React.useState<'text' | 'highlight' | null>(null);
+
+    // Focus Logic for Dashboard
+    const [isEditorFocused, setIsEditorFocused] = React.useState(false);
+
+    // Filter events
+    const getLocalYMD = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+    const todayStr = getLocalYMD(new Date());
+    const tmr = new Date();
+    tmr.setDate(tmr.getDate() + 1);
+    const tomorrowStr = getLocalYMD(tmr);
+
+    const filterEvents = (events: any[], targetYMD: string) => {
+        return (events || []).filter(e => {
+            if (e.start.date) {
+                // All-day events have simple YYYY-MM-DD string
+                return e.start.date === targetYMD;
+            }
+            if (e.start.dateTime) {
+                // Timed events need conversion to local date string
+                return getLocalYMD(new Date(e.start.dateTime)) === targetYMD;
+            }
+            return false;
+        });
+    };
+
+    const todayEvents = filterEvents(gcalEvents, todayStr);
+    const tomorrowEvents = filterEvents(gcalEvents, tomorrowStr);
+
+    const formatTime = (dateStr: string) => {
+        if (!dateStr || dateStr.length === 10) return '';
+        return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
 
     const selectionRef = React.useRef<any>(null); // To store selection for color picker
     const addUserColor = (color: string) => {
@@ -343,6 +373,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
         }
     }, [content, editor]);
 
+    // Focus Listener for Dashboard
+    useEffect(() => {
+        if (!editor) return;
+        const updateFocus = () => setIsEditorFocused(editor.isFocused);
+        editor.on('focus', updateFocus);
+        editor.on('blur', updateFocus);
+        return () => {
+            editor.off('focus', updateFocus);
+            editor.off('blur', updateFocus);
+        };
+    }, [editor]);
+
     if (!editor) {
         return null;
     }
@@ -365,370 +407,420 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({ content, onChang
                 onChange={handleImageUpload}
             />
             {editable && (
-                <div className="rounded-t-md border-b border-gray-700 bg-slate-900 p-2 flex flex-wrap gap-1 sticky top-0 z-10">
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().toggleBold().run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bold') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Bold"
-                    // ... (omitting lines for brevity in prompt, but I need to be careful with the Replace tool)
-                    // Actually I should split this into chunks or use a larger block that includes the necessary parts.
-                    // I will target the container start, the toolbar start, and the content wrapper.
-
-                    >
-                        <Bold className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().toggleItalic().run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('italic') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Italic"
-                    >
-                        <Italic className="w-4 h-4" />
-                    </button>
-                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
-
-                    {/* Font Family Select */}
-                    <select
-                        onChange={(e) => {
-                            const font = e.target.value;
-                            if (font === 'default') {
-                                (editor.commands as any).unsetFontFamily();
-                            } else {
-                                (editor.commands as any).setFontFamily(font);
-                            }
-                        }}
-                        className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer mr-1"
-                        title="Font Family"
-                        style={{ width: '150px' }}
-                    >
-                        <optgroup label="Proportional">
-                            <option value="default">Inter</option>
-                            <option value="Roboto, sans-serif">Roboto</option>
-                            <option value="'Open Sans', sans-serif">Open Sans</option>
-                            <option value="Lato, sans-serif">Lato</option>
-                            <option value="Montserrat, sans-serif">Montserrat</option>
-                            <option value="'Source Sans 3', sans-serif">Source Sans</option>
-                            <option value="Nunito, sans-serif">Nunito</option>
-                            <option value="Rubik, sans-serif">Rubik</option>
-                        </optgroup>
-                        <optgroup label="Monospaced">
-                            <option value="'Roboto Mono', monospace">Roboto Mono</option>
-                            <option value="'Source Code Pro', monospace">Source Code Pro</option>
-                            <option value="'Fira Code', monospace">Fira Code</option>
-                        </optgroup>
-                    </select>
-
-                    {/* Font Size Select */}
-                    <select
-                        onChange={(e) => {
-                            const size = e.target.value;
-                            if (size === 'default') {
-                                (editor.commands as any).unsetFontSize();
-                            } else {
-                                (editor.commands as any).setFontSize(size);
-                            }
-                        }}
-                        value={editor.getAttributes('textStyle').fontSize || 'default'}
-                        className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer"
-                        title="Font Size"
-                        style={{ width: '85px' }}
-                    >
-                        <option value="default">Size</option>
-                        <option value="12px">12px</option>
-                        <option value="14px">14px</option>
-                        <option value="16px">16px</option>
-                        <option value="18px">18px</option>
-                        <option value="20px">20px</option>
-                        <option value="24px">24px</option>
-                        <option value="30px">30px</option>
-                    </select>
-
-                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
-                    <div className="flex items-center gap-1 relative">
-                        {/* Text Color Trigger */}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const { from, to } = editor.state.selection;
-                                selectionRef.current = { from, to };
-                                setShowColorPopover(showColorPopover === 'text' ? null : 'text');
-                            }}
-                            className="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-700 border border-gray-600"
-                            title="Text Color"
-                        >
-                            <div className="w-4 h-4 rounded-sm border border-gray-300" style={{ backgroundColor: editor.getAttributes('textStyle').color || '#000000' }} />
-                        </button>
-
-                        {showColorPopover === 'text' && (
-                            <div className="absolute top-full left-0 mt-1 z-50">
-                                <ColorPicker
-                                    type="text"
-                                    onClose={() => setShowColorPopover(null)}
-                                    editor={editor}
-                                    selectionRef={selectionRef}
-                                    userColors={userColors}
-                                    addUserColor={addUserColor}
-                                    removeUserColor={removeUserColor}
-                                />
+                (isStandAlone && !isEditorFocused) ? (
+                    // DASHBOARD VIEW
+                    <div className="rounded-t-md border-b border-gray-700 bg-slate-900 p-4 sticky top-0 z-10 flex gap-6 min-h-[60px] overflow-hidden">
+                        {/* Today Column */}
+                        <div className="flex-1 min-w-0">
+                            <h3 className="font-bold mb-2 text-xs uppercase tracking-wider flex items-center" style={{ color: '#f59e0b' }}>
+                                <Calendar className="w-3 h-3 mr-1" />
+                                Heute
+                            </h3>
+                            <div className="space-y-1">
+                                {todayEvents.length > 0 ? todayEvents.map(e => (
+                                    <div key={e.id} className="text-xs text-gray-300 truncate flex items-baseline">
+                                        {e.start.dateTime && (
+                                            <span className="text-gray-400 text-xs font-mono mr-2 w-10 shrink-0">
+                                                {formatTime(e.start.dateTime)}
+                                            </span>
+                                        )}
+                                        <span className="truncate">{e.summary}</span>
+                                    </div>
+                                )) : (
+                                    <div className="text-gray-600 text-[10px] italic">Keine Termine</div>
+                                )}
                             </div>
-                        )}
+                        </div>
 
-                        {/* Highlight Color Trigger */}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const { from, to } = editor.state.selection;
-                                selectionRef.current = { from, to };
-                                setShowColorPopover(showColorPopover === 'highlight' ? null : 'highlight');
-                            }}
-                            className="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-700 border border-gray-600 ml-1"
-                            title="Highlight Color"
-                        >
-                            <div className="w-4 h-4 rounded-sm border border-gray-300" style={{ backgroundColor: editor.getAttributes('highlight').color || '#ffff00' }} />
-                        </button>
-
-                        {/* Highlight Popover */}
-                        {showColorPopover === 'highlight' && (
-                            <div className="absolute top-full left-0 mt-1 z-50">
-                                <ColorPicker
-                                    type="highlight"
-                                    onClose={() => setShowColorPopover(null)}
-                                    editor={editor}
-                                    selectionRef={selectionRef}
-                                    userColors={userColors}
-                                    addUserColor={addUserColor}
-                                    removeUserColor={removeUserColor}
-                                />
+                        {/* Tomorrow Column */}
+                        <div className="flex-1 min-w-0 border-l border-gray-800 pl-6">
+                            <h3 className="font-bold mb-2 text-xs uppercase tracking-wider flex items-center" style={{ color: '#425de3' }}>
+                                <Calendar className="w-3 h-3 mr-1" />
+                                Morgen
+                            </h3>
+                            <div className="space-y-1">
+                                {tomorrowEvents.length > 0 ? tomorrowEvents.map(e => (
+                                    <div key={e.id} className="text-xs text-gray-300 truncate flex items-baseline">
+                                        {e.start.dateTime && (
+                                            <span className="text-gray-400 text-xs font-mono mr-2 w-10 shrink-0">
+                                                {formatTime(e.start.dateTime)}
+                                            </span>
+                                        )}
+                                        <span className="truncate">{e.summary}</span>
+                                    </div>
+                                )) : (
+                                    <div className="text-gray-600 text-[10px] italic">Keine Termine</div>
+                                )}
                             </div>
-                        )}
-
-
-                        <button
-                            type="button"
-                            onClick={() => editor.chain().focus().toggleHighlight().run()}
-                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('highlight') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                            title="Toggle Highlight"
-                        >
-                            <Highlighter className="w-4 h-4" />
-                        </button>
+                        </div>
                     </div>
-                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Align Left"
-                    >
-                        <AlignLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('center').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Align Center"
-                    >
-                        <AlignCenter className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('right').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Align Right"
-                    >
-                        <AlignRight className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().setTextAlign('justify').run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'justify' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Justify"
-                    >
-                        <AlignJustify className="w-4 h-4" />
-                    </button>
-                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (editor.isActive('superscript')) {
-                                editor.chain().focus().unsetSuperscript().run();
-                            } else {
-                                editor.chain().focus().unsetSubscript().setSuperscript().run();
-                            }
-                        }}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('superscript') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Superscript"
-                    >
-                        <SuperIcon className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (editor.isActive('subscript')) {
-                                editor.chain().focus().unsetSubscript().run();
-                            } else {
-                                editor.chain().focus().unsetSuperscript().setSubscript().run();
-                            }
-                        }}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('subscript') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Subscript"
-                    >
-                        <SubIcon className="w-4 h-4" />
-                    </button>
-                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().toggleBulletList().run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bulletList') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Bullet List"
-                    >
-                        <List className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('orderedList') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                        title="Ordered List"
-                    >
-                        <ListOrdered className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (editor.isActive('listItem')) {
-                                if (editor.can().sinkListItem('listItem')) {
-                                    editor.chain().focus().sinkListItem('listItem').run();
+                ) : (
+                    // STANDARD TOOLBAR
+                    <div className="rounded-t-md border-b border-gray-700 bg-slate-900 p-2 flex flex-wrap gap-1 sticky top-0 z-10">
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().toggleBold().run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bold') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Bold"
+                        // ... (omitting lines for brevity in prompt, but I need to be careful with the Replace tool)
+                        // Actually I should split this into chunks or use a larger block that includes the necessary parts.
+                        // I will target the container start, the toolbar start, and the content wrapper.
+
+                        >
+                            <Bold className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().toggleItalic().run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('italic') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Italic"
+                        >
+                            <Italic className="w-4 h-4" />
+                        </button>
+                        <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+
+                        {/* Font Family Select */}
+                        <select
+                            onChange={(e) => {
+                                const font = e.target.value;
+                                if (font === 'default') {
+                                    (editor.commands as any).unsetFontFamily();
+                                } else {
+                                    (editor.commands as any).setFontFamily(font);
+                                }
+                            }}
+                            className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer mr-1"
+                            title="Font Family"
+                            style={{ width: '150px' }}
+                        >
+                            <optgroup label="Proportional">
+                                <option value="default">Inter</option>
+                                <option value="Roboto, sans-serif">Roboto</option>
+                                <option value="'Open Sans', sans-serif">Open Sans</option>
+                                <option value="Lato, sans-serif">Lato</option>
+                                <option value="Montserrat, sans-serif">Montserrat</option>
+                                <option value="'Source Sans 3', sans-serif">Source Sans</option>
+                                <option value="Nunito, sans-serif">Nunito</option>
+                                <option value="Rubik, sans-serif">Rubik</option>
+                            </optgroup>
+                            <optgroup label="Monospaced">
+                                <option value="'Roboto Mono', monospace">Roboto Mono</option>
+                                <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                                <option value="'Fira Code', monospace">Fira Code</option>
+                            </optgroup>
+                        </select>
+
+                        {/* Font Size Select */}
+                        <select
+                            onChange={(e) => {
+                                const size = e.target.value;
+                                if (size === 'default') {
+                                    (editor.commands as any).unsetFontSize();
+                                } else {
+                                    (editor.commands as any).setFontSize(size);
+                                }
+                            }}
+                            value={editor.getAttributes('textStyle').fontSize || 'default'}
+                            className="h-8 text-sm border border-gray-600 rounded bg-slate-800 hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-200 py-0 pl-2 pr-7 cursor-pointer"
+                            title="Font Size"
+                            style={{ width: '85px' }}
+                        >
+                            <option value="default">Size</option>
+                            <option value="12px">12px</option>
+                            <option value="14px">14px</option>
+                            <option value="16px">16px</option>
+                            <option value="18px">18px</option>
+                            <option value="20px">20px</option>
+                            <option value="24px">24px</option>
+                            <option value="30px">30px</option>
+                        </select>
+
+                        <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                        <div className="flex items-center gap-1 relative">
+                            {/* Text Color Trigger */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const { from, to } = editor.state.selection;
+                                    selectionRef.current = { from, to };
+                                    setShowColorPopover(showColorPopover === 'text' ? null : 'text');
+                                }}
+                                className="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-700 border border-gray-600"
+                                title="Text Color"
+                            >
+                                <div className="w-4 h-4 rounded-sm border border-gray-300" style={{ backgroundColor: editor.getAttributes('textStyle').color || '#000000' }} />
+                            </button>
+
+                            {showColorPopover === 'text' && (
+                                <div className="absolute top-full left-0 mt-1 z-50">
+                                    <ColorPicker
+                                        type="text"
+                                        onClose={() => setShowColorPopover(null)}
+                                        editor={editor}
+                                        selectionRef={selectionRef}
+                                        userColors={userColors}
+                                        addUserColor={addUserColor}
+                                        removeUserColor={removeUserColor}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Highlight Color Trigger */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const { from, to } = editor.state.selection;
+                                    selectionRef.current = { from, to };
+                                    setShowColorPopover(showColorPopover === 'highlight' ? null : 'highlight');
+                                }}
+                                className="flex items-center justify-center w-6 h-6 rounded hover:bg-slate-700 border border-gray-600 ml-1"
+                                title="Highlight Color"
+                            >
+                                <div className="w-4 h-4 rounded-sm border border-gray-300" style={{ backgroundColor: editor.getAttributes('highlight').color || '#ffff00' }} />
+                            </button>
+
+                            {/* Highlight Popover */}
+                            {showColorPopover === 'highlight' && (
+                                <div className="absolute top-full left-0 mt-1 z-50">
+                                    <ColorPicker
+                                        type="highlight"
+                                        onClose={() => setShowColorPopover(null)}
+                                        editor={editor}
+                                        selectionRef={selectionRef}
+                                        userColors={userColors}
+                                        addUserColor={addUserColor}
+                                        removeUserColor={removeUserColor}
+                                    />
+                                </div>
+                            )}
+
+
+                            <button
+                                type="button"
+                                onClick={() => editor.chain().focus().toggleHighlight().run()}
+                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('highlight') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                title="Toggle Highlight"
+                            >
+                                <Highlighter className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Align Left"
+                        >
+                            <AlignLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().setTextAlign('center').run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Align Center"
+                        >
+                            <AlignCenter className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().setTextAlign('right').run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Align Right"
+                        >
+                            <AlignRight className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().setTextAlign('justify').run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive({ textAlign: 'justify' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Justify"
+                        >
+                            <AlignJustify className="w-4 h-4" />
+                        </button>
+                        <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (editor.isActive('superscript')) {
+                                    editor.chain().focus().unsetSuperscript().run();
+                                } else {
+                                    editor.chain().focus().unsetSubscript().setSuperscript().run();
+                                }
+                            }}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('superscript') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Superscript"
+                        >
+                            <SuperIcon className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (editor.isActive('subscript')) {
+                                    editor.chain().focus().unsetSubscript().run();
+                                } else {
+                                    editor.chain().focus().unsetSuperscript().setSubscript().run();
+                                }
+                            }}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('subscript') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Subscript"
+                        >
+                            <SubIcon className="w-4 h-4" />
+                        </button>
+                        <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().toggleBulletList().run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('bulletList') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Bullet List"
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('orderedList') ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                            title="Ordered List"
+                        >
+                            <ListOrdered className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (editor.isActive('listItem')) {
+                                    if (editor.can().sinkListItem('listItem')) {
+                                        editor.chain().focus().sinkListItem('listItem').run();
+                                    } else {
+                                        (editor.chain().focus() as any).indent().run();
+                                    }
                                 } else {
                                     (editor.chain().focus() as any).indent().run();
                                 }
-                            } else {
-                                (editor.chain().focus() as any).indent().run();
-                            }
-                        }}
-                        className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
-                        title="Indent (Tab)"
-                    >
-                        <Indent className="w-4 h-4" />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (editor.isActive('listItem')) {
-                                if (editor.can().liftListItem('listItem')) {
-                                    editor.chain().focus().liftListItem('listItem').run();
+                            }}
+                            className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
+                            title="Indent (Tab)"
+                        >
+                            <Indent className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (editor.isActive('listItem')) {
+                                    if (editor.can().liftListItem('listItem')) {
+                                        editor.chain().focus().liftListItem('listItem').run();
+                                    } else {
+                                        (editor.chain().focus() as any).outdent().run();
+                                    }
                                 } else {
                                     (editor.chain().focus() as any).outdent().run();
                                 }
-                            } else {
-                                (editor.chain().focus() as any).outdent().run();
-                            }
-                        }}
-                        // disabled={!editor.can().liftListItem('listItem')} // Disabled check removed as we have fallback
-                        className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
-                        title="Outdent (Shift+Tab)"
-                    >
-                        <Outdent className="w-4 h-4" />
-                    </button>
-                    <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
+                            }}
+                            // disabled={!editor.can().liftListItem('listItem')} // Disabled check removed as we have fallback
+                            className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
+                            title="Outdent (Shift+Tab)"
+                        >
+                            <Outdent className="w-4 h-4" />
+                        </button>
+                        <div className="w-px h-6 bg-gray-600 mx-1 self-center" />
 
-                    {/* Insert Table Button - Disabled if inside a table */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (isTableActive) return; // Prevent nested tables
-                            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
-                        }}
-                        disabled={isTableActive}
-                        className={`p-1.5 rounded hover:bg-slate-700 ${isTableActive ? 'opacity-30 cursor-not-allowed text-gray-600' : 'text-gray-400'}`}
-                        title={isTableActive ? "Table Controls Active" : "Insert Table"}
-                    >
-                        <TableIcon className="w-4 h-4" />
-                    </button>
+                        {/* Insert Table Button - Disabled if inside a table */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (isTableActive) return; // Prevent nested tables
+                                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+                            }}
+                            disabled={isTableActive}
+                            className={`p-1.5 rounded hover:bg-slate-700 ${isTableActive ? 'opacity-30 cursor-not-allowed text-gray-600' : 'text-gray-400'}`}
+                            title={isTableActive ? "Table Controls Active" : "Insert Table"}
+                        >
+                            <TableIcon className="w-4 h-4" />
+                        </button>
 
-                    {/* Table Controls - Shown when inside a table (Robust check) */}
-                    {isTableActive && (
-                        <div className="flex items-center gap-1 bg-slate-800 rounded px-2 py-1 ml-1 border border-slate-600 animate-in fade-in zoom-in duration-200">
-                            <span className="text-xs text-gray-400 mr-1 font-medium select-none">Table:</span>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().addColumnAfter().run()}
-                                className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
-                                title="Add Column"
-                            >
-                                <Columns className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().deleteColumn().run()}
-                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
-                                title="Delete Column"
-                            >
-                                <Columns className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().addRowAfter().run()}
-                                className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
-                                title="Add Row"
-                            >
-                                <Rows className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().deleteRow().run()}
-                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
-                                title="Delete Row"
-                            >
-                                <Rows className="w-4 h-4" />
-                            </button>
-                            <div className="w-px h-4 bg-gray-600 mx-1 self-center" />
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().updateAttributes('table', { align: 'left' }).run()}
-                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                                title="Align Table Left"
-                            >
-                                <AlignLeft className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().updateAttributes('table', { align: 'center' }).run()}
-                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                                title="Align Table Center"
-                            >
-                                <AlignCenter className="w-4 h-4" />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().updateAttributes('table', { align: 'right' }).run()}
-                                className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
-                                title="Align Table Right"
-                            >
-                                <AlignRight className="w-4 h-4" />
-                            </button>
+                        {/* Table Controls - Shown when inside a table (Robust check) */}
+                        {isTableActive && (
+                            <div className="flex items-center gap-1 bg-slate-800 rounded px-2 py-1 ml-1 border border-slate-600 animate-in fade-in zoom-in duration-200">
+                                <span className="text-xs text-gray-400 mr-1 font-medium select-none">Table:</span>
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().addColumnAfter().run()}
+                                    className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
+                                    title="Add Column"
+                                >
+                                    <Columns className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().deleteColumn().run()}
+                                    className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
+                                    title="Delete Column"
+                                >
+                                    <Columns className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().addRowAfter().run()}
+                                    className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
+                                    title="Add Row"
+                                >
+                                    <Rows className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().deleteRow().run()}
+                                    className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
+                                    title="Delete Row"
+                                >
+                                    <Rows className="w-4 h-4" />
+                                </button>
+                                <div className="w-px h-4 bg-gray-600 mx-1 self-center" />
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().updateAttributes('table', { align: 'left' }).run()}
+                                    className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'left' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                    title="Align Table Left"
+                                >
+                                    <AlignLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().updateAttributes('table', { align: 'center' }).run()}
+                                    className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'center' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                    title="Align Table Center"
+                                >
+                                    <AlignCenter className="w-4 h-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().updateAttributes('table', { align: 'right' }).run()}
+                                    className={`p-1.5 rounded hover:bg-slate-700 ${editor.isActive('table', { align: 'right' }) ? 'bg-slate-600 text-white' : 'text-gray-400'}`}
+                                    title="Align Table Right"
+                                >
+                                    <AlignRight className="w-4 h-4" />
+                                </button>
 
-                            <div className="w-px h-4 bg-gray-600 mx-1 self-center" />
-                            <button
-                                type="button"
-                                onClick={() => editor.chain().focus().deleteTable().run()}
-                                className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
-                                title="Delete Table"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
-                        </div>
-                    )}
+                                <div className="w-px h-4 bg-gray-600 mx-1 self-center" />
+                                <button
+                                    type="button"
+                                    onClick={() => editor.chain().focus().deleteTable().run()}
+                                    className="p-1.5 rounded hover:bg-red-900/50 text-red-400"
+                                    title="Delete Table"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
 
-                    <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
-                        title="Insert Image"
-                    >
-                        <ImageIcon className="w-4 h-4" />
-                    </button>
-                </div>
+                        <div className="w-px h-6 bg-gray-300 mx-1 self-center" />
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                            title="Insert Image"
+                        >
+                            <ImageIcon className="w-4 h-4" />
+                        </button>
+                    </div>
+                )
             )}
 
             <div className={`flex-1 overflow-y-auto overflow-x-auto pb-2 rounded-b-md w-full max-w-full ${!editable ? 'rounded-t-md' : ''}`}>

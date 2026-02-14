@@ -123,14 +123,14 @@ export const useGoogleCalendar = () => {
         });
     }, [tokenClient]);
 
-    const ensureAuth = async () => {
+    const ensureAuth = useCallback(async () => {
         if (isAuthenticated) return true;
         if (window.gapi.client.getToken() !== null) {
             setIsAuthenticated(true);
             return true;
         }
         return await login();
-    };
+    }, [isAuthenticated, login]);
 
     // Helper: Find or Create "SmartCards" Calendar
     const getTargetCalendar = useCallback(async () => {
@@ -291,6 +291,64 @@ export const useGoogleCalendar = () => {
         }
     }, [ensureAuth]);
 
+    const listUpcomingEvents = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const authed = await ensureAuth();
+            if (!authed) return [];
+
+            // 1. Fetch list of visible calendars
+            const calendarListResponse = await window.gapi.client.calendar.calendarList.list();
+            const visibleCalendars = calendarListResponse.result.items.filter((c: any) => c.selected);
+
+            // Fallback to 'primary' if no visible calendars found (though primary is usually selected)
+            const calendarsToFetch = visibleCalendars.length > 0 ? visibleCalendars : [{ id: 'primary' }];
+
+            // 2. Calculate time range
+            // Start of Today to Start of Day After Tomorrow + 1 (Extra buffer to 3 days to be safe)
+            const now = new Date();
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            const bufferDay = new Date(now);
+            bufferDay.setDate(bufferDay.getDate() + 3);
+            bufferDay.setHours(0, 0, 0, 0);
+
+            // 3. Fetch events from all calendars in parallel
+            const promises = calendarsToFetch.map((cal: any) =>
+                window.gapi.client.calendar.events.list({
+                    'calendarId': cal.id,
+                    'timeMin': startOfDay.toISOString(),
+                    'timeMax': bufferDay.toISOString(),
+                    'showDeleted': false,
+                    'singleEvents': true,
+                    'orderBy': 'startTime',
+                }).then((response: any) => response.result.items || [])
+                    .catch((err: any) => {
+                        console.warn(`Error fetching calendar ${cal.id}`, err);
+                        return [];
+                    })
+            );
+
+            const results = await Promise.all(promises);
+            const allEvents = results.flat();
+
+            // 4. Sort aggregated events by time
+            allEvents.sort((a, b) => {
+                const startA = a.start.dateTime || a.start.date;
+                const startB = b.start.dateTime || b.start.date;
+                return startA.localeCompare(startB);
+            });
+
+            return allEvents;
+
+        } catch (error) {
+            console.error("Error listing events", error);
+            return [];
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ensureAuth, getTargetCalendar]);
+
     return {
         isReady: !!tokenClient && isGapiLoaded,
         isAuthenticated,
@@ -298,6 +356,7 @@ export const useGoogleCalendar = () => {
         createEvent,
         deleteEvent,
         updateEvent,
+        listUpcomingEvents,
         isLoading
     };
 };

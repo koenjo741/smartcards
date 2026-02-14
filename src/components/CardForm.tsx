@@ -13,6 +13,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { ProjectSelector } from './ProjectSelector';
 import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
+import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -85,6 +86,10 @@ export const CardForm: React.FC<CardFormProps> = ({
     // Logic moved to AttachmentManager
     // Preview State & Effect removed (unused)
 
+    // Google Calendar Events State for Standard Card (Todo)
+    const [gcalEvents, setGcalEvents] = useState<any[]>([]);
+    const { listUpcomingEvents } = useGoogleCalendar();
+
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
 
     // Use ref to hold the latest onSave callback to avoid effect dependencies
@@ -139,7 +144,20 @@ export const CardForm: React.FC<CardFormProps> = ({
         }, 1000);
 
         return () => clearTimeout(timeoutId);
+        return () => clearTimeout(timeoutId);
     }, [title, content, selectedProjectIds, dueDate, attachments, linkedCardIds]);
+
+    const todoProject = projects.find(proj => proj.name === 'TODO');
+    const isTodoCard = initialData && todoProject && initialData.projectIds.includes(todoProject.id);
+
+    // Fetch Google Calendar Events for Standard Card
+    useEffect(() => {
+        if (isTodoCard) {
+            listUpcomingEvents().then(events => {
+                setGcalEvents(events);
+            });
+        }
+    }, [isTodoCard, listUpcomingEvents]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -165,12 +183,7 @@ export const CardForm: React.FC<CardFormProps> = ({
         );
     };
 
-    // ... (in handleExportPDF)
 
-    // handleExportPDF removed (unused)
-
-    const todoProject = projects.find(proj => proj.name === 'TODO');
-    const isTodoCard = initialData && todoProject && initialData.projectIds.includes(todoProject.id);
 
     return (
         <form onSubmit={handleSubmit} className={`space-y-4 ${className || ''}`}>
@@ -187,14 +200,17 @@ export const CardForm: React.FC<CardFormProps> = ({
                 />
             </div>
 
-            <div>
-                <ProjectSelector
-                    projects={projects}
-                    selectedProjectIds={selectedProjectIds}
-                    onToggleProject={toggleProject}
-                    isTodoCard={!!isTodoCard}
-                />
-            </div>
+            {/* Hide Project Selector for Standard Card (Todo) */}
+            {!isTodoCard && (
+                <div>
+                    <ProjectSelector
+                        projects={projects}
+                        selectedProjectIds={selectedProjectIds}
+                        onToggleProject={toggleProject}
+                        isTodoCard={!!isTodoCard}
+                    />
+                </div>
+            )}
 
             <div>
                 <label className="block text-sm font-medium mb-1 text-gray-300">
@@ -206,6 +222,8 @@ export const CardForm: React.FC<CardFormProps> = ({
                         onChange={setContent}
                         userColors={customColors}
                         onUserColorsChange={onUpdateCustomColors}
+                        isStandAlone={!!isTodoCard}
+                        gcalEvents={gcalEvents}
                     />
                 </div>
             </div>
@@ -270,8 +288,8 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 type="submit"
                                 disabled={selectedProjectIds.length === 0}
                                 className={`px-4 py-2 text-sm text-white rounded-md transition-colors font-medium shadow-lg ${selectedProjectIds.length === 0
-                                        ? 'bg-gray-600 cursor-not-allowed opacity-50'
-                                        : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20'
+                                    ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                                    : 'bg-blue-600 hover:bg-blue-700 hover:shadow-blue-500/20'
                                     }`}
                                 title={selectedProjectIds.length === 0 ? "Please select a project first" : undefined}
                             >

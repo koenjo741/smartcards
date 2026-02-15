@@ -35,6 +35,7 @@ export function useDropbox() {
 
             if (accessToken) {
                 localStorage.setItem('dropbox_token', accessToken);
+                sessionStorage.removeItem('dropbox_auto_connect_attempted');
                 const newDbx = new Dropbox({ accessToken });
                 setDbx(newDbx);
                 setIsAuthenticated(true);
@@ -68,7 +69,14 @@ export function useDropbox() {
                     })
                     .finally(() => setIsAuthChecking(false));
             } else {
-                setIsAuthChecking(false);
+                // Auto-connect: redirect to Dropbox OAuth if not yet attempted this session
+                if (!sessionStorage.getItem('dropbox_auto_connect_attempted')) {
+                    sessionStorage.setItem('dropbox_auto_connect_attempted', '1');
+                    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+                    window.location.href = authUrl;
+                } else {
+                    setIsAuthChecking(false);
+                }
             }
         }
     }, []);

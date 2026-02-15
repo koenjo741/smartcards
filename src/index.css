@@ -127,11 +127,10 @@ body {
 
 /* Increased specificity to override global ProseMirror black text */
 .prose.ProseMirror th,
-.ProseMirror th,
-.ProseMirror th * {
+.ProseMirror th {
   min-width: 1em;
-  padding: 8px 12px;
-  /* Comfortable padding - REDUCED */
+  padding: 6px 10px;
+  /* Comfortable padding - REDUCED as requested */
   vertical-align: top;
   box-sizing: border-box;
   position: relative;
@@ -145,6 +144,22 @@ body {
   /* slate-700 */
   border-right: 1px solid #334155;
   font-size: 0.95rem;
+  text-shadow: none !important;
+  /* Removes any inherited text shadow */
+  box-shadow: none !important;
+  /* Removes any inherited box shadow */
+}
+
+/* Ensure child elements (like p tags added by Tiptap) inherit color but don't add borders/padding */
+.ProseMirror th * {
+  color: inherit !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-weight: inherit !important;
 }
 
 .ProseMirror th:last-child {

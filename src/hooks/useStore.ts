@@ -56,9 +56,17 @@ const MOCK_CARDS: Card[] = [
 
 export function useStore() {
     const [data, setData] = useState<StoreData>(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            return JSON.parse(stored);
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                // Structural sanity check
+                if (parsed && Array.isArray(parsed.projects) && Array.isArray(parsed.cards)) {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse stored data, falling back to defaults:', e);
         }
         return { projects: MOCK_PROJECTS, cards: MOCK_CARDS, customColors: [] };
     });

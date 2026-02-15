@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { stripHtml } from '../utils/helpers';
 import type { Card } from '../types';
 
-// Types for Google API (simplified)
 declare global {
     interface Window {
         gapi: any;
@@ -19,107 +19,73 @@ export const useGoogleCalendar = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Load scripts
+    // Load Google API scripts
     useEffect(() => {
-        const loadGapi = () => {
+        const loadScript = (src: string, onLoad: () => void) => {
             const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.onload = () => setIsGapiLoaded(true);
+            script.src = src;
+            script.onload = onLoad;
             document.body.appendChild(script);
         };
 
-        const loadGis = () => {
-            const script = document.createElement('script');
-            script.src = 'https://accounts.google.com/gsi/client';
-            script.onload = () => setIsGisLoaded(true);
-            document.body.appendChild(script);
-        };
-
-        loadGapi();
-        loadGis();
+        loadScript('https://apis.google.com/js/api.js', () => setIsGapiLoaded(true));
+        loadScript('https://accounts.google.com/gsi/client', () => setIsGisLoaded(true));
     }, []);
 
     // Initialize GAPI and GIS
     useEffect(() => {
         if (!isGapiLoaded || !isGisLoaded) return;
 
-        const initializeGapiClient = async () => {
+        const initGapi = async () => {
             const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
-            if (!apiKey) {
-                console.warn('Google API Key not found');
-                return;
-            }
+            if (!apiKey) return;
 
             try {
                 await window.gapi.client.init({
-                    apiKey: apiKey,
+                    apiKey,
                     discoveryDocs: [DISCOVERY_DOC],
                 });
             } catch (err) {
-                console.error('Error initializing GAPI client', err);
+                console.error('GAPI init error:', err);
             }
         };
 
-        const initializeGisClient = () => {
+        const initGis = () => {
             const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-            if (!clientId) {
-                console.warn('Google Client ID not found');
-                return;
-            }
+            if (!clientId) return;
 
             const client = window.google.accounts.oauth2.initTokenClient({
                 client_id: clientId,
                 scope: SCOPES,
                 callback: (response: any) => {
-                    if (response.error !== undefined) {
-                        throw response;
-                    }
-                    // CRITICAL FIX: Manually set the token for GAPI to use
-                    if (window.gapi.client) {
-                        window.gapi.client.setToken(response);
-                    }
+                    if (response.error) throw response;
+                    window.gapi.client?.setToken(response);
                     setIsAuthenticated(true);
                 },
             });
             setTokenClient(client);
-
-            // Check if we have a valid token in generic logic if needed, 
-            // but GIS handles the popup flow primarily.
-            // For persistent 'silent' auth, we'd check expiration, 
-            // but typically we just re-request on user action if needed.
         };
 
-        window.gapi.load('client', initializeGapiClient);
-        initializeGisClient();
+        window.gapi.load('client', initGapi);
+        initGis();
     }, [isGapiLoaded, isGisLoaded]);
 
     const login = useCallback(async () => {
         if (!tokenClient) return false;
 
         return new Promise((resolve) => {
-            // Overwrite callback for this specific request to handle promise
             tokenClient.callback = (resp: any) => {
                 if (resp.error) {
                     console.error(resp);
                     resolve(false);
                     return;
                 }
-                // CRITICAL FIX: Manually set the token for GAPI to use
-                if (window.gapi.client) {
-                    window.gapi.client.setToken(resp);
-                }
+                window.gapi.client?.setToken(resp);
                 setIsAuthenticated(true);
                 resolve(true);
             };
 
-            // Trigger flow
-            if (window.gapi.client.getToken() === null) {
-                // Use empty prompt to avoid forcing consent screen every time.
-                // GIS handles necessary consents if scopes are missing.
-                tokenClient.requestAccessToken({ prompt: '' });
-            } else {
-                tokenClient.requestAccessToken({ prompt: '' });
-            }
+            tokenClient.requestAccessToken({ prompt: '' });
         });
     }, [tokenClient]);
 
@@ -132,70 +98,62 @@ export const useGoogleCalendar = () => {
         return await login();
     }, [isAuthenticated, login]);
 
-    // Helper: Find or Create "SmartCards" Calendar
+    // Find or Create "SmartCards" Calendar
     const getTargetCalendar = useCallback(async () => {
         try {
             const response = await window.gapi.client.calendar.calendarList.list();
             const calendars = response.result.items || [];
-
             const existing = calendars.find((c: any) => c.summary === 'SmartCards');
-            if (existing) {
-                return existing.id;
-            }
+
+            if (existing) return existing.id;
 
             const createResponse = await window.gapi.client.calendar.calendars.insert({
                 resource: {
                     summary: 'SmartCards',
                     description: 'Created by SmartCards App',
-                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                }
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                },
             });
             return createResponse.result.id;
-
         } catch (error) {
-            console.error("Error finding/creating calendar:", error);
+            console.error('Calendar lookup/create error:', error);
             return 'primary';
         }
     }, []);
 
+    /** Build a Google Calendar event resource from a Card */
+    const buildEventResource = (card: Card) => {
+        if (!card.dueDate) throw new Error('No due date');
+
+        const startDate = new Date(card.dueDate);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
+
+        return {
+            summary: card.title,
+            description: card.content ? stripHtml(card.content) : '',
+            start: { date: card.dueDate },
+            end: { date: endDate.toISOString().split('T')[0] },
+        };
+    };
+
     const createEvent = useCallback(async (card: Card) => {
         setIsLoading(true);
         try {
-            const authed = await ensureAuth();
-            if (!authed) throw new Error("Auth failed");
+            if (!(await ensureAuth())) throw new Error('Auth failed');
 
-            if (!card.dueDate) throw new Error("No due date");
-
-            const event = {
-                'summary': card.title,
-                'description': card.content ? stripHtml(card.content) : '',
-                'start': {
-                    'date': card.dueDate,
-                },
-                'end': {
-                    'date': card.dueDate,
-                }
-            };
-
-            const startDate = new Date(card.dueDate);
-            const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 1);
-            event.end.date = endDate.toISOString().split('T')[0];
-
+            const event = buildEventResource(card);
             const calendarId = await getTargetCalendar();
-            const request = window.gapi.client.calendar.events.insert({
-                'calendarId': calendarId,
-                'resource': event,
+
+            const response = await window.gapi.client.calendar.events.insert({
+                calendarId,
+                resource: event,
             });
 
-            const response = await request;
-
-            // Return both IDs so we can store them
             return { eventId: response.result.id, calendarId };
-
         } catch (error) {
-            console.error("Error creating event", error);
-            alert("Termin konnte nicht erstellt werden.");
+            console.error('Create event error:', error);
+            alert('Termin konnte nicht erstellt werden.');
             return null;
         } finally {
             setIsLoading(false);
@@ -205,29 +163,23 @@ export const useGoogleCalendar = () => {
     const deleteEvent = useCallback(async (eventId: string, calendarId: string = 'primary') => {
         setIsLoading(true);
         try {
-            const authed = await ensureAuth();
-            if (!authed) throw new Error("Auth failed");
+            if (!(await ensureAuth())) throw new Error('Auth failed');
 
-            const request = window.gapi.client.calendar.events.delete({
-                'calendarId': calendarId,
-                'eventId': eventId,
-            });
-
-            await request;
+            await window.gapi.client.calendar.events.delete({ calendarId, eventId });
             return true;
-
         } catch (error) {
-            console.error("Error deleting event", error);
-            // Fallback: Try primary if specific calendar failed (migration)
+            console.error('Delete event error:', error);
+
+            // Fallback: try primary calendar if specific one failed (migration case)
             if (calendarId !== 'primary') {
                 try {
                     await window.gapi.client.calendar.events.delete({
-                        'calendarId': 'primary',
-                        'eventId': eventId,
+                        calendarId: 'primary',
+                        eventId,
                     });
                     return true;
-                } catch (e2) {
-                    console.error("Fallback delete failed", e2);
+                } catch {
+                    // Both calendars failed
                 }
             }
             return false;
@@ -239,51 +191,22 @@ export const useGoogleCalendar = () => {
     const updateEvent = useCallback(async (card: Card, eventId: string, calendarId: string = 'primary') => {
         setIsLoading(true);
         try {
-            const authed = await ensureAuth();
-            if (!authed) {
-                console.warn("updateEvent: Auth failed");
-                return false;
-            }
+            if (!(await ensureAuth())) return false;
+            if (!card.dueDate) return false;
 
-            if (!card.dueDate) {
-                console.warn("updateEvent: No due date");
-                return false;
-            }
+            const event = buildEventResource(card);
 
-            const event: any = {
-                'summary': card.title,
-                'description': card.content ? stripHtml(card.content) : '',
-                'start': {
-                    'date': card.dueDate,
-                },
-                'end': {
-                    'date': card.dueDate,
-                }
-            };
-
-            const startDate = new Date(card.dueDate);
-            const endDate = new Date(startDate);
-            endDate.setDate(endDate.getDate() + 1);
-            event.end.date = endDate.toISOString().split('T')[0];
-
-            console.log("updateEvent: Patching event", eventId, "in calendar", calendarId);
-            const request = window.gapi.client.calendar.events.patch({
-                'calendarId': calendarId,
-                'eventId': eventId,
-                'resource': event,
+            await window.gapi.client.calendar.events.patch({
+                calendarId,
+                eventId,
+                resource: event,
             });
 
-            await request;
-            console.log("updateEvent: Success");
             return true;
-
         } catch (error: any) {
-            console.error("Error updating event", error);
+            console.error('Update event error:', error);
             if (error.status === 401 || error.status === 403) {
-                console.warn("Auth error detected, resetting auth state.");
                 setIsAuthenticated(false);
-                // Optionally: try to re-login once? overly complex for now.
-                // Resetting state ensures next attempt triggers login.
             }
             return false;
         } finally {
@@ -294,45 +217,32 @@ export const useGoogleCalendar = () => {
     const listUpcomingEvents = useCallback(async () => {
         setIsLoading(true);
         try {
-            const authed = await ensureAuth();
-            if (!authed) return [];
+            if (!(await ensureAuth())) return [];
 
-            // 1. Fetch list of visible calendars
             const calendarListResponse = await window.gapi.client.calendar.calendarList.list();
             const visibleCalendars = calendarListResponse.result.items.filter((c: any) => c.selected);
-
-            // Fallback to 'primary' if no visible calendars found (though primary is usually selected)
             const calendarsToFetch = visibleCalendars.length > 0 ? visibleCalendars : [{ id: 'primary' }];
 
-            // 2. Calculate time range
-            // Start of Today to Start of Day After Tomorrow + 1 (Extra buffer to 3 days to be safe)
             const now = new Date();
             const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
             const bufferDay = new Date(now);
             bufferDay.setDate(bufferDay.getDate() + 3);
             bufferDay.setHours(0, 0, 0, 0);
 
-            // 3. Fetch events from all calendars in parallel
             const promises = calendarsToFetch.map((cal: any) =>
                 window.gapi.client.calendar.events.list({
-                    'calendarId': cal.id,
-                    'timeMin': startOfDay.toISOString(),
-                    'timeMax': bufferDay.toISOString(),
-                    'showDeleted': false,
-                    'singleEvents': true,
-                    'orderBy': 'startTime',
-                }).then((response: any) => response.result.items || [])
-                    .catch((err: any) => {
-                        console.warn(`Error fetching calendar ${cal.id}`, err);
-                        return [];
-                    })
+                    calendarId: cal.id,
+                    timeMin: startOfDay.toISOString(),
+                    timeMax: bufferDay.toISOString(),
+                    showDeleted: false,
+                    singleEvents: true,
+                    orderBy: 'startTime',
+                }).then((r: any) => r.result.items || [])
+                    .catch(() => [])
             );
 
-            const results = await Promise.all(promises);
-            const allEvents = results.flat();
+            const allEvents = (await Promise.all(promises)).flat();
 
-            // 4. Sort aggregated events by time
             allEvents.sort((a, b) => {
                 const startA = a.start.dateTime || a.start.date;
                 const startB = b.start.dateTime || b.start.date;
@@ -340,9 +250,8 @@ export const useGoogleCalendar = () => {
             });
 
             return allEvents;
-
         } catch (error) {
-            console.error("Error listing events", error);
+            console.error('List events error:', error);
             return [];
         } finally {
             setIsLoading(false);
@@ -357,12 +266,6 @@ export const useGoogleCalendar = () => {
         deleteEvent,
         updateEvent,
         listUpcomingEvents,
-        isLoading
+        isLoading,
     };
 };
-
-function stripHtml(html: string) {
-    const tmp = document.createElement("DIV");
-    tmp.innerHTML = html;
-    return (tmp.textContent || tmp.innerText || "").trim();
-}

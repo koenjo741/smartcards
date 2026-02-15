@@ -2,67 +2,66 @@ import { Dropbox } from 'dropbox';
 import { useState, useCallback, useEffect } from 'react';
 import type { BackupData } from '../types';
 
-// REPLACE THIS WITH YOUR DROPBOX APP KEY
 export const DROPBOX_APP_KEY = 'ag0x9i8pgyothjr';
+const REDIRECT_URI = window.location.origin + '/';
+const MAX_RETRIES = 3;
+const BASE_BACKOFF_MS = 1000;
 
-const REDIRECT_URI = window.location.origin + '/'; // http://localhost:5173/
+interface SaveResult {
+    success: boolean;
+    rev?: string;
+    conflict?: boolean;
+    errorType?: 'conflict' | 'auth' | 'server_error' | 'network';
+}
+
+/** Exponential backoff delay: 1s, 2s, 4s */
+const backoffDelay = (attempt: number) =>
+    new Promise<void>(resolve => setTimeout(resolve, BASE_BACKOFF_MS * Math.pow(2, attempt)));
 
 export function useDropbox() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isAuthChecking, setIsAuthChecking] = useState(true); // New: True initially
+    const [isAuthChecking, setIsAuthChecking] = useState(true);
     const [dbx, setDbx] = useState<Dropbox | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [lastSynced, setLastSynced] = useState<Date | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [connectionError, setConnectionError] = useState<boolean>(false);
 
-    // 1. Handle Auth on Load (Check URL Hash OR LocalStorage)
+    // Handle Auth on Load (URL Hash OR LocalStorage)
     useEffect(() => {
-        // A. Check for new token in URL (Redirect from Dropbox)
         if (window.location.hash.includes('access_token')) {
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
+            const params = new URLSearchParams(window.location.hash.substring(1));
             const accessToken = params.get('access_token');
 
             if (accessToken) {
-                // Save to LocalStorage
                 localStorage.setItem('dropbox_token', accessToken);
-
                 const newDbx = new Dropbox({ accessToken });
                 setDbx(newDbx);
                 setIsAuthenticated(true);
 
-                // Get User Info
                 newDbx.usersGetCurrentAccount()
-                    .then(response => {
-                        setUserName(response.result.name.display_name);
-                    })
+                    .then(response => setUserName(response.result.name.display_name))
                     .catch(console.error)
                     .finally(() => setIsAuthChecking(false));
 
-                // Clean URL
                 window.history.replaceState(null, '', ' ');
                 setLastSynced(new Date());
             } else {
                 setIsAuthChecking(false);
             }
-        }
-        // B. Check for existing token in LocalStorage
-        else {
+        } else {
             const storedToken = localStorage.getItem('dropbox_token');
             if (storedToken) {
                 const newDbx = new Dropbox({ accessToken: storedToken });
                 setDbx(newDbx);
                 setIsAuthenticated(true);
 
-                // Verify token & get user info
                 newDbx.usersGetCurrentAccount()
                     .then(response => {
                         setUserName(response.result.name.display_name);
                         setLastSynced(new Date());
                     })
-                    .catch(err => {
-                        console.error("Token expired or invalid", err);
+                    .catch(() => {
                         localStorage.removeItem('dropbox_token');
                         setDbx(null);
                         setIsAuthenticated(false);
@@ -74,143 +73,115 @@ export function useDropbox() {
         }
     }, []);
 
-    // 2. Connect (Redirect to Dropbox)
     const connect = useCallback(() => {
         const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
         window.location.href = authUrl;
     }, []);
 
-    // 3. Save Data (Upload)
-    const saveData = useCallback(async (data: BackupData, parentRev?: string | null): Promise<{ success: boolean; rev?: string; conflict?: boolean; errorType?: 'conflict' | 'auth' | 'server_error' | 'network' }> => {
+    // Save Data with automatic retry for transient errors
+    const saveData = useCallback(async (data: BackupData, parentRev?: string | null): Promise<SaveResult> => {
         if (!dbx) return { success: false };
+
         setIsSyncing(true);
         try {
-            const fileContent = JSON.stringify(data, null, 2);
-            const blob = new Blob([fileContent], { type: 'application/json' });
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const mode = parentRev
+                ? { '.tag': 'update' as const, 'update': parentRev }
+                : { '.tag': 'overwrite' as const };
 
-            // OPTIMISTIC LOCKING STRATEGY
-            // If we have a known parent revision, we tell Dropbox: "Only save this if the current file is still at this revision".
-            // If the revisions don't match, Dropbox rejects the upload with a conflict error.
-            const mode = parentRev ? { '.tag': 'update' as const, 'update': parentRev } : { '.tag': 'overwrite' as const };
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    const response = await dbx.filesUpload({
+                        path: '/smartcards.json',
+                        contents: blob,
+                        mode,
+                    });
 
-            console.log(`[SYNC-DEBUG] Saving with mode:`, mode);
+                    setLastSynced(new Date());
+                    setConnectionError(false);
+                    return { success: true, rev: response.result.rev };
 
-            const response = await dbx.filesUpload({
-                path: '/smartcards.json',
-                contents: blob,
-                mode: mode
-            });
+                } catch (error: any) {
+                    const errorSummary = error?.error?.error_summary;
+                    const status = error?.status;
 
-            const rev = response.result.rev;
-            setLastSynced(new Date());
-            setConnectionError(false);
-            console.log("[SYNC-DEBUG] Save Successful. New Rev:", rev);
-            return { success: true, rev };
-        } catch (error: any) {
-            console.error('Dropbox Upload Error:', error);
+                    // Conflict – no retry, needs user resolution
+                    if ((errorSummary?.includes('conflict')) || status === 409) {
+                        return { success: false, conflict: true, errorType: 'conflict' };
+                    }
 
-            // 1. Handle Conflict (409 or Specific Error Summary)
-            const errorSummary = error?.error?.error_summary; // e.g., "path/conflict/..."
-            const status = error?.status;
+                    // Auth error – no retry
+                    if (status === 401 || errorSummary?.includes('expired_access_token')) {
+                        setConnectionError(true);
+                        setIsAuthenticated(false);
+                        return { success: false, errorType: 'auth' };
+                    }
 
-            if ((errorSummary && errorSummary.includes('conflict')) || status === 409) {
-                console.warn("[SYNC-DEBUG] CONFLICT DETECTED by Dropbox (Optimistic Lock).");
-                return { success: false, conflict: true, errorType: 'conflict' };
+                    // Transient error (503, network) – retry with backoff
+                    const isRetryable = status === 503 || !status;
+                    if (isRetryable && attempt < MAX_RETRIES) {
+                        console.warn(`Dropbox save attempt ${attempt + 1} failed, retrying...`);
+                        await backoffDelay(attempt);
+                        continue;
+                    }
+
+                    // Final failure
+                    return { success: false, errorType: status === 503 ? 'server_error' : 'network' };
+                }
             }
 
-            // 2. Handle 503 Service Unavailable (Common source of "Ghost Saves")
-            if (status === 503) {
-                console.warn("[SYNC-DEBUG] 503 Service Unavailable. The save MIGHT have worked. Proceed with caution.");
-                // We return specific type so the caller can decide to POLL immediately to see what happened.
-                return { success: false, errorType: 'server_error' };
-            }
-
-            // 3. Handle Auth Errors
-            const dbxError = error as { status?: number; error?: { error_summary?: string } };
-            if (dbxError?.status === 401 || dbxError?.error?.error_summary?.includes('expired_access_token')) {
-                setConnectionError(true);
-                setIsAuthenticated(false); // Force disconnect state logically
-                return { success: false, errorType: 'auth' };
-            }
-
-            // 4. Other/Network
             return { success: false, errorType: 'network' };
         } finally {
             setIsSyncing(false);
         }
     }, [dbx]);
 
-    // 4.5 Get Latest Revision (Lightweight Check) - Bypassing SDK Cache
+    // Get Latest Revision (cache-busting fetch, SDK fallback)
     const getLatestRevision = useCallback(async (): Promise<string | null> => {
         const accessToken = localStorage.getItem('dropbox_token');
 
-        // Strategy A: Try raw fetch for cache busting
         if (accessToken) {
             try {
                 const response = await fetch('https://api.dropboxapi.com/2/files/get_metadata', {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        path: '/smartcards.json',
-                        include_media_info: false,
-                        include_deleted: false,
-                        include_has_explicit_shared_members: false
-                    }),
-                    // Fetch API Cache Mode (This keeps the browser from caching)
-                    cache: 'no-store'
+                    body: JSON.stringify({ path: '/smartcards.json' }),
+                    cache: 'no-store',
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log("[SYNC-DEBUG] Latest Rev on Server (Fetch):", data.rev);
                     return data.rev;
-                } else {
-                    console.warn("[SYNC-DEBUG] Fetch Metadata failed, falling back to SDK. Status:", response.status);
                 }
-            } catch (error) {
-                console.error("[SYNC-DEBUG] Fetch Metadata Error:", error);
-            }
+            } catch { /* fall through to SDK */ }
         }
 
-        // Strategy B: Fallback to SDK (Might be cached, but better than null)
+        // Fallback to SDK
         if (!dbx) return null;
         try {
-            console.log("[SYNC-DEBUG] Using SDK for Metadata (Fallback)");
             const meta = await dbx.filesGetMetadata({ path: '/smartcards.json' });
-            const rev = (meta.result as any).rev;
-            console.log("[SYNC-DEBUG] Latest Rev on Server (SDK):", rev);
-            return rev;
-        } catch (error) {
-            console.error("[SYNC-DEBUG] SDK Metadata Error:", error);
-            // File might not exist yet
+            return (meta.result as any).rev;
+        } catch {
             return null;
         }
     }, [dbx]);
 
-    // 4. Load Data (Download)
-    // 4. Load Data (Download)
+    // Load Data (Download specific revision)
     const loadData = useCallback(async (knownRev?: string): Promise<{ data: BackupData; rev: string } | null> => {
         if (!dbx) return null;
         setIsSyncing(true);
         try {
             let rev = knownRev;
 
-            // Step 1: If Rev not provided, Get Metadata using ROBUST strategy
             if (!rev) {
                 const latestRev = await getLatestRevision();
-                if (!latestRev) {
-                    console.warn("Sync: Could not determine latest revision. Aborting load.");
-                    return null;
-                }
+                if (!latestRev) return null;
                 rev = latestRev;
             }
 
-            console.log("Sync: Downloading revision:", rev);
-
-            // Step 2: Download specific revision
             const response = await dbx.filesDownload({ path: `rev:${rev}` });
             const blob = (response.result as unknown as { fileBlob: Blob }).fileBlob;
             const text = await blob.text();
@@ -218,17 +189,13 @@ export function useDropbox() {
             setLastSynced(new Date());
             return { data: JSON.parse(text) as BackupData, rev: rev! };
         } catch (error) {
-            console.error('Dropbox Download Error:', error);
-            // It's okay if file doesn't exist yet (new user)
+            console.error('Dropbox download error:', error);
             return null;
         } finally {
             setIsSyncing(false);
         }
     }, [dbx, getLatestRevision]);
 
-
-
-    // 5. Logout
     const disconnect = useCallback(() => {
         localStorage.removeItem('dropbox_token');
         setDbx(null);
@@ -236,69 +203,54 @@ export function useDropbox() {
         setUserName(null);
     }, []);
 
-    // 6. Upload File (New)
     const uploadFile = useCallback(async (file: File) => {
-        if (!dbx) throw new Error("Not connected to Dropbox");
+        if (!dbx) throw new Error('Not connected to Dropbox');
 
-        // Create a unique name: timestamp_originalName
-        const timestamp = Date.now();
-        // Allow international characters (Umlauts etc.) but remove system-reserved chars AND underscores (cause preview issues)
-        const safeName = file.name.replace(/[\\/:"*?<>|_]/g, '-');
-        const path = `/attachments/${timestamp}_${safeName}`;
+        const safeName = file.name.replace(/[\\/:\"*?<>|_]/g, '-');
+        const path = `/attachments/${Date.now()}_${safeName}`;
 
-        const response = await dbx.filesUpload({
-            path,
-            contents: file
-        });
+        const response = await dbx.filesUpload({ path, contents: file });
 
-        // Return simplified Attachment object
         return {
-            id: response.result.id, // Dropbox ID
+            id: response.result.id,
             name: file.name,
             path: response.result.path_display || path,
             type: file.type,
-            size: file.size
+            size: file.size,
         };
     }, [dbx]);
 
-    // 7. Get File Link (New)
     const getFileLink = useCallback(async (path: string) => {
         if (!dbx) return null;
         try {
             const response = await dbx.filesGetTemporaryLink({ path });
             return response.result.link;
-        } catch (error) {
-            console.error("Error getting link:", error);
+        } catch {
             return null;
         }
     }, [dbx]);
 
-    // 8. Get File Content (Blob) for Preview
     const getFileContent = useCallback(async (path: string) => {
         if (!dbx) return null;
         try {
             const response = await dbx.filesDownload({ path });
             return (response.result as unknown as { fileBlob: Blob }).fileBlob;
-        } catch (error) {
-            console.error("Error downloading file content:", error);
+        } catch {
             return null;
         }
     }, [dbx]);
 
-    // 9. Delete File (Hard Delete)
     const deleteFile = useCallback(async (path: string) => {
-        if (!dbx) throw new Error("Not connected");
+        if (!dbx) throw new Error('Not connected');
         try {
             await dbx.filesDeleteV2({ path });
             return true;
         } catch (error: unknown) {
             const dbxError = error as { error?: { error_summary?: string } };
-            // If file is already gone (path_lookup/not_found), consider it a success so UI updates
             if (dbxError?.error?.error_summary?.includes('path_lookup/not_found')) {
-                console.warn("File already deleted from Dropbox, removing from local list.");
-                return true;
+                return true; // Already gone
             }
-            console.error("Error deleting file:", error);
+            console.error('Error deleting file:', error);
             return false;
         }
     }, [dbx]);
@@ -318,6 +270,6 @@ export function useDropbox() {
         getFileContent,
         deleteFile,
         getFileLink,
-        getLatestRevision
+        getLatestRevision,
     };
 }

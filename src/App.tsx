@@ -1,40 +1,30 @@
-import { useState, useCallback } from 'react';
-import { useStore } from './hooks/useStore';
+import { useState, useCallback, useEffect } from 'react';
+import { useStore, applyBacklinks } from './hooks/useStore';
 import { Layout } from './components/Layout';
 import { CardModal } from './components/CardModal';
 import { ProjectModal } from './components/ProjectModal';
 import { CardForm } from './components/CardForm';
-// import { Plus, Download, Loader2 } from 'lucide-react'; // Removed unused icons
 import type { Card, Project } from './types';
 import clsx from 'clsx';
-
 import { SortAsc, Calendar } from 'lucide-react';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useAppSync } from './hooks/useAppSync';
 import { DROPBOX_APP_KEY } from './hooks/useDropbox';
 import { getPreviewText } from './utils/helpers';
+import { getDueDateStyle, formatDueDate } from './utils/dateUtils';
 import { Header } from './components/Header';
 import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
 import { TimelineView } from './components/TimelineView';
 import { ConfirmModal } from './components/ConfirmModal';
-import { useEffect } from 'react';
-
-
-
-type SortOption = 'alpha' | 'date';
-
 import { matchesSearch } from './utils/search';
 
-// ... (existing imports)
+type SortOption = 'alpha' | 'date';
 
 function App() {
   const { projects, cards, addProject, addCard, updateCard, deleteCard, reorderProjects, updateProject, deleteProject, loadData: loadDataStore, customColors, setCustomColors } = useStore();
   const { createEvent, deleteEvent, updateEvent, isAuthenticated: isGoogleAuthenticated } = useGoogleCalendar();
-  // ... (lines 80-203 untouched in this replace, need to ensure context match)
-  // Actually, I cannot easily replace specific non-contiguous lines without MultiReplace or careful scoping.
-  // Let's do it in two steps or use MultiReplace.
-  // Better yet, I will use MultiReplace to fix both the declaration and the usage site.
+
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -189,24 +179,13 @@ function App() {
     userName,
     isCloudSynced,
     hasConflict,
-    resolveConflict,
-    lastServerRevision,
-    debugDiff
+    resolveConflict
   } = useAppSync({
     projects,
     cards,
     customColors,
     loadDataStore // Uses the one destructured from useStore above
   });
-
-  // DEBUG LOG
-  if (Math.random() > 0.95) console.log("App: Sync State", {
-    rev: lastServerRevision,
-    hasHandler: !!resolveConflict,
-    isCloudSynced
-  });
-
-  // ... (omitted lines)
 
 
 
@@ -351,62 +330,24 @@ function App() {
         setEditingCard(dataToSave);
       }
 
-      // FORCE SYNC: Manually trigger save with the updated data
-      // We must replicate the Backlink Logic from useStore to ensure Consistency
-
-      // 1. Identify added and removed links (Logic from useStore.ts)
-      const oldCard = cards.find(c => c.id === dataToSave.id);
-      const oldLinks = oldCard?.linkedCardIds || [];
-      const newLinks = dataToSave.linkedCardIds || [];
-      const addedLinks = newLinks.filter(id => !oldLinks.includes(id));
-      const removedLinks = oldLinks.filter(id => !newLinks.includes(id));
-
-      const updatedCards = cards.map(c => {
-        // Case A: The card itself
-        if (c.id === dataToSave.id) return dataToSave;
-
-        // Case B: Add back-link
-        if (addedLinks.includes(c.id)) {
-          const current = c.linkedCardIds || [];
-          if (!current.includes(dataToSave.id)) {
-            return { ...c, linkedCardIds: [...current, dataToSave.id] };
-          }
-        }
-        // Case C: Remove back-link
-        if (removedLinks.includes(c.id)) {
-          const current = c.linkedCardIds || [];
-          return { ...c, linkedCardIds: current.filter(id => id !== dataToSave.id) };
-        }
-        return c;
-      });
-
-      saveData({ projects, cards: updatedCards, customColors }).then(res => {
-        if (res.success) {
-          console.log("App: Manual Save Triggered Successful Sync");
-        } else {
-          console.warn("App: Manual Save Triggered Sync FAILED");
-        }
-      });
+      // Force sync with backlink-resolved card list
+      const updatedCards = applyBacklinks(cards, dataToSave);
+      saveData({ projects, cards: updatedCards, customColors });
 
       // Auto-Sync to Google Calendar if event exists
-      // Note: We use existingCard here (pre-update) (store state)
       if (existingCard?.googleEventId) {
         // ... (lines 331-393)
-        // CASE 1: Date Removed -> Delete Event
+        // Date removed → delete event
         if (!cardData.dueDate && existingCard.dueDate) {
-          console.log("App: Due date removed, deleting Google Calendar event...");
           setGoogleSyncStatus('syncing');
           try {
             const success = await deleteEvent(existingCard.googleEventId, existingCard.googleCalendarId);
             if (success) {
               setGoogleSyncStatus('deleted');
-              // Explicitly ensure the card is updated to remove the ID (if not already done by updateCard logic)
               const cleanedCard = { ...(cardData as Card), googleEventId: undefined, googleCalendarId: undefined };
               updateCard(cleanedCard);
 
-              // Force Sync Again for Cleanup
-              const cleanedCards = cards.map(c => c.id === cleanedCard.id ? cleanedCard : c);
-              saveData({ projects, cards: cleanedCards, customColors });
+              saveData({ projects, cards: cards.map(c => c.id === cleanedCard.id ? cleanedCard : c), customColors });
 
               setTimeout(() => setGoogleSyncStatus('idle'), 4000);
             } else {
@@ -417,7 +358,7 @@ function App() {
             setGoogleSyncStatus('error');
           }
         }
-        // CASE 2: Update Event
+        // Date changed → update event
         else {
           // Only update if relevant fields changed
           const hasChanged =
@@ -426,7 +367,6 @@ function App() {
             existingCard.dueDate !== cardData.dueDate;
 
           if (hasChanged && cardData.dueDate) {
-            console.log("App: Changes detected, attempting sync...");
             setGoogleSyncStatus('syncing');
             const success = await updateEvent(cardData as Card, existingCard.googleEventId, existingCard.googleCalendarId);
             if (success) {
@@ -446,7 +386,7 @@ function App() {
       saveData({ projects, cards: [...cards, newCard], customColors });
       setIsModalOpen(false);
     }
-  }, [updateCard, addCard, expandedCardId, cards, updateEvent]);
+  }, [updateCard, addCard, expandedCardId, cards, projects, customColors, saveData, deleteEvent, updateEvent]);
 
   const handleDeleteCard = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -489,46 +429,7 @@ function App() {
     });
   };
 
-  const getDueDateStyle = (dateString: string) => {
-    if (!dateString) return undefined;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let target: Date;
-    // Robust parsing: Handle ISO strings and YYYY-MM-DD
-    if (dateString.includes('T')) {
-      target = new Date(dateString);
-    } else {
-      const [year, month, day] = dateString.split('-').map(Number);
-      target = new Date(year, month - 1, day);
-    }
-    target.setHours(0, 0, 0, 0);
-
-    const diffTime = target.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffTime < 0) return '#ee4444'; // < Today (Overdue)
-    if (diffTime === 0) return '#2563eb'; // == Today
-    if (diffDays >= 1 && diffDays <= 7) return '#f59e10'; // Next 7 days (Today+1 ... Today+7)
-    return undefined; // Default (> Today+7)
-  };
-
-  const formatDueDate = (dateString: string) => {
-    if (!dateString) return '';
-    let date: Date;
-
-    if (dateString.includes('T')) {
-      date = new Date(dateString);
-    } else {
-      const [year, month, day] = dateString.split('-').map(Number);
-      date = new Date(year, month - 1, day);
-    }
-
-    const dayStr = date.getDate().toString().padStart(2, '0');
-    const monthStr = (date.getMonth() + 1).toString().padStart(2, '0');
-    const yearStr = date.getFullYear(); // Full Year
-    return `${dayStr}.${monthStr}.${yearStr}`;
-  };
+  // getDueDateStyle and formatDueDate imported from utils/dateUtils.ts
 
   const filteredCards = (selectedProjectId
     ? cards.filter(card => card.projectIds.includes(selectedProjectId))
@@ -594,10 +495,6 @@ function App() {
       currentView={viewMode}
       onViewChange={setViewMode}
     >
-      {/* DEBUG LOG */}
-      {/* {console.log("App Render: lastServerRevision =", lastServerRevision)} */}
-
-
 
       {/* ... Header ... */}
       <Header
@@ -787,11 +684,8 @@ function App() {
                   isCloudSynced={isCloudSynced}
                   isSyncing={isSyncing}
                   googleSyncStatus={googleSyncStatus}
-                  debugRevision={lastServerRevision}
-                  debugTimestamp={lastSynced}
                   hasConflict={hasConflict}
                   onResolveConflict={resolveConflict}
-                  debugDiff={debugDiff} // Pass Diagnostic Probe
                 />
               </>
             ) : (
@@ -816,15 +710,12 @@ function App() {
         projects={projects}
         cards={cards} // Pass cards for linking
         initialData={null}
-        googleSyncStatus={googleSyncStatus} // Pass sync status for visual feedback
+        googleSyncStatus={googleSyncStatus}
         isCloudSynced={isCloudSynced}
         hasConflict={hasConflict}
         onResolveConflict={resolveConflict}
-        debugDiff={debugDiff}
         customColors={customColors}
         onUpdateCustomColors={setCustomColors}
-        debugRevision={lastServerRevision}
-        debugTimestamp={lastSynced}
       />
 
       <ProjectModal

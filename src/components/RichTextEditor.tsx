@@ -15,7 +15,7 @@ import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
 import { Color } from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
-// import Link from '@tiptap/extension-link';
+
 import { ColorPicker } from './ColorPicker';
 import TextAlign from '@tiptap/extension-text-align';
 import { resizeImage } from '../utils/imageUtils';
@@ -364,11 +364,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             }),
             Color.configure({ types: [TextStyle.name] }),
             Highlight.configure({ multicolor: true }),
-            // Link.configure({ // Removed
-            //     autolink: true,
-            //     openOnClick: false,
-            //     linkOnPaste: true,
-            // }),
+
             TextAlign.configure({
                 types: ['heading', 'paragraph'],
             }),

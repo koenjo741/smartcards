@@ -12,12 +12,9 @@ interface CardModalProps {
     cards: Card[];
     initialData?: Card | null;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
-    debugRevision?: string | null;
-    debugTimestamp?: Date | null;
     isCloudSynced?: boolean;
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => Promise<void>;
-    debugDiff?: any; // Diagnostic Probe
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: Record<string, unknown>) => Promise<void>;
     customColors?: string[];
     onUpdateCustomColors?: (colors: string[]) => void;
 }
@@ -30,22 +27,12 @@ export const CardModal: React.FC<CardModalProps> = ({
     cards,
     initialData,
     googleSyncStatus,
-    debugRevision,
-    debugTimestamp,
     isCloudSynced,
     hasConflict,
     onResolveConflict,
-    debugDiff,
     customColors,
     onUpdateCustomColors
 }) => {
-    // Removed redundant useAppSync call. App.tsx handles sync.
-    // React.useEffect(() => {
-    //     if (isOpen) {
-    //         // checkForUpdates();
-    //     }
-    // }, [isOpen]);
-
     if (!isOpen) return null;
 
     return (
@@ -66,15 +53,12 @@ export const CardModal: React.FC<CardModalProps> = ({
                     onSave={onSave}
                     onCancel={onClose}
                     projects={projects}
-                    cards={cards} // Pass cards for linking
+                    cards={cards}
                     initialData={initialData}
                     googleSyncStatus={googleSyncStatus}
-                    debugRevision={debugRevision}
-                    debugTimestamp={debugTimestamp}
                     isCloudSynced={isCloudSynced}
                     hasConflict={hasConflict}
                     onResolveConflict={onResolveConflict}
-                    debugDiff={debugDiff}
                     customColors={customColors}
                     onUpdateCustomColors={onUpdateCustomColors}
                 />

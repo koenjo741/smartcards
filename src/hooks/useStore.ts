@@ -7,6 +7,39 @@ interface StoreData {
     customColors?: string[];
 }
 
+/**
+ * Applies backlink logic: when a card's linkedCardIds change,
+ * the corresponding back-links on other cards are added/removed.
+ * Exported so App.tsx can reuse this for force-sync without duplication.
+ */
+export const applyBacklinks = (cards: Card[], updatedCard: Card): Card[] => {
+    const oldCard = cards.find(c => c.id === updatedCard.id);
+    if (!oldCard) return cards.map(c => c.id === updatedCard.id ? updatedCard : c);
+
+    const oldLinks = oldCard.linkedCardIds || [];
+    const newLinks = updatedCard.linkedCardIds || [];
+    const addedLinks = newLinks.filter(id => !oldLinks.includes(id));
+    const removedLinks = oldLinks.filter(id => !newLinks.includes(id));
+
+    return cards.map(c => {
+        if (c.id === updatedCard.id) return updatedCard;
+
+        if (addedLinks.includes(c.id)) {
+            const currentLinks = c.linkedCardIds || [];
+            if (!currentLinks.includes(updatedCard.id)) {
+                return { ...c, linkedCardIds: [...currentLinks, updatedCard.id] };
+            }
+        }
+
+        if (removedLinks.includes(c.id)) {
+            const currentLinks = c.linkedCardIds || [];
+            return { ...c, linkedCardIds: currentLinks.filter(id => id !== updatedCard.id) };
+        }
+
+        return c;
+    });
+};
+
 const STORAGE_KEY = 'smartcards-data';
 
 const MOCK_PROJECTS: Project[] = [
@@ -47,44 +80,8 @@ export function useStore() {
 
     const updateCard = (updatedCard: Card) => {
         setData(prev => {
-            const oldCard = prev.cards.find(c => c.id === updatedCard.id);
-            if (!oldCard) return prev; // Should not happen in normal flow
-
-            const oldLinks = oldCard.linkedCardIds || [];
-            const newLinks = updatedCard.linkedCardIds || [];
-
-            // 1. Identify added and removed links
-            const addedLinks = newLinks.filter(id => !oldLinks.includes(id));
-            const removedLinks = oldLinks.filter(id => !newLinks.includes(id));
-
-            // 2. Update cards
-            const newCards = prev.cards.map(c => {
-                // Case A: The card itself being updated
-                if (c.id === updatedCard.id) return updatedCard;
-
-                // Case B: A card that was just linked (Add back-link)
-                if (addedLinks.includes(c.id)) {
-                    const currentLinks = c.linkedCardIds || [];
-                    // Avoid duplicates
-                    if (!currentLinks.includes(updatedCard.id)) {
-                        return { ...c, linkedCardIds: [...currentLinks, updatedCard.id] };
-                    }
-                }
-
-                // Case C: A card that was just unlinked (Remove back-link)
-                if (removedLinks.includes(c.id)) {
-                    const currentLinks = c.linkedCardIds || [];
-                    return { ...c, linkedCardIds: currentLinks.filter(id => id !== updatedCard.id) };
-                }
-
-                // Case D: Unaffected card
-                return c;
-            });
-
-            return {
-                ...prev,
-                cards: newCards
-            };
+            const newCards = applyBacklinks(prev.cards, updatedCard);
+            return { ...prev, cards: newCards };
         });
     };
 

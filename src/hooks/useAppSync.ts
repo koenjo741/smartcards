@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDropbox } from './useDropbox';
 import { stableStringify, getObjectDiff } from '../utils/helpers';
+import type { Project, Card } from '../types';
 
 const safeSetItem = (key: string, value: string) => {
     try {
@@ -11,14 +12,13 @@ const safeSetItem = (key: string, value: string) => {
 };
 
 interface UseAppSyncProps {
-    projects: any[];
-    cards: any[];
+    projects: Project[];
+    cards: Card[];
     customColors: string[];
-    loadDataStore: (data: any) => void;
+    loadDataStore: (data: { projects: Project[]; cards: Card[]; customColors?: string[] }) => void;
 }
 
 export function useAppSync({ projects, cards, customColors, loadDataStore }: UseAppSyncProps) {
-    // const { projects, cards, customColors, loadData: loadDataStore } = useStore(); // REMOVED: Now passed as props
     const {
         isAuthenticated: isDropboxAuthenticated,
         isSyncing,
@@ -38,7 +38,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     const [lastSavedHash, setLastSavedHash] = useState<string>("");
     const [lastServerRevision, setLastServerRevision] = useState<string | null>(null);
     const [hasConflict, setHasConflict] = useState(false);
-    const [debugDiff, setDebugDiff] = useState<any>(null); // DIAGNOSTIC STATE
 
     // Track local changes to prevent Auto-Sync from overwriting pending saves
     const lastLocalChange = useRef<number>(Date.now());
@@ -253,11 +252,9 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                             return; // Done!
                         }
 
-                        // 3. If genuinely different, show diff
-                        console.warn("Sync: Real Conflict Verified. Content differs.");
-                        const diff = getObjectDiff(cloudContentParams, localContentParams); // Cloud vs Local
-                        console.warn("DIAGNOSTIC DIFF (Cloud vs Local):", diff);
-                        setDebugDiff(diff);
+                        // 3. If genuinely different, log diff for diagnostics
+                        const diff = getObjectDiff(cloudContentParams, localContentParams);
+                        if (import.meta.env.DEV) console.warn('Sync: Conflict diff:', diff);
                     }
                 } catch (e) {
                     console.error("Smart Conflict Check failed", e);
@@ -320,7 +317,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 setLastServerRevision(result.rev);
                 safeSetItem('sm_last_synced_hash_v3', cloudHash);
                 setHasConflict(false);
-                setDebugDiff(null);
             }
         } else {
             // keep_local -> force save
@@ -346,7 +342,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 if (rev) setLastServerRevision(rev);
                 safeSetItem('sm_last_synced_hash_v3', newHash);
                 setHasConflict(false);
-                setDebugDiff(null);
             }
         }
     };
@@ -462,7 +457,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         checkForUpdates, // Export for manual trigger (e.g. Card Focus)
         hasConflict,
         resolveConflict,
-        lastServerRevision,
-        debugDiff
+        lastServerRevision
     };
 }

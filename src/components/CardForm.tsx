@@ -8,9 +8,7 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import { de } from 'date-fns/locale';
 registerLocale('de', de);
 import "react-datepicker/dist/react-datepicker.css";
-// import { jsPDF } from 'jspdf';
-// import html2canvas from 'html2canvas';
-// import { useDropbox } from '../hooks/useDropbox'; // Handled in components now
+
 import { ProjectSelector } from './ProjectSelector';
 import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
@@ -29,11 +27,8 @@ interface CardFormProps {
     isCloudSynced?: boolean;
     isSyncing?: boolean;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
-    debugRevision?: string | null;
-    debugTimestamp?: Date | null;
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => Promise<void>;
-    debugDiff?: any; // Diagnostic Probe
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: Record<string, unknown>) => Promise<void>;
 }
 
 export const CardForm: React.FC<CardFormProps> = ({
@@ -49,18 +44,10 @@ export const CardForm: React.FC<CardFormProps> = ({
     isCloudSynced,
     isSyncing,
     googleSyncStatus = 'idle',
-    debugRevision,
-    debugTimestamp,
     hasConflict,
-    onResolveConflict,
-    debugDiff
+    onResolveConflict
 }) => {
-    // ... (lines 54-297 untouched) ...
-    // Note: I can't preserve 200 lines easily. I will only target the Props definition first.
-    // Wait, replace_file_content works on blocks.
-    // I can do the props definition update in one call, and the render update in another.
-    // Actually, I can target the top lines 32-53 for props.
-    // and lines 305-322 for rendering.
+
     // I will do props definition first.
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -144,7 +131,6 @@ export const CardForm: React.FC<CardFormProps> = ({
             setSaveStatus('saved');
         }, 1000);
 
-        return () => clearTimeout(timeoutId);
         return () => clearTimeout(timeoutId);
     }, [title, content, selectedProjectIds, dueDate, attachments, linkedCardIds]);
 
@@ -337,12 +323,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                         (initialData?.googleEventId && googleSyncStatus === 'idle')
                                             ? 'Saved to Dropbox & Google Calendar'
                                             : 'Saved to Dropbox'}
-                                <span className="text-xs text-yellow-400 font-mono ml-2">
-                                    DEBUG: V {debugRevision ? debugRevision.slice(9, 17) : 'NULL'}
-                                    @ {debugTimestamp ? debugTimestamp.toLocaleTimeString() : 'NoTime'}
-                                    / Sync: {isCloudSynced ? 'Y' : 'N'}
-                                    / Hdlr: {onResolveConflict ? 'Y' : 'N'}
-                                </span>
+
                                 {/* FORCE SYNC BUTTON for Deadlock Scenarios (Only show on Conflict) */}
                                 {hasConflict && (
                                     <button
@@ -380,7 +361,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                                 customColors
                                             };
 
-                                            console.log("FORCE SAVE: Pushing overrides...", payload);
+
                                             onResolveConflict('keep_local', payload);
                                         }}
                                         className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded ml-2 uppercase font-bold tracking-wider"
@@ -390,17 +371,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     </button>
                                 )}
                             </span>
-                            {/* DIAGNOSTIC PROBE OUTPUT */}
-                            {debugDiff && (
-                                <div className="absolute bottom-16 left-6 p-4 bg-yellow-900/90 border border-yellow-500 rounded text-xs font-mono text-yellow-200 z-50 max-w-sm overflow-auto max-h-64 shadow-2xl">
-                                    <div className="font-bold underline mb-1">SYNC CONFLICT DETECTED</div>
-                                    <div className="mb-2">The server has a newer version than your local copy, and you have unsaved changes. Auto-sync is paused to prevent data loss.</div>
-                                    <details>
-                                        <summary className="cursor-pointer hover:text-white">Show Technical Diff (Cloud vs Local)</summary>
-                                        <pre className="mt-2 text-[10px]">{JSON.stringify(debugDiff, null, 2)}</pre>
-                                    </details>
-                                </div>
-                            )}
+
                         </div>
                     )}
                 </div>

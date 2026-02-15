@@ -43,6 +43,11 @@ body {
   outline: none;
 }
 
+.ProseMirror-selectednode {
+  outline: none !important;
+  border: none !important;
+}
+
 /* Force higher contrast for all text content */
 .ProseMirror,
 .ProseMirror p,

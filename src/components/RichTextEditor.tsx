@@ -25,14 +25,14 @@ const FONT_FAMILIES = [
         label: 'Proportional',
         options: [
             { label: 'Inter', value: 'default' },
-            { label: 'Roboto', value: 'Roboto, sans-serif' },
+            { label: 'Roboto', value: "'Roboto', sans-serif" },
             { label: 'Open Sans', value: "'Open Sans', sans-serif" },
-            { label: 'Lato', value: 'Lato, sans-serif' },
-            { label: 'Montserrat', value: 'Montserrat, sans-serif' },
+            { label: 'Lato', value: "'Lato', sans-serif" },
+            { label: 'Montserrat', value: "'Montserrat', sans-serif" },
             { label: 'Source Sans', value: "'Source Sans 3', sans-serif" },
-            { label: 'Nunito', value: 'Nunito, sans-serif' },
-            { label: 'Rubik', value: 'Rubik, sans-serif' },
-            { label: 'Merriweather', value: 'Merriweather, serif' },
+            { label: 'Nunito', value: "'Nunito', sans-serif" },
+            { label: 'Rubik', value: "'Rubik', sans-serif" },
+            { label: 'Merriweather', value: "'Merriweather', serif" },
         ]
     },
     {

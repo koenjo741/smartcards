@@ -7,6 +7,7 @@ interface SidebarProps {
     onAddProject: () => void;
     selectedProjectId: string | null;
     onSelectProject: (id: string | null) => void;
+    onDoubleClickProject?: (project: Project) => void;
     onEditProject: (project: Project) => void;
     onOpenSettings: () => void;
     searchQuery: string;
@@ -24,6 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onAddProject,
     selectedProjectId,
     onSelectProject,
+    onDoubleClickProject,
     onEditProject,
     onOpenSettings,
     searchQuery,
@@ -117,6 +119,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                     onClick={() => {
                                         onViewChange('list');
                                         onSelectProject(project.id);
+                                    }}
+                                    onDoubleClick={() => {
+                                        if (project.isGantt && onDoubleClickProject) {
+                                            onDoubleClickProject(project);
+                                        }
                                     }}
                                     className="flex-1 flex items-center space-x-2 text-left"
                                 >

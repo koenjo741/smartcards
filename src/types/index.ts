@@ -1,7 +1,18 @@
+export interface GanttProjectProps {
+  startDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  info?: string;
+  status: 'Geplant' | 'In Arbeit' | 'Fertig';
+  totalBudget?: number;
+  yearlyBudgets?: Record<string, number>; // e.g. { "2026": 5000, "2027": 10000 }
+}
+
 export interface Project {
   id: string;
   name: string;
   color: string;
+  isGantt?: boolean;
+  gantt?: GanttProjectProps;
 }
 
 export interface Attachment {
@@ -10,6 +21,16 @@ export interface Attachment {
   path: string;
   type: string;
   size: number;
+}
+
+export interface GanttCardProps {
+  startDate: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  info?: string;
+  status: 'Geplant' | 'In Arbeit' | 'Fertig';
+  plannedBudget?: number;
+  consumedBudget?: number;
+  companies?: string[];
 }
 
 export interface Card {
@@ -22,6 +43,8 @@ export interface Card {
   linkedCardIds?: string[];
   googleEventId?: string;
   googleCalendarId?: string;
+  isGantt?: boolean;
+  gantt?: GanttCardProps;
 }
 
 export interface BackupData {

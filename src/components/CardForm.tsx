@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Check, Loader2, Trash2 } from 'lucide-react';
-import type { Project, Card, Attachment } from '../types';
+import type { Project, Card, Attachment, GanttCardProps } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { de } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import { ProjectSelector } from './ProjectSelector';
 import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+import { CompanyAutocomplete } from './CompanyAutocomplete';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -30,6 +31,12 @@ interface CardFormProps {
     hasConflict?: boolean;
     onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: Record<string, unknown>) => Promise<void>;
 }
+
+// Helper function to format numbers with thousands separators
+const formatCurrency = (value: number | undefined | null): string => {
+    if (value === undefined || value === null) return '';
+    return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+};
 
 export const CardForm: React.FC<CardFormProps> = ({
     onSave,
@@ -52,9 +59,11 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+    const [isGantt, setIsGantt] = useState<boolean>(false);
     const [dueDate, setDueDate] = useState('');
     const [linkedCardIds, setLinkedCardIds] = useState<string[]>([]);
-    // const [linkSearch, setLinkSearch] = useState(''); // Moved to LinkedCardsManager
+    // GANTT State
+    const [ganttData, setGanttData] = useState<Partial<GanttCardProps>>({ status: 'Geplant' });
 
     // Confirmation State
     const [confirmState, setConfirmState] = useState<{
@@ -101,6 +110,10 @@ export const CardForm: React.FC<CardFormProps> = ({
             setDueDate(prev => (initialData.dueDate || '') !== prev ? (initialData.dueDate || '') : prev);
             setAttachments(prev => JSON.stringify(initialData.attachments) !== JSON.stringify(prev) ? (initialData.attachments || []) : prev);
             setLinkedCardIds(prev => JSON.stringify(initialData.linkedCardIds) !== JSON.stringify(prev) ? (initialData.linkedCardIds || []) : prev);
+            setIsGantt(prev => (initialData.isGantt || false) !== prev ? (initialData.isGantt || false) : prev);
+            if (initialData.gantt) {
+                setGanttData(initialData.gantt);
+            }
         } else {
             setTitle('');
             setContent('');
@@ -108,8 +121,24 @@ export const CardForm: React.FC<CardFormProps> = ({
             setDueDate('');
             setAttachments([]);
             setLinkedCardIds([]);
+            setIsGantt(false);
+            setGanttData({ status: 'Geplant' });
         }
     }, [initialData]);
+
+    // Enforce GANTT constraint: only exactly 1 project can be selected AND it must be a GANTT project
+    useEffect(() => {
+        if (isGantt) {
+            if (selectedProjectIds.length !== 1) {
+                setIsGantt(false);
+            } else {
+                const selectedProj = projects.find(p => p.id === selectedProjectIds[0]);
+                if (!selectedProj?.isGantt) {
+                    setIsGantt(false);
+                }
+            }
+        }
+    }, [selectedProjectIds, isGantt, projects]);
 
     useEffect(() => {
         if (!initialDataRef.current) return;
@@ -126,13 +155,15 @@ export const CardForm: React.FC<CardFormProps> = ({
                 attachments,
                 linkedCardIds: linkedCardIds || [],
                 googleEventId: dueDate ? currentData?.googleEventId : undefined,
-                googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
+                googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined,
+                isGantt: selectedProjectIds.length === 1 ? isGantt : false,
+                gantt: (selectedProjectIds.length === 1 && isGantt) ? (ganttData as GanttCardProps) : undefined
             } as Card);
             setSaveStatus('saved');
         }, 1000);
 
         return () => clearTimeout(timeoutId);
-    }, [title, content, selectedProjectIds, dueDate, attachments, linkedCardIds]);
+    }, [title, content, selectedProjectIds, dueDate, attachments, linkedCardIds, isGantt, ganttData]);
 
     const todoProject = projects.find(proj => proj.name === 'TODO');
     const isTodoCard = initialData && todoProject && initialData.projectIds.includes(todoProject.id);
@@ -158,7 +189,9 @@ export const CardForm: React.FC<CardFormProps> = ({
             attachments,
             linkedCardIds: linkedCardIds || [],
             googleEventId: dueDate ? currentData?.googleEventId : undefined,
-            googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
+            googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined,
+            isGantt: selectedProjectIds.length === 1 ? isGantt : false,
+            gantt: (selectedProjectIds.length === 1 && isGantt) ? (ganttData as GanttCardProps) : undefined
         } as Card);
     };
 
@@ -189,77 +222,212 @@ export const CardForm: React.FC<CardFormProps> = ({
 
             {/* Hide Project Selector for Standard Card (Todo) */}
             {!isTodoCard && (
-                <div>
+                <div className="space-y-3">
                     <ProjectSelector
                         projects={projects}
                         selectedProjectIds={selectedProjectIds}
                         onToggleProject={toggleProject}
                         isTodoCard={!!isTodoCard}
+                        isGantt={isGantt}
+                        onGanttChange={setIsGantt}
                     />
                 </div>
             )}
 
-            <div>
-                <label className="block text-sm font-medium mb-1 text-gray-300">
-                    Content
-                </label>
-                <div className="flex-1 min-h-[400px]">
-                    <ErrorBoundary fallbackTitle="Editor Error" fallbackMessage="Could not load the text editor.">
-                        <RichTextEditor
-                            content={content}
-                            onChange={setContent}
-                            userColors={customColors}
-                            onUserColorsChange={onUpdateCustomColors}
-                            isStandAlone={!!isTodoCard}
-                            gcalEvents={gcalEvents}
+            {/* Render Standard Fields OR GANTT Fields */}
+            {!isGantt ? (
+                <>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-300">
+                            Content
+                        </label>
+                        <div className="flex-1 min-h-[400px]">
+                            <ErrorBoundary fallbackTitle="Editor Error" fallbackMessage="Could not load the text editor.">
+                                <RichTextEditor
+                                    content={content}
+                                    onChange={setContent}
+                                    userColors={customColors}
+                                    onUserColorsChange={onUpdateCustomColors}
+                                    isStandAlone={!!isTodoCard}
+                                    gcalEvents={gcalEvents}
+                                />
+                            </ErrorBoundary>
+                        </div>
+                    </div>
+
+                    {!isTodoCard && (
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Due Date
+                            </label>
+                            <DatePicker
+                                selected={dueDate ? new Date(dueDate) : null}
+                                onChange={(date: Date | null) => {
+                                    if (date) {
+                                        const offset = date.getTimezoneOffset();
+                                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+                                        setDueDate(adjustedDate.toISOString().split('T')[0]);
+                                    } else {
+                                        setDueDate('');
+                                        // Deletion is now handled by onSave in App.tsx for better state management
+                                    }
+                                }}
+                                dateFormat="dd.MM.yyyy"
+                                className="w-full px-3 py-2 bg-slate-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
+                                placeholderText="Select due date"
+                                isClearable
+                                todayButton="Heute"
+                                locale="de"
+                            />
+                        </div>
+                    )}
+
+                    <div>
+                        <AttachmentManager
+                            attachments={attachments}
+                            onAttachmentsChange={setAttachments}
                         />
-                    </ErrorBoundary>
-                </div>
-            </div>
+                    </div>
 
-            {!isTodoCard && (
-                <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-300">
-                        Due Date
-                    </label>
-                    <DatePicker
-                        selected={dueDate ? new Date(dueDate) : null}
-                        onChange={(date: Date | null) => {
-                            if (date) {
-                                const offset = date.getTimezoneOffset();
-                                const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-                                setDueDate(adjustedDate.toISOString().split('T')[0]);
-                            } else {
-                                setDueDate('');
-                                // Deletion is now handled by onSave in App.tsx for better state management
-                            }
-                        }}
-                        dateFormat="dd.MM.yyyy"
-                        className="w-full px-3 py-2 bg-slate-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
-                        placeholderText="Select due date"
-                        isClearable
-                        todayButton="Heute"
-                        locale="de"
-                    />
+                    <div>
+                        <LinkedCardsManager
+                            linkedCardIds={linkedCardIds}
+                            allCards={cards}
+                            currentCardId={initialData?.id}
+                            onUpdateLinks={setLinkedCardIds}
+                            onNavigate={onSelectCard}
+                        />
+                    </div>
+                </>
+            ) : (
+                <div className="space-y-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Beginn
+                            </label>
+                            <DatePicker
+                                selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
+                                onChange={(date: Date | null) => {
+                                    if (date) {
+                                        const offset = date.getTimezoneOffset();
+                                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+                                        setGanttData(prev => ({ ...prev, startDate: adjustedDate.toISOString().split('T')[0] }));
+                                    }
+                                }}
+                                dateFormat="dd.MM.yyyy"
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
+                                placeholderText="DD.MM.YYYY"
+                                required
+                                locale="de"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Ende
+                            </label>
+                            <DatePicker
+                                selected={ganttData.endDate ? new Date(ganttData.endDate) : null}
+                                onChange={(date: Date | null) => {
+                                    if (date) {
+                                        const offset = date.getTimezoneOffset();
+                                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+                                        setGanttData(prev => ({ ...prev, endDate: adjustedDate.toISOString().split('T')[0] }));
+                                    } else {
+                                        setGanttData(prev => ({ ...prev, endDate: undefined }));
+                                    }
+                                }}
+                                dateFormat="dd.MM.yyyy"
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
+                                placeholderText="DD.MM.YYYY"
+                                isClearable
+                                locale="de"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-300">
+                            Info
+                        </label>
+                        <textarea
+                            value={ganttData.info || ''}
+                            onChange={(e) => setGanttData(prev => ({ ...prev, info: e.target.value }))}
+                            rows={3}
+                            className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500 resize-y"
+                            placeholder="Zusätzliche Informationen..."
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Status
+                            </label>
+                            <select
+                                value={ganttData.status || 'Geplant'}
+                                onChange={(e) => setGanttData(prev => ({ ...prev, status: e.target.value as 'Geplant' | 'In Arbeit' | 'Fertig' }))}
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
+                            >
+                                <option value="Geplant">Geplant</option>
+                                <option value="In Arbeit">In Arbeit</option>
+                                <option value="Fertig">Fertig</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Budget, zugewiesen
+                            </label>
+                            <input
+                                type="text"
+                                defaultValue={formatCurrency(ganttData.plannedBudget)}
+                                onBlur={(e) => {
+                                    const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                                    const num = val === '' ? undefined : Number(val);
+                                    if (num === undefined || !isNaN(num)) {
+                                        setGanttData(prev => ({ ...prev, plannedBudget: num }));
+                                        e.target.value = formatCurrency(num);
+                                    }
+                                }}
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Budget, verbraucht
+                            </label>
+                            <input
+                                type="text"
+                                defaultValue={formatCurrency(ganttData.consumedBudget)}
+                                onBlur={(e) => {
+                                    const val = e.target.value.replace(/\./g, '').replace(',', '.');
+                                    const num = val === '' ? undefined : Number(val);
+                                    if (num === undefined || !isNaN(num)) {
+                                        setGanttData(prev => ({ ...prev, consumedBudget: num }));
+                                        e.target.value = formatCurrency(num);
+                                    }
+                                }}
+                                className={`w-full px-2 py-1 bg-[#020617] border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium ${(ganttData.consumedBudget ?? 0) > (ganttData.plannedBudget ?? 0)
+                                    ? 'border-red-500 text-red-400'
+                                    : 'border-green-500/50 text-green-400'
+                                    }`}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-gray-300">
+                            Firmen
+                        </label>
+                        <CompanyAutocomplete
+                            value={ganttData.companies || []}
+                            onChange={(companies) => setGanttData(prev => ({ ...prev, companies }))}
+                            allGanttCards={cards.filter(c => c.isGantt)}
+                            currentCardId={initialData?.id}
+                        />
+                    </div>
                 </div>
             )}
-
-            <div>
-                <AttachmentManager
-                    attachments={attachments}
-                    onAttachmentsChange={setAttachments}
-                />
-            </div>
-
-            <div>
-                <LinkedCardsManager
-                    linkedCardIds={linkedCardIds}
-                    allCards={cards}
-                    currentCardId={initialData?.id}
-                    onUpdateLinks={setLinkedCardIds}
-                    onNavigate={onSelectCard}
-                />
-            </div>
             {/* ... skipping to footer ... */}
             <div className="flex justify-end items-center pt-4 space-x-2 border-t border-gray-700 mt-6">
                 {/* Footer Actions (Cancel / Save only) */}

@@ -8,6 +8,7 @@ interface LayoutProps {
     onAddProject: () => void;
     selectedProjectId: string | null;
     onSelectProject: (id: string | null) => void;
+    onDoubleClickProject?: (project: Project) => void;
     onEditProject: (project: Project) => void;
     onOpenSettings: () => void;
     connectionError?: boolean;
@@ -24,6 +25,7 @@ export const Layout: React.FC<LayoutProps> = ({
     onAddProject,
     selectedProjectId,
     onSelectProject,
+    onDoubleClickProject,
     onEditProject,
     onOpenSettings,
     connectionError,
@@ -66,6 +68,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     onSelectProject(id);
                     setSidebarOpen(false); // Close sidebar on selection
                 }}
+                onDoubleClickProject={onDoubleClickProject}
                 onEditProject={onEditProject}
                 onOpenSettings={onOpenSettings}
                 searchQuery={searchQuery}

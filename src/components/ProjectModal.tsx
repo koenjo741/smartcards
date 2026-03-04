@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import type { Project } from '../types';
+import { X, CalendarClock } from 'lucide-react';
+import type { Project, GanttProjectProps } from '../types';
 
 interface ProjectModalProps {
     isOpen: boolean;
@@ -28,14 +28,17 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 }) => {
     const [name, setName] = useState('');
     const [color, setColor] = useState(COLORS[0]);
+    const [isGantt, setIsGantt] = useState(false);
 
     useEffect(() => {
         if (initialData) {
             setName(initialData.name);
             setColor(initialData.color);
+            setIsGantt(initialData.isGantt || false);
         } else {
             setName('');
             setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+            setIsGantt(false);
         }
     }, [initialData, isOpen]);
 
@@ -43,10 +46,21 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        let ganttProps: GanttProjectProps | undefined = undefined;
+        if (isGantt) {
+            ganttProps = initialData?.gantt || {
+                startDate: new Date().toISOString().split('T')[0],
+                status: 'Geplant'
+            };
+        }
+
         onSave({
             ...(initialData || {}),
             name,
             color,
+            isGantt,
+            gantt: ganttProps,
         } as Project);
         onClose();
     };
@@ -113,6 +127,20 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                                 maxLength={7}
                             />
                         </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                        <input
+                            type="checkbox"
+                            id="isGantt"
+                            checked={isGantt}
+                            onChange={(e) => setIsGantt(e.target.checked)}
+                            className="w-4 h-4 text-blue-600 bg-slate-900 border-gray-700 rounded focus:ring-blue-500 focus:ring-2"
+                        />
+                        <label htmlFor="isGantt" className="text-sm font-medium text-gray-300 flex items-center gap-1 cursor-pointer">
+                            <CalendarClock className="w-4 h-4 text-blue-400" />
+                            GANTT Projekt
+                        </label>
                     </div>
 
                     <div className="flex justify-end pt-4 space-x-2">

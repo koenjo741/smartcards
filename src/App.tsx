@@ -17,6 +17,7 @@ import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
 import { TimelineView } from './components/TimelineView';
 import { ConfirmModal } from './components/ConfirmModal';
+import { ProjectDetailView } from './components/ProjectDetailView';
 import { matchesSearch } from './utils/search';
 
 type SortOption = 'alpha' | 'date';
@@ -31,6 +32,7 @@ function App() {
   const [editingCard, setEditingCard] = useState<Card | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedGanttProject, setSelectedGanttProject] = useState<Project | null>(null);
   const [expandedCardId, setExpandedCardId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>('date');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -287,6 +289,7 @@ function App() {
 
   const handleProjectSelect = (projectId: string | null) => {
     setSelectedProjectId(projectId);
+    setSelectedGanttProject(null); // Close Gantt view on new project selection
 
     // Filter to see how many cards are "visible" for this project
     const visibleCards = cards.filter(card => {
@@ -307,6 +310,13 @@ function App() {
       // Otherwise close detail view
       handleCloseExpanded();
     }
+  };
+
+  const handleDoubleClickProject = (project: Project) => {
+    setSelectedGanttProject(project);
+    setSelectedProjectId(project.id);
+    handleCloseExpanded(); // Close any expanded cards
+    setViewMode('list');
   };
 
   const handleSaveCard = useCallback(async (cardData: Omit<Card, 'id'> | Card) => {
@@ -480,6 +490,7 @@ function App() {
       onAddProject={handleOpenNewProject}
       selectedProjectId={selectedProjectId}
       onSelectProject={handleProjectSelect}
+      onDoubleClickProject={handleDoubleClickProject}
       onEditProject={handleOpenEditProject}
       onOpenSettings={() => setIsSettingsOpen(true)}
       connectionError={connectionError}
@@ -644,7 +655,7 @@ function App() {
         {/* Logic: Hidden on mobile IF no card is expanded */}
         <div className={clsx(
           "w-full md:flex-1 bg-slate-800 rounded-xl shadow-lg border border-gray-700 p-4 md:p-8 overflow-y-auto relative h-full",
-          !expandedCardId && viewMode === 'list' ? "hidden md:block" : "block",
+          !expandedCardId && !selectedGanttProject && viewMode === 'list' ? "hidden md:block" : "block",
           viewMode === 'timeline' ? "p-0 overflow-hidden" : ""
         )}>
           {viewMode === 'timeline' ? (
@@ -652,6 +663,16 @@ function App() {
               cards={cards} // Pass all cards, TimelineView filters by date
               projects={projects}
               onCardClick={handleCardClick}
+            />
+          ) : selectedGanttProject ? (
+            <ProjectDetailView
+              project={selectedGanttProject}
+              cards={cards} // Pass cards for budget calculating
+              onSave={(updatedProject) => {
+                updateProject(updatedProject);
+                setSelectedGanttProject(updatedProject);
+              }}
+              onClose={() => setSelectedGanttProject(null)}
             />
           ) : (
             expandedCardId && editingCard ? (

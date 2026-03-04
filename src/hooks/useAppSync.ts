@@ -332,7 +332,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     customColors: cloudData.customColors
                 };
 
-                const payload = { ...mergedData, _meta: { lastSaved: Date.now(), appVersion: '1.0.1' } };
+                const payload = { ...mergedData, _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ } };
                 const { success, rev } = await saveData(payload, secureRev);
 
                 if (success) {
@@ -350,7 +350,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             updateLastServerRevision(latest);
 
             const data = dataOverride || { projects, cards, customColors };
-            const payload = { ...data, _meta: { lastSaved: Date.now(), appVersion: '1.0.1' } };
+            const payload = { ...data, _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ } };
 
             const { success, rev } = await saveData(payload, latest);
 
@@ -436,7 +436,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     const saveWithMeta = async (data: any) => {
         const payload = {
             ...data,
-            _meta: { lastSaved: Date.now(), appVersion: '1.0.1' },
+            _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ },
         };
         return saveData(payload, lastServerRevision);
     };

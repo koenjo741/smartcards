@@ -39,7 +39,26 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     const [lastSavedHash, setLastSavedHash] = useState<string>(() => localStorage.getItem('sm_last_synced_hash_v3') || '');
     const [lastServerRevision, setLastServerRevision] = useState<string | null>(() => localStorage.getItem('sm_last_server_revision_v3') || null);
     const [hasConflict, setHasConflict] = useState(false);
+    const [conflictingItems, setConflictingItems] = useState<string[]>([]);
     const [pendingSave, setPendingSave] = useState(false);
+
+    const checkConflicts = (cloudData: { cards: Card[] }) => {
+        const diffCards: string[] = [];
+        // Check for local cards that differ from cloud or are missing in cloud
+        cards.forEach(localCard => {
+            const cloudCard = cloudData.cards.find(c => c.id === localCard.id);
+            if (!cloudCard || stableStringify(localCard) !== stableStringify(cloudCard)) {
+                diffCards.push(localCard.title || 'Ohne Titel');
+            }
+        });
+        // Check for cloud cards that are missing locally
+        cloudData.cards.forEach(cloudCard => {
+            if (!cards.find(c => c.id === cloudCard.id)) {
+                diffCards.push(cloudCard.title || 'Ohne Titel');
+            }
+        });
+        setConflictingItems(Array.from(new Set(diffCards)));
+    };
 
     const updateLastServerRevision = (rev: string | null) => {
         setLastServerRevision(rev);
@@ -113,6 +132,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 if (storedRev && storedRev !== rev) {
                     console.warn('Sync: Conflict detected on initial load! Server has newer changes.');
                     setHasConflict(true);
+                    if (data?.cards) checkConflicts(data);
                     setLastSavedHash(storedHash || '');
                     updateLastServerRevision(storedRev); // Keep old rev explicitly for conflict resolution payload
                     setIsCloudLoaded(true);
@@ -159,6 +179,8 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
             if (conflict) {
                 setHasConflict(true);
+                // Trigger an update check to download the cloud version and find the diff
+                checkForUpdates(true);
                 return;
             }
 
@@ -210,8 +232,11 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                             setLastSavedHash(localHash);
                             safeSetItem('sm_last_synced_hash_v3', localHash);
                             setHasConflict(false);
+                            setConflictingItems([]);
                             return;
                         }
+
+                        checkConflicts(cloudData);
 
                         if (import.meta.env.DEV) {
                             console.warn('Sync conflict diff:', getObjectDiff(
@@ -271,6 +296,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 updateLastServerRevision(result.rev);
                 safeSetItem('sm_last_synced_hash_v3', cloudHash);
                 setHasConflict(false);
+                setConflictingItems([]);
             }
         } else if (strategy === 'manual_merge') {
             const secureRev = await getLatestRevision();
@@ -316,6 +342,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     if (rev) updateLastServerRevision(rev);
                     safeSetItem('sm_last_synced_hash_v3', newHash);
                     setHasConflict(false);
+                    setConflictingItems([]);
                 }
             }
         } else {
@@ -333,6 +360,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 if (rev) updateLastServerRevision(rev);
                 safeSetItem('sm_last_synced_hash_v3', newHash);
                 setHasConflict(false);
+                setConflictingItems([]);
             }
         }
     };
@@ -390,6 +418,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
         if (conflict) {
             setHasConflict(true);
+            checkForUpdates(true);
             return { success: false };
         }
 
@@ -428,6 +457,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         userName,
         checkForUpdates,
         hasConflict,
+        conflictingItems,
         resolveConflict,
         lastServerRevision,
         isDirty,

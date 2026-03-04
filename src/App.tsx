@@ -178,6 +178,7 @@ function App() {
     userName,
     isCloudSynced,
     hasConflict,
+    conflictingItems,
     resolveConflict,
     isDirty
   } = useAppSync({
@@ -499,6 +500,7 @@ function App() {
         onOpenNewCard={handleOpenNewCard}
         expandedCardId={expandedCardId}
         hasConflict={hasConflict}
+        conflictingItems={conflictingItems}
         onResolveConflict={resolveConflict}
         isDirty={isDirty}
       />

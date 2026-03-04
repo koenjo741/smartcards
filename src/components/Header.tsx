@@ -12,6 +12,7 @@ interface HeaderProps {
     onOpenNewCard: () => void;
     expandedCardId: string | null;
     hasConflict?: boolean;
+    conflictingItems?: string[];
     onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: any) => void;
     isDirty?: boolean;
 }
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
     onOpenNewCard,
     expandedCardId,
     hasConflict,
+    conflictingItems = [],
     onResolveConflict,
     isDirty
 }) => {
@@ -39,6 +41,16 @@ export const Header: React.FC<HeaderProps> = ({
                         </h2>
                         <p className="text-sm text-red-100 font-medium">
                             Deine lokalen Daten weichen von den Daten in Dropbox ab (z.B. durch Offline-Nutzung).
+                            {conflictingItems.length > 0 && (
+                                <span className="block mt-2 mb-2 p-2 bg-red-800/50 rounded border border-red-500/30">
+                                    <span className="font-bold text-xs uppercase tracking-wider text-red-200 block mb-1">Betroffene Karten:</span>
+                                    <ul className="list-disc pl-4 text-xs">
+                                        {conflictingItems.map((item, idx) => (
+                                            <li key={idx} className="truncate" title={item}>{item}</li>
+                                        ))}
+                                    </ul>
+                                </span>
+                            )}
                             Bitte wähle, wie du fortfahren möchtest:
                         </p>
                     </div>

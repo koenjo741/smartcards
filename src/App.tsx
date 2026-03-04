@@ -166,7 +166,6 @@ function App() {
 
   const {
     isDropboxAuthenticated,
-    isAuthChecking,
     isCloudLoaded,
     isSyncing,
     connectionError,
@@ -453,25 +452,17 @@ function App() {
   const todoCard = todoProject ? cards.find(c => c.projectIds.includes(todoProject.id)) : null;
 
   // Filter TODO card out of standard list
-  // CHANGED: We now only filter out the specific pinned TODO card.
-  // If other cards were accidentally assigned to the TODO project (the bug),
-  // they will now appear in the list so the user can open them and fix them.
   const standardCards = filteredCards.filter(c => !todoCard || c.id !== todoCard.id);
 
-  if (isAuthChecking) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (!isDropboxAuthenticated) {
+  // If not authenticated, but we have local data, we STILL show the app (offline mode)
+  // We only show EmptyState if we have NO DATA and NO AUTH
+  if (!isDropboxAuthenticated && cards.length === 0 && projects.length === 0) {
     return <EmptyState onConnect={handleConnect} />;
   }
 
-  // FORCE SYNC WAIT: Block UI until data is loaded from Cloud
-  if (isDropboxAuthenticated && !isCloudLoaded) {
+  // FORCE SYNC WAIT: Block UI until data is loaded from Cloud (only if online and authenticated)
+  // If connectionError is true, we are offline/failed, so we SHOULD NOT block the UI.
+  if (isDropboxAuthenticated && !isCloudLoaded && !connectionError) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950 text-white">
         <div className="flex flex-col items-center space-y-4">

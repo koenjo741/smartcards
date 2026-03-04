@@ -14,7 +14,7 @@ interface CardModalProps {
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
     isCloudSynced?: boolean;
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: Record<string, unknown>) => Promise<void>;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: Record<string, unknown>) => Promise<void>;
     customColors?: string[];
     onUpdateCustomColors?: (colors: string[]) => void;
 }

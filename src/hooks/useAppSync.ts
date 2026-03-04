@@ -36,10 +36,16 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     } = useDropbox();
 
     const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-    const [lastSavedHash, setLastSavedHash] = useState<string>('');
-    const [lastServerRevision, setLastServerRevision] = useState<string | null>(null);
+    const [lastSavedHash, setLastSavedHash] = useState<string>(() => localStorage.getItem('sm_last_synced_hash_v3') || '');
+    const [lastServerRevision, setLastServerRevision] = useState<string | null>(() => localStorage.getItem('sm_last_server_revision_v3') || null);
     const [hasConflict, setHasConflict] = useState(false);
     const [pendingSave, setPendingSave] = useState(false);
+
+    const updateLastServerRevision = (rev: string | null) => {
+        setLastServerRevision(rev);
+        if (rev) safeSetItem('sm_last_server_revision_v3', rev);
+        else localStorage.removeItem('sm_last_server_revision_v3');
+    };
 
     const lastLocalChange = useRef<number>(Date.now());
     const isInitializingRef = useRef(false);
@@ -53,7 +59,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         if (pendingCloudLoadRef.current) {
             const newHash = stableStringify({ projects, cards, customColors });
             setLastSavedHash(newHash);
-            setLastServerRevision(pendingCloudLoadRef.current.rev);
+            updateLastServerRevision(pendingCloudLoadRef.current.rev);
             safeSetItem('sm_last_synced_hash_v3', newHash);
             pendingCloudLoadRef.current = null;
         } else {
@@ -74,7 +80,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             if (success) {
                 const hash = stableStringify(data);
                 setLastSavedHash(hash);
-                if (rev) setLastServerRevision(rev);
+                if (rev) updateLastServerRevision(rev);
                 safeSetItem('sm_last_synced_hash_v3', hash);
                 setPendingSave(false);
             }
@@ -99,13 +105,22 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
             const { data, rev } = result;
             const storedHash = localStorage.getItem('sm_last_synced_hash_v3');
+            const storedRev = localStorage.getItem('sm_last_server_revision_v3');
             const localHash = stableStringify({ projects, cards, customColors });
             const hasUnsavedLocalChanges = storedHash && storedHash !== localHash;
 
             if (hasUnsavedLocalChanges) {
+                if (storedRev && storedRev !== rev) {
+                    console.warn('Sync: Conflict detected on initial load! Server has newer changes.');
+                    setHasConflict(true);
+                    setLastSavedHash(storedHash || '');
+                    updateLastServerRevision(storedRev); // Keep old rev explicitly for conflict resolution payload
+                    setIsCloudLoaded(true);
+                    return;
+                }
                 console.warn('Sync: Unsaved local changes detected. Skipping cloud overwrite.');
                 setLastSavedHash(storedHash || '');
-                setLastServerRevision(rev);
+                updateLastServerRevision(rev);
                 setIsCloudLoaded(true);
                 return;
             }
@@ -150,7 +165,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             if (success) {
                 const newHash = stableStringify(data);
                 setLastSavedHash(newHash);
-                if (rev) setLastServerRevision(rev);
+                if (rev) updateLastServerRevision(rev);
                 safeSetItem('sm_last_synced_hash_v3', newHash);
                 setPendingSave(false);
             } else {
@@ -191,7 +206,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
                         if (cloudHash === localHash) {
                             // False conflict – content identical, just accept server revision
-                            setLastServerRevision(latestRev);
+                            updateLastServerRevision(latestRev);
                             setLastSavedHash(localHash);
                             safeSetItem('sm_last_synced_hash_v3', localHash);
                             setHasConflict(false);
@@ -226,7 +241,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 if (localHash === lastSavedHash || lastSavedHash === '') {
                     loadDataStore(cloudData);
                     setLastSavedHash(cloudHash);
-                    setLastServerRevision(result.rev);
+                    updateLastServerRevision(result.rev);
                     safeSetItem('sm_last_synced_hash_v3', cloudHash);
                     setHasConflict(false);
                 } else {
@@ -239,7 +254,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     };
 
     // Conflict Resolution
-    const resolveConflict = async (strategy: 'accept_cloud' | 'keep_local', dataOverride?: any) => {
+    const resolveConflict = async (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: any) => {
         if (strategy === 'accept_cloud') {
             const secureRev = await getLatestRevision();
             const result = await loadData(secureRev || undefined);
@@ -253,13 +268,59 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 });
                 loadDataStore(normalized);
                 setLastSavedHash(cloudHash);
-                setLastServerRevision(result.rev);
+                updateLastServerRevision(result.rev);
                 safeSetItem('sm_last_synced_hash_v3', cloudHash);
                 setHasConflict(false);
             }
+        } else if (strategy === 'manual_merge') {
+            const secureRev = await getLatestRevision();
+            const result = await loadData(secureRev || undefined);
+
+            // Cloud Data laden
+            if (result?.data) {
+                const cloudData = normalizeBackupData(result.data);
+                const localData = dataOverride || { projects, cards, customColors };
+
+                // Wir identifizieren alle veränderten Karten (Diff)
+                const newCards = [...cloudData.cards]; // Start base is cloud
+
+                localData.cards.forEach((localCard: Card) => {
+                    const cloudCard = cloudData.cards.find(c => c.id === localCard.id);
+                    if (!cloudCard) {
+                        // Local card is completely new, just add it
+                        newCards.push(localCard);
+                    } else if (stableStringify(localCard) !== stableStringify(cloudCard)) {
+                        // Card exists in both but differs -> Create local duplicate!
+                        newCards.push({
+                            ...localCard,
+                            id: crypto.randomUUID(), // New ID
+                            title: `[LOKAL_KOPIE] ${localCard.title}`,
+                        });
+                    }
+                });
+
+                // Neue merged daten speichern (Lokale Updates zu Dropbox schicken)
+                const mergedData = {
+                    projects: cloudData.projects, // Keep cloud projects
+                    cards: newCards,
+                    customColors: cloudData.customColors
+                };
+
+                const payload = { ...mergedData, _meta: { lastSaved: Date.now(), appVersion: '1.0.1' } };
+                const { success, rev } = await saveData(payload, secureRev);
+
+                if (success) {
+                    const newHash = stableStringify(mergedData);
+                    loadDataStore(mergedData); // Update UI
+                    setLastSavedHash(newHash);
+                    if (rev) updateLastServerRevision(rev);
+                    safeSetItem('sm_last_synced_hash_v3', newHash);
+                    setHasConflict(false);
+                }
+            }
         } else {
             const latest = await getLatestRevision();
-            setLastServerRevision(latest);
+            updateLastServerRevision(latest);
 
             const data = dataOverride || { projects, cards, customColors };
             const payload = { ...data, _meta: { lastSaved: Date.now(), appVersion: '1.0.1' } };
@@ -269,7 +330,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             if (success) {
                 const newHash = stableStringify(data);
                 setLastSavedHash(newHash);
-                if (rev) setLastServerRevision(rev);
+                if (rev) updateLastServerRevision(rev);
                 safeSetItem('sm_last_synced_hash_v3', newHash);
                 setHasConflict(false);
             }
@@ -307,7 +368,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     // Unsaved Changes Warning
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (isSyncing || (isDropboxAuthenticated && isDirty)) {
+            if (isSyncing || (isDropboxAuthenticated && isDirty) || hasConflict) {
                 e.preventDefault();
                 e.returnValue = '';
             }
@@ -335,7 +396,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         if (success) {
             const newHash = stableStringify(data);
             setLastSavedHash(newHash);
-            if (rev) setLastServerRevision(rev);
+            if (rev) updateLastServerRevision(rev);
             safeSetItem('sm_last_synced_hash_v3', newHash);
         }
 
@@ -369,5 +430,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         hasConflict,
         resolveConflict,
         lastServerRevision,
+        isDirty,
     };
 }

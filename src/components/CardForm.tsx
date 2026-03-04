@@ -28,7 +28,7 @@ interface CardFormProps {
     isSyncing?: boolean;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
     hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local', dataOverride?: Record<string, unknown>) => Promise<void>;
+    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: Record<string, unknown>) => Promise<void>;
 }
 
 export const CardForm: React.FC<CardFormProps> = ({

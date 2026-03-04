@@ -179,7 +179,8 @@ function App() {
     userName,
     isCloudSynced,
     hasConflict,
-    resolveConflict
+    resolveConflict,
+    isDirty
   } = useAppSync({
     projects,
     cards,
@@ -508,6 +509,7 @@ function App() {
         expandedCardId={expandedCardId}
         hasConflict={hasConflict}
         onResolveConflict={resolveConflict}
+        isDirty={isDirty}
       />
 
       {/* Persistent 3-Column Layout */}

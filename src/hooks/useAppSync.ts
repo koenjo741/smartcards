@@ -138,7 +138,25 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     setIsCloudLoaded(true);
                     return;
                 }
-                console.warn('Sync: Unsaved local changes detected. Skipping cloud overwrite.');
+
+                // If storedRev matches rev, it means we have offline changes on top of the current cloud version.
+                // However, we MUST verify these changes are real and not just a corrupted cache Hash missing data.
+                if (data) {
+                    const cloudHash = stableStringify({
+                        projects: data.projects || [],
+                        cards: data.cards || [],
+                        customColors: data.customColors || [],
+                    });
+                    if (cloudHash === localHash) {
+                        // False positive - hashes match content
+                        setLastSavedHash(localHash);
+                        updateLastServerRevision(rev);
+                        setIsCloudLoaded(true);
+                        return;
+                    }
+                }
+
+                console.warn('Sync: Unsaved local changes detected (offline edits). Skipping cloud overwrite.');
                 setLastSavedHash(storedHash || '');
                 updateLastServerRevision(rev);
                 setIsCloudLoaded(true);
@@ -307,7 +325,18 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 const cloudData = normalizeBackupData(result.data);
                 const localData = dataOverride || { projects, cards, customColors };
 
-                // Wir identifizieren alle veränderten Karten (Diff)
+                // Smart merge projects (Cloud + Local)
+                const mergedProjects = [...cloudData.projects];
+                localData.projects.forEach((localProj: Project) => {
+                    const existingIdx = mergedProjects.findIndex(p => p.id === localProj.id);
+                    if (existingIdx === -1) {
+                        mergedProjects.push(localProj);
+                    } else if (stableStringify(mergedProjects[existingIdx]) !== stableStringify(localProj)) {
+                        mergedProjects[existingIdx] = localProj; // Keep local modifications for existing projects
+                    }
+                });
+
+                // Smart merge cards
                 const newCards = [...cloudData.cards]; // Start base is cloud
 
                 localData.cards.forEach((localCard: Card) => {
@@ -320,16 +349,22 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                         newCards.push({
                             ...localCard,
                             id: crypto.randomUUID(), // New ID
-                            title: `[LOKAL_KOPIE] ${localCard.title}`,
+                            title: `[LOKAL] ${localCard.title}`,
                         });
                     }
                 });
 
+                // Smart merge customColors
+                const mergedColors = Array.from(new Set([
+                    ...(cloudData.customColors || []),
+                    ...(localData.customColors || [])
+                ]));
+
                 // Neue merged daten speichern (Lokale Updates zu Dropbox schicken)
                 const mergedData = {
-                    projects: cloudData.projects, // Keep cloud projects
+                    projects: mergedProjects,
                     cards: newCards,
-                    customColors: cloudData.customColors
+                    customColors: mergedColors
                 };
 
                 const payload = { ...mergedData, _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ } };

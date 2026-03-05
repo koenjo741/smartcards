@@ -16,8 +16,8 @@ interface SidebarProps {
     isOpen: boolean;
     onClose: () => void;
     // View Mode
-    currentView: 'list' | 'timeline';
-    onViewChange: (view: 'list' | 'timeline') => void;
+    currentView: 'list' | 'timeline' | 'gantt';
+    onViewChange: (view: 'list' | 'timeline' | 'gantt') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -81,6 +81,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     >
                         <CalendarClock className="w-4 h-4" />
                         <span>Timeline</span>
+                    </button>
+
+                    {/* Gantt / Projektplan Button */}
+                    <button
+                        onClick={() => onViewChange('gantt')}
+                        className={`hidden md:flex w-full items-center space-x-3 px-3 py-2 text-sm font-medium rounded-md transition-all ${currentView === 'gantt'
+                            ? 'bg-teal-600 text-white shadow-md border border-teal-500'
+                            : 'bg-slate-800 text-gray-300 hover:bg-slate-700 hover:text-white border border-transparent'
+                            }`}
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                        <span>Projektplan (Gantt)</span>
                     </button>
 
                     <div className="mt-4 mb-2 relative">

@@ -15,8 +15,8 @@ interface LayoutProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
     // New View Props
-    currentView: 'list' | 'timeline';
-    onViewChange: (view: 'list' | 'timeline') => void;
+    currentView: 'list' | 'timeline' | 'gantt';
+    onViewChange: (view: 'list' | 'timeline' | 'gantt') => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({

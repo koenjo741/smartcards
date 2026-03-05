@@ -65,8 +65,9 @@ export const Header: React.FC<HeaderProps> = ({
                         <button
                             onClick={() => onResolveConflict?.('keep_local')}
                             className="flex-1 sm:flex-none bg-white text-red-700 hover:bg-red-50 font-bold py-2 px-3 sm:px-4 rounded shadow-md transition-colors border border-red-200 text-xs sm:text-sm"
+                            title="Achtung: Überschreibt die Cloud-Daten vollständig mit deinen aktuellen lokalen Daten!"
                         >
-                            Lokale erzwingen
+                            Lokale erzwingen (Überschreibt Cloud)
                         </button>
                         <button
                             onClick={() => onResolveConflict?.('accept_cloud')}

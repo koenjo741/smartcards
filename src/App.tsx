@@ -16,6 +16,7 @@ import { Header } from './components/Header';
 import { EmptyState } from './components/EmptyState';
 import { SettingsModal } from './components/SettingsModal';
 import { TimelineView } from './components/TimelineView';
+import { GanttView } from './components/GanttView';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ProjectDetailView } from './components/ProjectDetailView';
 import { matchesSearch } from './utils/search';
@@ -37,7 +38,7 @@ function App() {
   const [sortOption, setSortOption] = useState<SortOption>('date');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(''); // New Search State
-  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'timeline' | 'gantt'>('list');
   const [googleSyncStatus, setGoogleSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'deleted'>('idle');
 
   // Confirmation State
@@ -658,9 +659,15 @@ function App() {
           !expandedCardId && !selectedGanttProject && viewMode === 'list' ? "hidden md:block" : "block",
           viewMode === 'timeline' ? "p-0 overflow-hidden" : ""
         )}>
-          {viewMode === 'timeline' ? (
+          {viewMode === 'gantt' ? (
+            <GanttView
+              cards={cards}
+              projects={projects}
+              onCardClick={handleCardClick}
+            />
+          ) : viewMode === 'timeline' ? (
             <TimelineView
-              cards={cards} // Pass all cards, TimelineView filters by date
+              cards={cards.filter(c => !c.isGantt && !c.gantt)} // Only show non-gantt cards in old timeline
               projects={projects}
               onCardClick={handleCardClick}
             />

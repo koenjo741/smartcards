@@ -364,22 +364,36 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                             </span>
                                         </div>
 
-                                        {/* Timeline Tracker Section */}
-                                        {pLayout.visible ? (
-                                            <div
-                                                className="absolute h-[80%] top-[10%] rounded-sm right-0 z-10 flex items-center justify-end px-3 text-xs text-white shadow-sm overflow-hidden whitespace-nowrap"
-                                                style={{
-                                                    left: `${pLayout.left + 300}px`,
-                                                    width: `${pLayout.width}px`,
-                                                    backgroundColor: pColor,
-                                                    opacity: 0.9
-                                                }}
-                                            >
-                                                <span className="font-medium mix-blend-screen">{pText}</span>
-                                            </div>
-                                        ) : (
-                                            <div className="pl-[320px] text-xs text-gray-500 italic">Keine Projektdaten</div>
-                                        )}
+                                        {/* Timeline Bar Section with clipping container */}
+                                        <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
+                                            {pLayout.visible && (() => {
+                                                const viewportRight = scrollLeft + containerWidth;
+                                                const barLeft = pLayout.left + 300;
+                                                const barRight = barLeft + pLayout.width;
+
+                                                const isOffRight = barRight > viewportRight;
+                                                const stickyOffset = isOffRight ? Math.max(0, Math.min(pLayout.width - 200, barRight - viewportRight + 12)) : 0;
+
+                                                return (
+                                                    <div
+                                                        className="absolute h-[80%] top-[10%] rounded-sm z-10 flex items-center justify-end px-3 text-xs text-white shadow-sm overflow-hidden whitespace-nowrap"
+                                                        style={{
+                                                            left: `${pLayout.left}px`,
+                                                            width: `${pLayout.width}px`,
+                                                            backgroundColor: pColor,
+                                                            opacity: 0.9
+                                                        }}
+                                                    >
+                                                        <div
+                                                            className="flex-shrink-0 font-medium mix-blend-screen transition-transform duration-75 ease-out"
+                                                            style={{ transform: `translateX(${-stickyOffset}px)` }}
+                                                        >
+                                                            {pText}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
                                     </div>
 
                                     {/* TASK ROWS (IF EXPANDED) */}
@@ -420,92 +434,90 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     </button>
                                                 </div>
 
-                                                {/* Timeline Bar Section */}
-                                                {cLayout.visible && (
-                                                    <div className={clsx("absolute z-10 flex flex-col justify-center shadow-sm",
-                                                        isCardExpanded ? "border-yellow-400 border rounded-md" : ""
-                                                    )}
-                                                        style={{
-                                                            left: `${cLayout.left + 300}px`,
-                                                            ...(isCardExpanded
-                                                                ? {
-                                                                    // Content-fitted: let the box shrink to its content
-                                                                    width: 'auto',
-                                                                    maxWidth: `${cLayout.width}px`,
-                                                                    minWidth: '360px',
-                                                                    top: '0',
-                                                                    height: 'auto',
-                                                                }
-                                                                : {
-                                                                    width: `${cLayout.width}px`,
-                                                                    top: '10%',
-                                                                    height: '80%',
-                                                                    paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
-                                                                    paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
-                                                                }),
-                                                            backgroundColor: isCardExpanded ? '#fef9c3' : cColor,
-                                                        }}
-                                                        onClick={(e) => toggleCardExpansion(e, card.id)}
-                                                    >
-                                                        {/* Minimized view content */}
-                                                        {!isCardExpanded && (() => {
-                                                            const viewportRight = scrollLeft + containerWidth;
-                                                            const barLeft = cLayout.left + 300;
-                                                            const barRight = barLeft + cLayout.width;
-
-                                                            // Only stick if the bar is partially off-screen to the right
-                                                            const isOffRight = barRight > viewportRight;
-                                                            // Calculate how much pixel space we need to "push back" to stay in view
-                                                            const minContentWidth = zoomLevel === 'days' ? 200 : 50;
-                                                            let stickyOffset = isOffRight ? Math.min(cLayout.width - minContentWidth, barRight - viewportRight + 12) : 0;
-                                                            stickyOffset = Math.max(0, stickyOffset); // Important: don't let it go negative for narrow bars
-
-                                                            return (
-                                                                <div className="flex justify-between items-center text-xs text-blue-900 font-medium whitespace-nowrap overflow-hidden w-full relative">
-                                                                    <span className="truncate pr-4 flex-1">{card.title}</span>
-                                                                    <div
-                                                                        className="flex-shrink-0 text-[10px] opacity-80 transition-transform duration-75 ease-out"
-                                                                        style={{ transform: `translateX(${-stickyOffset}px)` }}
-                                                                    >
-                                                                        {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })()}
-
-                                                        {/* Expanded view (Detailed) — generous padding around content */}
-                                                        {isCardExpanded && (
-                                                            <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative" onClick={e => e.stopPropagation()}>
-                                                                {/* Date & Status labels in the top right corner, sticking to viewport right within the box */}
-                                                                <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
-                                                                    <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
-                                                                    <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
-                                                                </div>
-
-                                                                <div className="pr-24"> {/* Add padding to avoid overlapping the labels */}
-                                                                    <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
-                                                                    <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
-                                                                </div>
-
-                                                                <div>
-                                                                    <h5 className="font-bold text-xs mb-1">Infotext</h5>
-                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap">
-                                                                        {card.gantt?.info || 'Kein Infotext hinterlegt.'}
-                                                                    </div>
-
-                                                                    {card.gantt?.companies && card.gantt.companies.length > 0 && (
-                                                                        <>
-                                                                            <h5 className="font-bold text-xs mb-1 text-blue-600">Firmen</h5>
-                                                                            <div className="text-blue-600 text-sm">
-                                                                                {card.gantt.companies.join(', ')}
-                                                                            </div>
-                                                                        </>
-                                                                    )}
-                                                                </div>
-                                                            </div>
+                                                {/* Timeline Bar Section with clipping container */}
+                                                <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
+                                                    {cLayout.visible && (
+                                                        <div className={clsx("absolute z-10 flex flex-col justify-center shadow-sm pointer-events-auto",
+                                                            isCardExpanded ? "border-yellow-400 border rounded-md" : ""
                                                         )}
-                                                    </div>
-                                                )}
+                                                            style={{
+                                                                left: `${cLayout.left}px`,
+                                                                ...(isCardExpanded
+                                                                    ? {
+                                                                        width: 'auto',
+                                                                        maxWidth: `${cLayout.width}px`,
+                                                                        minWidth: '360px',
+                                                                        top: '0',
+                                                                        height: 'auto',
+                                                                    }
+                                                                    : {
+                                                                        width: `${cLayout.width}px`,
+                                                                        top: '10%',
+                                                                        height: '80%',
+                                                                        paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
+                                                                        paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
+                                                                    }),
+                                                                backgroundColor: isCardExpanded ? '#fef9c3' : cColor,
+                                                            }}
+                                                            onClick={(e) => toggleCardExpansion(e, card.id)}
+                                                        >
+                                                            {/* Minimized view content */}
+                                                            {!isCardExpanded && (() => {
+                                                                const viewportRight = scrollLeft + containerWidth;
+                                                                const barLeft = cLayout.left + 300;
+                                                                const barRight = barLeft + cLayout.width;
+
+                                                                const isOffRight = barRight > viewportRight;
+                                                                const minContentWidth = zoomLevel === 'days' ? 200 : 50;
+                                                                let stickyOffset = isOffRight ? Math.min(cLayout.width - minContentWidth, barRight - viewportRight + 12) : 0;
+                                                                stickyOffset = Math.max(0, stickyOffset);
+
+                                                                return (
+                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-medium whitespace-nowrap overflow-hidden w-full relative">
+                                                                        <span className="truncate pr-4 flex-1">{card.title}</span>
+                                                                        <div
+                                                                            className="flex-shrink-0 text-[10px] opacity-80 transition-transform duration-75 ease-out"
+                                                                            style={{ transform: `translateX(${-stickyOffset}px)` }}
+                                                                        >
+                                                                            {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+
+                                                            {/* Expanded view content */}
+                                                            {isCardExpanded && (
+                                                                <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative" onClick={e => e.stopPropagation()}>
+                                                                    <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
+                                                                        <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
+                                                                        <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
+                                                                    </div>
+
+                                                                    <div className="pr-24">
+                                                                        <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
+                                                                        <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
+                                                                    </div>
+
+                                                                    <div>
+                                                                        <h5 className="font-bold text-xs mb-1">Infotext</h5>
+                                                                        <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap">
+                                                                            {card.gantt?.info || 'Kein Infotext hinterlegt.'}
+                                                                        </div>
+
+                                                                        {card.gantt?.companies && card.gantt.companies.length > 0 && (
+                                                                            <>
+                                                                                <h5 className="font-bold text-xs mb-1 text-blue-600">Firmen</h5>
+                                                                                <div className="text-blue-600 text-sm">
+                                                                                    {card.gantt.companies.join(', ')}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
 
                                             </div>
                                         );

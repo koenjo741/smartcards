@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useStore, applyBacklinks } from './hooks/useStore';
+import { useStore } from './hooks/useStore';
 import { Layout } from './components/Layout';
 import { CardModal } from './components/CardModal';
 import { ProjectModal } from './components/ProjectModal';
@@ -174,21 +174,16 @@ function App() {
     connectionError,
     connect,
     disconnect,
-    saveData,
     loadData,
     deleteFile,
     lastSynced,
     userName,
     isCloudSynced,
-    hasConflict,
-    conflictingItems,
-    resolveConflict,
-    isDirty
   } = useAppSync({
     projects,
     cards,
     customColors,
-    loadDataStore // Uses the one destructured from useStore above
+    loadDataStore
   });
 
 
@@ -342,10 +337,6 @@ function App() {
         setEditingCard(dataToSave);
       }
 
-      // Force sync with backlink-resolved card list
-      const updatedCards = applyBacklinks(cards, dataToSave);
-      saveData({ projects, cards: updatedCards, customColors });
-
       // Auto-Sync to Google Calendar if event exists
       if (existingCard?.googleEventId) {
         // ... (lines 331-393)
@@ -358,8 +349,6 @@ function App() {
               setGoogleSyncStatus('deleted');
               const cleanedCard = { ...(cardData as Card), googleEventId: undefined, googleCalendarId: undefined };
               updateCard(cleanedCard);
-
-              saveData({ projects, cards: cards.map(c => c.id === cleanedCard.id ? cleanedCard : c), customColors });
 
               setTimeout(() => setGoogleSyncStatus('idle'), 4000);
             } else {
@@ -394,11 +383,9 @@ function App() {
       const newId = crypto.randomUUID();
       const newCard = { ...cardData, id: newId } as Card;
       addCard(newCard);
-      // FORCE SYNC (New Card)
-      saveData({ projects, cards: [...cards, newCard], customColors });
       setIsModalOpen(false);
     }
-  }, [updateCard, addCard, expandedCardId, cards, projects, customColors, saveData, deleteEvent, updateEvent]);
+  }, [updateCard, addCard, expandedCardId, cards, projects, customColors, deleteEvent, updateEvent]);
 
   const handleDeleteCard = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -511,10 +498,6 @@ function App() {
         onInstallClick={handleInstallClick}
         onOpenNewCard={handleOpenNewCard}
         expandedCardId={expandedCardId}
-        hasConflict={hasConflict}
-        conflictingItems={conflictingItems}
-        onResolveConflict={resolveConflict}
-        isDirty={isDirty}
       />
 
       {/* Persistent 3-Column Layout */}
@@ -706,9 +689,6 @@ function App() {
                   onUpdateCustomColors={setCustomColors}
                   isCloudSynced={isCloudSynced}
                   isSyncing={isSyncing}
-                  googleSyncStatus={googleSyncStatus}
-                  hasConflict={hasConflict}
-                  onResolveConflict={resolveConflict}
                 />
               </>
             ) : (
@@ -735,8 +715,6 @@ function App() {
         initialData={null}
         googleSyncStatus={googleSyncStatus}
         isCloudSynced={isCloudSynced}
-        hasConflict={hasConflict}
-        onResolveConflict={resolveConflict}
         customColors={customColors}
         onUpdateCustomColors={setCustomColors}
       />
@@ -757,7 +735,7 @@ function App() {
         lastSynced={lastSynced}
         onConnect={handleConnect}
         onDisconnect={disconnect}
-        onSave={() => saveData({ projects, cards, customColors })}
+        onSave={() => { }}
         onLoad={handleDropboxLoad}
 
         // Project Management

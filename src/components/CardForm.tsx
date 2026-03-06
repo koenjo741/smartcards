@@ -28,8 +28,7 @@ interface CardFormProps {
     isCloudSynced?: boolean;
     isSyncing?: boolean;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
-    hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: Record<string, unknown>) => Promise<void>;
+
 }
 
 // Helper function to format numbers with thousands separators
@@ -51,8 +50,7 @@ export const CardForm: React.FC<CardFormProps> = ({
     isCloudSynced,
     isSyncing,
     googleSyncStatus = 'idle',
-    hasConflict,
-    onResolveConflict
+
 }) => {
 
     // I will do props definition first.
@@ -492,52 +490,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                             ? 'Saved to Dropbox & Google Calendar'
                                             : 'Saved to Dropbox'}
 
-                                {/* FORCE SYNC BUTTON for Deadlock Scenarios (Only show on Conflict) */}
-                                {hasConflict && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (!onResolveConflict) return;
 
-                                            // Construct Current State Manually to Bypass React State Delay
-                                            const currentData = initialData;
-                                            const updatedCard = {
-                                                ...(currentData || {}),
-                                                title,
-                                                content,
-                                                projectIds: selectedProjectIds,
-                                                dueDate: dueDate || undefined,
-                                                attachments,
-                                                linkedCardIds: linkedCardIds || [],
-                                                googleEventId: dueDate ? currentData?.googleEventId : undefined,
-                                                googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined
-                                            } as Card;
-
-                                            // Save locally first (UI update)
-                                            onSave(updatedCard);
-
-                                            // Construct Full Payload for Upload
-                                            const updatedCards = cards.map(c => c.id === updatedCard.id ? updatedCard : c);
-                                            // If new card (no ID match), append it? 
-                                            // Force Push usually happens on existing cards. 
-                                            // If new card, 'cards' prop won't have it yet.
-                                            // But 'initialData' usually implies existing.
-
-                                            const payload = {
-                                                projects,
-                                                cards: updatedCards,
-                                                customColors
-                                            };
-
-
-                                            onResolveConflict('keep_local', payload);
-                                        }}
-                                        className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded ml-2 uppercase font-bold tracking-wider"
-                                        title="Overwrite Cloud with Local Version (Includes current edits)"
-                                    >
-                                        FORCE SAVE NOW
-                                    </button>
-                                )}
                             </span>
 
                         </div>

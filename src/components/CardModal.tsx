@@ -13,8 +13,7 @@ interface CardModalProps {
     initialData?: Card | null;
     googleSyncStatus?: 'idle' | 'syncing' | 'success' | 'error' | 'deleted';
     isCloudSynced?: boolean;
-    hasConflict?: boolean;
-    onResolveConflict?: (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: Record<string, unknown>) => Promise<void>;
+
     customColors?: string[];
     onUpdateCustomColors?: (colors: string[]) => void;
 }
@@ -28,8 +27,7 @@ export const CardModal: React.FC<CardModalProps> = ({
     initialData,
     googleSyncStatus,
     isCloudSynced,
-    hasConflict,
-    onResolveConflict,
+
     customColors,
     onUpdateCustomColors
 }) => {
@@ -57,8 +55,7 @@ export const CardModal: React.FC<CardModalProps> = ({
                     initialData={initialData}
                     googleSyncStatus={googleSyncStatus}
                     isCloudSynced={isCloudSynced}
-                    hasConflict={hasConflict}
-                    onResolveConflict={onResolveConflict}
+
                     customColors={customColors}
                     onUpdateCustomColors={onUpdateCustomColors}
                 />

@@ -1,16 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useDropbox } from './useDropbox';
-import { stableStringify, getObjectDiff } from '../utils/helpers';
+import { stableStringify } from '../utils/helpers';
 import { normalizeBackupData, isValidBackupData } from '../utils/normalizeBackupData';
 import type { Project, Card } from '../types';
-
-const safeSetItem = (key: string, value: string) => {
-    try {
-        localStorage.setItem(key, value);
-    } catch (e) {
-        console.error(`Failed to set localStorage item ${key}:`, e);
-    }
-};
 
 interface UseAppSyncProps {
     projects: Project[];
@@ -19,6 +11,15 @@ interface UseAppSyncProps {
     loadDataStore: (data: { projects: Project[]; cards: Card[]; customColors?: string[] }) => void;
 }
 
+/**
+ * Cloud-First Sync Hook.
+ * 
+ * Architecture:
+ * - On connect: Load cloud data → overwrite local store (cloud = truth)
+ * - On local change: Debounced auto-save to Dropbox (3s, overwrite mode)
+ * - On visibility/focus: Re-pull from cloud if no pending local save
+ * - No conflict resolution, no merge, no revision tracking
+ */
 export function useAppSync({ projects, cards, customColors, loadDataStore }: UseAppSyncProps) {
     const {
         isAuthenticated: isDropboxAuthenticated,
@@ -32,449 +33,125 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         userName,
         lastSynced,
         deleteFile,
-        getLatestRevision,
     } = useDropbox();
 
     const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-    const [lastSavedHash, setLastSavedHash] = useState<string>(() => localStorage.getItem('sm_last_synced_hash_v3') || '');
-    const [lastServerRevision, setLastServerRevision] = useState<string | null>(() => localStorage.getItem('sm_last_server_revision_v3') || null);
-    const [hasConflict, setHasConflict] = useState(false);
-    const [conflictingItems, setConflictingItems] = useState<string[]>([]);
-    const [pendingSave, setPendingSave] = useState(false);
-
-    const checkConflicts = (cloudData: { cards: Card[] }) => {
-        const diffCards: string[] = [];
-        // Check for local cards that differ from cloud or are missing in cloud
-        cards.forEach(localCard => {
-            const cloudCard = cloudData.cards.find(c => c.id === localCard.id);
-            if (!cloudCard || stableStringify(localCard) !== stableStringify(cloudCard)) {
-                diffCards.push(localCard.title || 'Ohne Titel');
-            }
-        });
-        // Check for cloud cards that are missing locally
-        cloudData.cards.forEach(cloudCard => {
-            if (!cards.find(c => c.id === cloudCard.id)) {
-                diffCards.push(cloudCard.title || 'Ohne Titel');
-            }
-        });
-        setConflictingItems(Array.from(new Set(diffCards)));
-    };
-
-    const updateLastServerRevision = (rev: string | null) => {
-        setLastServerRevision(rev);
-        if (rev) safeSetItem('sm_last_server_revision_v3', rev);
-        else localStorage.removeItem('sm_last_server_revision_v3');
-    };
-
-    const lastLocalChange = useRef<number>(Date.now());
     const isInitializingRef = useRef(false);
-    const pendingCloudLoadRef = useRef<{ rev: string } | null>(null);
+    const pendingSaveRef = useRef(false);
+    const lastSavedHashRef = useRef('');
 
-    // Compute current hash (used throughout this hook)
-    const currentHash = stableStringify({ projects, cards, customColors });
-
-    // Track local changes & handle post-store hash sync
-    useEffect(() => {
-        if (pendingCloudLoadRef.current) {
-            const newHash = stableStringify({ projects, cards, customColors });
-            setLastSavedHash(newHash);
-            updateLastServerRevision(pendingCloudLoadRef.current.rev);
-            safeSetItem('sm_last_synced_hash_v3', newHash);
-            pendingCloudLoadRef.current = null;
-        } else {
-            lastLocalChange.current = Date.now();
-        }
-    }, [projects, cards, customColors]);
-
-    // Retry pending saves when connectivity is restored
-    useEffect(() => {
-        if (!pendingSave || !isDropboxAuthenticated) return;
-
-        const handleOnline = async () => {
-            if (!pendingSave) return;
-            const data = { projects, cards, customColors };
-            if (!isValidBackupData(data)) return;
-
-            const { success, rev } = await saveWithMeta(data);
-            if (success) {
-                const hash = stableStringify(data);
-                setLastSavedHash(hash);
-                if (rev) updateLastServerRevision(rev);
-                safeSetItem('sm_last_synced_hash_v3', hash);
-                setPendingSave(false);
-            }
-        };
-
-        window.addEventListener('online', handleOnline);
-        return () => window.removeEventListener('online', handleOnline);
-    }, [pendingSave, isDropboxAuthenticated, projects, cards, customColors]);
-
-    // 1. Initial Load on Connect
+    // --- 1. Initial Load: Cloud → Local ---
     useEffect(() => {
         if (!isDropboxAuthenticated || isCloudLoaded || isInitializingRef.current) return;
-
         isInitializingRef.current = true;
 
         loadData().then((result) => {
-            if (!result) {
-                console.warn('Sync: Initial load returned empty.');
-                setIsCloudLoaded(true); // Allow local work
-                return;
-            }
-
-            const { data, rev } = result;
-            const storedHash = localStorage.getItem('sm_last_synced_hash_v3');
-            const storedRev = localStorage.getItem('sm_last_server_revision_v3');
-            const localHash = stableStringify({ projects, cards, customColors });
-            const hasUnsavedLocalChanges = storedHash && storedHash !== localHash;
-
-            if (hasUnsavedLocalChanges) {
-                if (storedRev && storedRev !== rev) {
-                    console.warn('Sync: Conflict detected on initial load! Server has newer changes.');
-                    setHasConflict(true);
-                    if (data?.cards) checkConflicts(data);
-                    setLastSavedHash(storedHash || '');
-                    updateLastServerRevision(storedRev); // Keep old rev explicitly for conflict resolution payload
-                    setIsCloudLoaded(true);
-                    return;
-                }
-
-                // If storedRev matches rev, it means we have offline changes on top of the current cloud version.
-                // However, we MUST verify these changes are real and not just a corrupted cache Hash missing data.
-                if (data) {
-                    const cloudHash = stableStringify({
-                        projects: data.projects || [],
-                        cards: data.cards || [],
-                        customColors: data.customColors || [],
-                    });
-                    if (cloudHash === localHash) {
-                        // False positive - hashes match content
-                        setLastSavedHash(localHash);
-                        updateLastServerRevision(rev);
-                        setIsCloudLoaded(true);
-                        return;
-                    }
-                }
-
-                console.warn('Sync: Unsaved local changes detected (offline edits). Skipping cloud overwrite.');
-                setLastSavedHash(storedHash || '');
-                updateLastServerRevision(rev);
-                setIsCloudLoaded(true);
-                return;
-            }
-
-            if (data?.projects && data?.cards) {
-                const normalizedData = normalizeBackupData(data);
-                loadDataStore(normalizedData);
-                pendingCloudLoadRef.current = { rev };
-            }
-
-            setIsCloudLoaded(true);
-        }).catch(err => {
-            console.error('Sync: Initial load error', err);
-            isInitializingRef.current = false;
-        });
-    }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore, projects, cards, customColors]);
-
-    // 2. Auto-Save to Dropbox (3s debounce)
-    useEffect(() => {
-        if (!isDropboxAuthenticated || !isCloudLoaded || hasConflict) return;
-        if (!projects || projects.length === 0) return;
-
-        const timeoutId = setTimeout(async () => {
-            const data = { projects, cards, customColors };
-
-            // Skip if already in sync
-            if (stableStringify(data) === lastSavedHash) return;
-
-            // Pre-save validation: never save empty/corrupt data
-            if (!isValidBackupData(data)) {
-                console.warn('Auto-save aborted: data validation failed.');
-                return;
-            }
-
-            const { success, rev, conflict } = await saveWithMeta(data);
-
-            if (conflict) {
-                setHasConflict(true);
-                // Trigger an update check to download the cloud version and find the diff
-                checkForUpdates(true);
-                return;
-            }
-
-            if (success) {
-                const newHash = stableStringify(data);
-                setLastSavedHash(newHash);
-                if (rev) updateLastServerRevision(rev);
-                safeSetItem('sm_last_synced_hash_v3', newHash);
-                setPendingSave(false);
-            } else {
-                // Mark for retry on reconnect
-                setPendingSave(true);
-            }
-        }, 3000);
-
-        return () => clearTimeout(timeoutId);
-    }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData, lastSavedHash, hasConflict]);
-
-    // 3. Auto-Sync / Polling & Visibility Trigger
-    const checkForUpdates = async (force: boolean = false) => {
-        if (!isDropboxAuthenticated || isSyncing) return;
-
-        // Compute hash at call time (fixing the critical hoisting bug)
-        const localHash = stableStringify({ projects, cards, customColors });
-
-        const timeSinceLastChange = Date.now() - lastLocalChange.current;
-        if (!force && timeSinceLastChange < 2000) return;
-
-        try {
-            const latestRev = await getLatestRevision();
-            if (!latestRev || latestRev === lastServerRevision) return;
-
-            // Local is dirty AND server changed → potential conflict
-            if (lastSavedHash && localHash !== lastSavedHash) {
-                // Smart conflict detection: compare content, not just revisions
-                try {
-                    const result = await loadData(latestRev);
-                    if (result?.data) {
-                        const cloudData = normalizeBackupData(result.data);
-                        const cloudHash = stableStringify({
-                            projects: cloudData.projects,
-                            cards: cloudData.cards,
-                            customColors: cloudData.customColors,
-                        });
-
-                        if (cloudHash === localHash) {
-                            // False conflict – content identical, just accept server revision
-                            updateLastServerRevision(latestRev);
-                            setLastSavedHash(localHash);
-                            safeSetItem('sm_last_synced_hash_v3', localHash);
-                            setHasConflict(false);
-                            setConflictingItems([]);
-                            return;
-                        }
-
-                        checkConflicts(cloudData);
-
-                        if (import.meta.env.DEV) {
-                            console.warn('Sync conflict diff:', getObjectDiff(
-                                { projects: cloudData.projects, cards: cloudData.cards, customColors: cloudData.customColors },
-                                { projects, cards, customColors }
-                            ));
-                        }
-                    }
-                } catch (e) {
-                    console.error('Smart conflict check failed:', e);
-                }
-
-                setHasConflict(true);
-                return;
-            }
-
-            // Clean local state → safe to apply cloud update
-            const result = await loadData(latestRev);
-            if (result?.data?.projects) {
-                const cloudData = normalizeBackupData(result.data);
-                const cloudHash = stableStringify({
-                    projects: cloudData.projects,
-                    cards: cloudData.cards,
-                    customColors: cloudData.customColors,
-                });
-
-                if (localHash === lastSavedHash || lastSavedHash === '') {
-                    loadDataStore(cloudData);
-                    setLastSavedHash(cloudHash);
-                    updateLastServerRevision(result.rev);
-                    safeSetItem('sm_last_synced_hash_v3', cloudHash);
-                    setHasConflict(false);
-                } else {
-                    setHasConflict(true);
-                }
-            }
-        } catch (error) {
-            console.error('Auto-sync error:', error);
-        }
-    };
-
-    // Conflict Resolution
-    const resolveConflict = async (strategy: 'accept_cloud' | 'keep_local' | 'manual_merge', dataOverride?: any) => {
-        if (strategy === 'accept_cloud') {
-            const secureRev = await getLatestRevision();
-            const result = await loadData(secureRev || undefined);
-
-            if (result?.data) {
+            if (result?.data?.projects && result?.data?.cards) {
                 const normalized = normalizeBackupData(result.data);
-                const cloudHash = stableStringify({
+                loadDataStore(normalized);
+                lastSavedHashRef.current = stableStringify({
                     projects: normalized.projects,
                     cards: normalized.cards,
                     customColors: normalized.customColors,
                 });
-                loadDataStore(normalized);
-                setLastSavedHash(cloudHash);
-                updateLastServerRevision(result.rev);
-                safeSetItem('sm_last_synced_hash_v3', cloudHash);
-                setHasConflict(false);
-                setConflictingItems([]);
             }
-        } else if (strategy === 'manual_merge') {
-            const secureRev = await getLatestRevision();
-            const result = await loadData(secureRev || undefined);
+            setIsCloudLoaded(true);
+        }).catch(err => {
+            console.error('Sync: Initial load error', err);
+            setIsCloudLoaded(true); // Let user work offline
+            isInitializingRef.current = false;
+        });
+    }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore]);
 
-            // Cloud Data laden
-            if (result?.data) {
-                const cloudData = normalizeBackupData(result.data);
-                const localData = dataOverride || { projects, cards, customColors };
+    // --- 2. Auto-Save: Local → Cloud (3s debounce, overwrite) ---
+    useEffect(() => {
+        if (!isDropboxAuthenticated || !isCloudLoaded) return;
+        if (!projects || projects.length === 0) return;
 
-                // Smart merge projects (Cloud + Local)
-                const mergedProjects = [...cloudData.projects];
-                localData.projects.forEach((localProj: Project) => {
-                    const existingIdx = mergedProjects.findIndex(p => p.id === localProj.id);
-                    if (existingIdx === -1) {
-                        mergedProjects.push(localProj);
-                    } else if (stableStringify(mergedProjects[existingIdx]) !== stableStringify(localProj)) {
-                        mergedProjects[existingIdx] = localProj; // Keep local modifications for existing projects
-                    }
-                });
+        const data = { projects, cards, customColors };
+        const currentHash = stableStringify(data);
 
-                // Smart merge cards
-                const newCards = [...cloudData.cards]; // Start base is cloud
+        // Skip if already in sync
+        if (currentHash === lastSavedHashRef.current) return;
 
-                localData.cards.forEach((localCard: Card) => {
-                    const cloudCard = cloudData.cards.find(c => c.id === localCard.id);
-                    if (!cloudCard) {
-                        // Local card is completely new, just add it
-                        newCards.push(localCard);
-                    } else if (stableStringify(localCard) !== stableStringify(cloudCard)) {
-                        // Card exists in both but differs -> Create local duplicate!
-                        newCards.push({
-                            ...localCard,
-                            id: crypto.randomUUID(), // New ID
-                            title: `[LOKAL] ${localCard.title}`,
-                        });
-                    }
-                });
+        pendingSaveRef.current = true;
 
-                // Smart merge customColors
-                const mergedColors = Array.from(new Set([
-                    ...(cloudData.customColors || []),
-                    ...(localData.customColors || [])
-                ]));
-
-                // Neue merged daten speichern (Lokale Updates zu Dropbox schicken)
-                const mergedData = {
-                    projects: mergedProjects,
-                    cards: newCards,
-                    customColors: mergedColors
-                };
-
-                const payload = { ...mergedData, _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ } };
-                const { success, rev } = await saveData(payload, secureRev);
-
-                if (success) {
-                    const newHash = stableStringify(mergedData);
-                    loadDataStore(mergedData); // Update UI
-                    setLastSavedHash(newHash);
-                    if (rev) updateLastServerRevision(rev);
-                    safeSetItem('sm_last_synced_hash_v3', newHash);
-                    setHasConflict(false);
-                    setConflictingItems([]);
-                }
+        const timeoutId = setTimeout(async () => {
+            if (!isValidBackupData(data)) {
+                console.warn('Auto-save aborted: data validation failed.');
+                pendingSaveRef.current = false;
+                return;
             }
-        } else {
-            const latest = await getLatestRevision();
-            updateLastServerRevision(latest);
 
-            const data = dataOverride || { projects, cards, customColors };
-            const payload = { ...data, _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ } };
+            const payload = {
+                ...data,
+                _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ },
+            };
 
-            const { success, rev } = await saveData(payload, latest);
+            const { success } = await saveData(payload);
 
             if (success) {
-                const newHash = stableStringify(data);
-                setLastSavedHash(newHash);
-                if (rev) updateLastServerRevision(rev);
-                safeSetItem('sm_last_synced_hash_v3', newHash);
-                setHasConflict(false);
-                setConflictingItems([]);
+                lastSavedHashRef.current = stableStringify(data);
             }
-        }
-    };
+            pendingSaveRef.current = false;
+        }, 3000);
 
-    // Polling & visibility-based sync
+        return () => clearTimeout(timeoutId);
+    }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData]);
+
+    // --- 3. Re-pull on visibility/focus (only if no pending save) ---
     useEffect(() => {
-        if (!isDropboxAuthenticated) return;
+        if (!isDropboxAuthenticated || !isCloudLoaded) return;
 
-        const intervalId = setInterval(() => checkForUpdates(false), 10000);
+        const handleVisibility = async () => {
+            if (document.visibilityState !== 'visible') return;
+            if (pendingSaveRef.current || isSyncing) return;
 
-        const handleTrigger = () => {
-            if (document.visibilityState === 'visible') {
-                checkForUpdates(true);
+            try {
+                const result = await loadData();
+                if (result?.data?.projects && result?.data?.cards) {
+                    const normalized = normalizeBackupData(result.data);
+                    const cloudHash = stableStringify({
+                        projects: normalized.projects,
+                        cards: normalized.cards,
+                        customColors: normalized.customColors,
+                    });
+
+                    // Only update if cloud differs from what we last saved
+                    if (cloudHash !== lastSavedHashRef.current) {
+                        loadDataStore(normalized);
+                        lastSavedHashRef.current = cloudHash;
+                    }
+                }
+            } catch (error) {
+                console.error('Sync: Visibility re-pull error', error);
             }
         };
 
-        document.addEventListener('visibilitychange', handleTrigger);
-        window.addEventListener('focus', handleTrigger);
-        window.addEventListener('online', handleTrigger);
+        document.addEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('online', handleVisibility);
 
         return () => {
-            clearInterval(intervalId);
-            document.removeEventListener('visibilitychange', handleTrigger);
-            window.removeEventListener('focus', handleTrigger);
-            window.removeEventListener('online', handleTrigger);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('online', handleVisibility);
         };
-    }, [isDropboxAuthenticated, isSyncing, loadData, loadDataStore, projects, cards, customColors, lastServerRevision, lastSavedHash]);
+    }, [isDropboxAuthenticated, isCloudLoaded, isSyncing, loadData, loadDataStore]);
 
-    // Derived state
-    const isDirty = isDropboxAuthenticated && (currentHash !== lastSavedHash);
-    const isCloudSynced = !isDirty && !isSyncing;
-
-    // Unsaved Changes Warning
+    // --- 4. Unsaved Changes Warning ---
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (isSyncing || (isDropboxAuthenticated && isDirty) || hasConflict) {
+            if (isSyncing || pendingSaveRef.current) {
                 e.preventDefault();
                 e.returnValue = '';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [isSyncing, isDropboxAuthenticated, isDirty]);
+    }, [isSyncing]);
 
-    // Manual Save (with validation)
-    const handleManualSave = async (data: any = { projects, cards, customColors }): Promise<{ success: boolean; rev?: string }> => {
-        if (hasConflict) return { success: false };
-
-        if (!isValidBackupData(data)) {
-            console.warn('Manual save aborted: data validation failed.');
-            return { success: false };
-        }
-
-        const { success, rev, conflict } = await saveWithMeta(data);
-
-        if (conflict) {
-            setHasConflict(true);
-            checkForUpdates(true);
-            return { success: false };
-        }
-
-        if (success) {
-            const newHash = stableStringify(data);
-            setLastSavedHash(newHash);
-            if (rev) updateLastServerRevision(rev);
-            safeSetItem('sm_last_synced_hash_v3', newHash);
-        }
-
-        return { success, rev };
-    };
-
-    // Internal: Save with metadata injection
-    const saveWithMeta = async (data: any) => {
-        const payload = {
-            ...data,
-            _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ },
-        };
-        return saveData(payload, lastServerRevision);
-    };
+    // Derived state
+    const currentHash = stableStringify({ projects, cards, customColors });
+    const isCloudSynced = currentHash === lastSavedHashRef.current && !isSyncing;
 
     return {
         isDropboxAuthenticated,
@@ -485,16 +162,9 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         connect,
         disconnect,
         loadData,
-        saveData: handleManualSave,
         deleteFile,
         lastSynced,
         isCloudSynced,
         userName,
-        checkForUpdates,
-        hasConflict,
-        conflictingItems,
-        resolveConflict,
-        lastServerRevision,
-        isDirty,
     };
 }

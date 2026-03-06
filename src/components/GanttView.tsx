@@ -371,20 +371,22 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                 const barRight = barLeft + pLayout.width;
 
                                                 const isOffRight = barRight > viewportRight;
-                                                const stickyOffset = isOffRight ? Math.max(0, Math.min(pLayout.width - 200, barRight - viewportRight + 12)) : 0;
+                                                // Simplified sticky logic: move text left if it's off the right edge,
+                                                // but cap it so it doesn't go off the left edge of the bar.
+                                                const stickyOffset = isOffRight ? Math.max(0, Math.min(pLayout.width - 240, barRight - viewportRight + 20)) : 0;
 
                                                 return (
                                                     <div
-                                                        className="absolute h-[80%] top-[10%] rounded-sm z-10 flex items-center justify-end px-3 text-xs text-white shadow-sm overflow-hidden whitespace-nowrap"
+                                                        className="absolute h-[80%] top-[10%] rounded-sm z-10 flex items-center justify-end px-3 text-xs text-white shadow-sm overflow-hidden whitespace-nowrap pointer-events-auto"
                                                         style={{
                                                             left: `${pLayout.left}px`,
                                                             width: `${pLayout.width}px`,
                                                             backgroundColor: pColor,
-                                                            opacity: 0.9
+                                                            opacity: 0.95
                                                         }}
                                                     >
                                                         <div
-                                                            className="flex-shrink-0 font-medium mix-blend-screen transition-transform duration-75 ease-out"
+                                                            className="flex-shrink-0 font-bold transition-transform duration-75 ease-out"
                                                             style={{ transform: `translateX(${-stickyOffset}px)` }}
                                                         >
                                                             {pText}
@@ -400,7 +402,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                         const cLayout = getBarLayout(card.gantt?.startDate, card.gantt?.endDate);
                                         const isCardExpanded = expandedCards.has(card.id);
                                         // Lighten the project color for tasks
-                                        const cColor = `${pColor}80`; // Add 50% opacity in hex if standard
+                                        const cColor = `${pColor}90`; 
 
                                         // Format dates for display
                                         const sDateStr = card.gantt?.startDate ? format(new Date(card.gantt.startDate), 'dd.MM.yyyy') : '';
@@ -410,12 +412,16 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                         return (
                                             <div key={card.id} className={clsx(
                                                 "relative border-b border-gray-100 group transition-all",
-                                                isCardExpanded ? "bg-yellow-50" : "hover:bg-gray-50"
+                                                isCardExpanded ? "bg-yellow-50 shadow-md" : "hover:bg-gray-50"
                                             )}
-                                                style={{ height: isCardExpanded ? 'auto' : ROW_HEIGHT, minHeight: ROW_HEIGHT }}>
+                                                style={{ 
+                                                    height: isCardExpanded ? 'auto' : ROW_HEIGHT, 
+                                                    minHeight: ROW_HEIGHT,
+                                                    zIndex: isCardExpanded ? 50 : 1
+                                                }}>
 
                                                 {/* Task Label on Left (Sticky) */}
-                                                <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-white border-r border-gray-200">
+                                                <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-white border-r border-gray-200 shadow-[1px_0_3px_rgba(0,0,0,0.05)]">
                                                     <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3.5 flex items-center space-x-2 truncate hover:text-blue-600">
                                                         {card.gantt?.status && (
                                                             <span className={clsx(
@@ -427,8 +433,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                         )}
                                                         <span className={clsx("text-sm font-medium truncate", isCardExpanded ? "text-blue-600" : "text-gray-700")}>{card.title}</span>
                                                     </button>
-                                                    {/* Edit button could go here */}
-                                                    <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3 text-gray-400 hover:text-blue-500">
+                                                    <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3.5 text-gray-400 hover:text-blue-500">
                                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                                     </button>
                                                 </div>
@@ -437,7 +442,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                 <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
                                                     {cLayout.visible && (
                                                         <div className={clsx("absolute z-10 flex flex-col justify-center shadow-sm pointer-events-auto",
-                                                            isCardExpanded ? "border-yellow-400 border rounded-md" : ""
+                                                            isCardExpanded ? "border-yellow-400 border rounded-md" : "rounded-sm"
                                                         )}
                                                             style={{
                                                                 left: `${cLayout.left}px`,
@@ -445,14 +450,15 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     ? {
                                                                         width: 'auto',
                                                                         maxWidth: `${cLayout.width}px`,
-                                                                        minWidth: '360px',
-                                                                        top: '0',
+                                                                        minWidth: '380px',
+                                                                        top: '4px',
+                                                                        bottom: '4px',
                                                                         height: 'auto',
                                                                     }
                                                                     : {
                                                                         width: `${cLayout.width}px`,
-                                                                        top: '10%',
-                                                                        height: '80%',
+                                                                        top: '15%',
+                                                                        height: '70%',
                                                                         paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
                                                                         paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
                                                                     }),
@@ -467,15 +473,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                 const barRight = barLeft + cLayout.width;
 
                                                                 const isOffRight = barRight > viewportRight;
-                                                                const minContentWidth = zoomLevel === 'days' ? 200 : 50;
-                                                                let stickyOffset = isOffRight ? Math.min(cLayout.width - minContentWidth, barRight - viewportRight + 12) : 0;
-                                                                stickyOffset = Math.max(0, stickyOffset);
+                                                                const minTitleWidth = 60;
+                                                                const stickyOffset = isOffRight ? Math.max(0, Math.min(cLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
 
                                                                 return (
-                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-medium whitespace-nowrap overflow-hidden w-full relative">
+                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full">
                                                                         <span className="truncate pr-4 flex-1">{card.title}</span>
                                                                         <div
-                                                                            className="flex-shrink-0 text-[10px] opacity-80 transition-transform duration-75 ease-out"
+                                                                            className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out"
                                                                             style={{ transform: `translateX(${-stickyOffset}px)` }}
                                                                         >
                                                                             {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
@@ -506,7 +511,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                         {card.gantt?.companies && card.gantt.companies.length > 0 && (
                                                                             <>
                                                                                 <h5 className="font-bold text-xs mb-1 text-blue-600">Firmen</h5>
-                                                                                <div className="text-blue-600 text-sm">
+                                                                                <div className="text-blue-600 text-sm font-medium">
                                                                                     {card.gantt.companies.join(', ')}
                                                                                 </div>
                                                                             </>

@@ -265,7 +265,7 @@ export function useDropbox() {
             if (error?.status === 401 || error?.error?.error_summary?.includes('expired')) {
                 handleAuthError();
             }
-            return null;
+            throw error;
         }
     }, [dbx, handleAuthError]);
 

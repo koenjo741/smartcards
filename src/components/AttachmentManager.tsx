@@ -12,8 +12,9 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
     attachments,
     onAttachmentsChange
 }) => {
-    const { uploadFile, deleteFile, getFileLink } = useDropbox();
+    const { uploadFile, deleteFile, getFileContent } = useDropbox();
     const [isUploading, setIsUploading] = useState(false);
+    const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,13 +58,33 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
     };
 
     const handlePreview = async (attachment: Attachment) => {
-        // Ensure path always starts with a slash, older backups might have saved without it
-        const normalizedPath = attachment.path.startsWith('/') ? attachment.path : `/${attachment.path}`;
-        const link = await getFileLink(normalizedPath);
-        if (link) {
-            window.open(link, '_blank');
-        } else {
-            alert("Could not generate preview link.");
+        setPreviewLoadingId(attachment.id);
+        try {
+            // Prefer ID if available (newer files), fallback to path (legacy)
+            let resolvePath = attachment.id || attachment.path;
+            
+            // Ensure path always starts with a slash if it's not an ID, older backups might have saved without it
+            if (!resolvePath.startsWith('/') && !resolvePath.startsWith('id:')) {
+                resolvePath = `/${resolvePath}`;
+            }
+
+            const blob = await getFileContent(resolvePath);
+            if (blob) {
+                // Determine mime type and create object URL to open in browser instead of forcing download
+                const mimeType = attachment.type || blob.type || 'application/octet-stream';
+                const objectUrl = URL.createObjectURL(new Blob([blob], { type: mimeType }));
+                window.open(objectUrl, '_blank');
+                // Clean up the URL after a minute to prevent memory leaks
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+            } else {
+                alert("Could not load preview.");
+            }
+        } catch (error: any) {
+            console.error("Preview failed", error);
+            const msg = error?.error?.error_summary || error?.message || 'Unknown error';
+            alert(`Preview failed.\nReason: ${msg}`);
+        } finally {
+            setPreviewLoadingId(null);
         }
     };
 
@@ -89,11 +110,12 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
                         <div className="flex items-center space-x-1">
                             <button
                                 type="button"
+                                disabled={previewLoadingId === att.id}
                                 onClick={() => handlePreview(att)}
-                                className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-slate-700/50 rounded transition-colors"
+                                className={`p-1.5 rounded transition-colors ${previewLoadingId === att.id ? 'text-blue-400 bg-slate-700' : 'text-gray-400 hover:text-blue-400 hover:bg-slate-700/50'}`}
                                 title="Preview"
                             >
-                                <Eye className="w-4 h-4" />
+                                {previewLoadingId === att.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
                             </button>
                             <button
                                 type="button"

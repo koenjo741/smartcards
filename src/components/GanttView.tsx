@@ -562,7 +562,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                                     />
                                                                                     {/* Custom Tooltip on Hover */}
                                                                                     <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-[10px] font-normal whitespace-nowrap rounded shadow-lg pointer-events-none">
-                                                                                        <div className="font-bold text-amber-400 mb-0.5">{new Date(milestone.date).toLocaleDateString('de-DE')}</div>
+                                                                                        <div className="font-bold text-amber-400 mb-0.5">{new Date(milestone.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                                                                         {milestone.title}
                                                                                         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-gray-900" />
                                                                                     </div>
@@ -620,7 +620,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                                         {card.gantt.milestones.sort((a, b) => a.date.localeCompare(b.date)).map((ms, idx) => (
                                                                                             <tr key={ms.id} className={idx !== card.gantt!.milestones!.length - 1 ? "border-b border-yellow-500/10" : ""}>
                                                                                                 <td className="py-1 px-2 whitespace-nowrap font-semibold text-amber-700 w-20">
-                                                                                                    {new Date(ms.date).toLocaleDateString('de-DE')}
+                                                                                                    {new Date(ms.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                                                 </td>
                                                                                                 <td className="py-1 px-2">
                                                                                                     {ms.title}

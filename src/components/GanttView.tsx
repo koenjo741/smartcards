@@ -468,8 +468,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
                                                         {/* Expanded view (Detailed) — generous padding around content */}
                                                         {isCardExpanded && (
-                                                            <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text" onClick={e => e.stopPropagation()}>
-                                                                <div>
+                                                            <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative" onClick={e => e.stopPropagation()}>
+                                                                {/* Date & Status labels in the top right corner, sticking to viewport right within the box */}
+                                                                <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
+                                                                    <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
+                                                                    <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
+                                                                </div>
+
+                                                                <div className="pr-24"> {/* Add padding to avoid overlapping the labels */}
                                                                     <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
                                                                     <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
                                                                 </div>
@@ -494,23 +500,6 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     </div>
                                                 )}
 
-                                                {/* Sticky dates/status badge — computed position at right viewport edge */}
-                                                {isCardExpanded && (() => {
-                                                    // Position the badge at the right edge of the visible scroll area
-                                                    const badgeLeft = scrollLeft + containerWidth - 160; // 160px badge width
-                                                    const barLeft = Math.max(300, cLayout.left);
-                                                    // Only show sticky badge if the yellow box extends beyond viewport
-                                                    const showSticky = barLeft < badgeLeft; // badge is always visible in viewport
-                                                    return showSticky ? (
-                                                        <div className="absolute z-40"
-                                                            style={{ left: `${badgeLeft}px`, top: '4px' }}>
-                                                            <div className="bg-yellow-100/95 backdrop-blur-sm border border-yellow-400 rounded-lg shadow-lg px-3 py-2 text-right whitespace-nowrap">
-                                                                <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
-                                                                <div className="text-[11px] font-semibold text-blue-600 mt-0.5">{card.gantt?.status}</div>
-                                                            </div>
-                                                        </div>
-                                                    ) : null;
-                                                })()}
                                             </div>
                                         );
                                     })}

@@ -296,7 +296,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                         ))}
                     </div>
                 </div>
-                <button onClick={scrollToToday} className="px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 rounded transition-colors">Springe zu Heute</button>
+                <button onClick={scrollToToday} className="px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 rounded transition-colors">Heute</button>
             </div>
             <div ref={scrollContainerRef} className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent bg-gray-50/30">
                 <div className="min-w-max relative" style={{ width: totalDays * dayWidth + 300, minHeight: '100%' }}>

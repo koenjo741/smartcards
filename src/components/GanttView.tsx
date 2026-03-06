@@ -491,55 +491,107 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             const minTitleWidth = 60;
                                                             const stickyOffset = isOffRight ? Math.max(0, Math.min(renderLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
 
-                                                            return (
-                                                                <div 
-                                                                    className={clsx(
-                                                                        "absolute rounded-sm z-10 flex flex-col justify-center shadow-sm pointer-events-auto",
-                                                                        isDraggingCard ? "cursor-grabbing opacity-80" : "cursor-grab"
-                                                                    )} 
-                                                                    style={{ 
-                                                                        left: `${renderLayout.left}px`, 
-                                                                        width: `${renderLayout.width}px`, 
-                                                                        top: '15%', 
-                                                                        height: '70%', 
-                                                                        paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
-                                                                        paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
-                                                                        backgroundColor: `${pColor}90`,
-                                                                        transition: isDraggingCard ? 'none' : 'all 0.1s ease-out'
-                                                                    }} 
-                                                                    onClick={(e) => {
-                                                                        if (!isDraggingCard) toggleCardExpansion(e, card.id);
-                                                                    }}
-                                                                    onMouseDown={(e) => handleDragStart(e, card.id, 'move', card.gantt?.startDate, card.gantt?.endDate)}
-                                                                >
-                                                                    {/* Left Resize Handle */}
-                                                                    <div 
-                                                                        className="absolute top-0 bottom-0 left-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-l-sm"
-                                                                        onMouseDown={(e) => handleDragStart(e, card.id, 'start', card.gantt?.startDate, card.gantt?.endDate)}
-                                                                    />
-                                                                    
-                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none">
-                                                                        <span className="truncate pr-4 flex-1 select-none">{card.title}</span>
-                                                                        <div className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)` }}>
-                                                                            {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
-                                                                        </div>
-                                                                    </div>
+                                                                const isMilestone = card.gantt?.isMilestone;
+                                                                
+                                                                if (isMilestone) {
+                                                                    // For milestones, we want a fixed-width diamond centered on the start date
+                                                                    const diamondSize = 20; // px
+                                                                    // Start at left + half the day width to center on the start day, then offset by half diamond
+                                                                    const diamondLeft = renderLayout.left + (dayWidth / 2) - (diamondSize / 2);
 
-                                                                    {/* Right Resize Handle */}
+                                                                    return (
+                                                                        <div
+                                                                            className={clsx(
+                                                                                "absolute z-10 flex items-center pointer-events-auto",
+                                                                                isDraggingCard ? "cursor-grabbing opacity-80" : "cursor-grab"
+                                                                            )}
+                                                                            style={{
+                                                                                left: `${diamondLeft}px`,
+                                                                                top: '15%',
+                                                                                height: '70%',
+                                                                                transition: isDraggingCard ? 'none' : 'all 0.1s ease-out'
+                                                                            }}
+                                                                            onClick={(e) => {
+                                                                                if (!isDraggingCard) toggleCardExpansion(e, card.id);
+                                                                            }}
+                                                                            onMouseDown={(e) => handleDragStart(e, card.id, 'move', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                        >
+                                                                            {/* The Diamond */}
+                                                                            <div 
+                                                                                className="rotate-45 shadow-sm border border-black/10 flex-shrink-0"
+                                                                                style={{
+                                                                                    width: `${diamondSize}px`,
+                                                                                    height: `${diamondSize}px`,
+                                                                                    backgroundColor: pColor
+                                                                                }}
+                                                                            />
+                                                                            {/* Milestone Label (always to the right) */}
+                                                                            <span className="ml-3 text-xs text-blue-900 font-bold whitespace-nowrap select-none pointer-events-none drop-shadow-sm bg-white/50 px-1 rounded">
+                                                                                {card.title}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                return (
                                                                     <div 
-                                                                        className="absolute top-0 bottom-0 right-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-r-sm"
-                                                                        onMouseDown={(e) => handleDragStart(e, card.id, 'end', card.gantt?.startDate, card.gantt?.endDate)}
-                                                                    />
-                                                                </div>
-                                                            );
-                                                        })()}
+                                                                        className={clsx(
+                                                                            "absolute rounded-sm z-10 flex flex-col justify-center shadow-sm pointer-events-auto",
+                                                                            isDraggingCard ? "cursor-grabbing opacity-80" : "cursor-grab"
+                                                                        )} 
+                                                                        style={{ 
+                                                                            left: `${renderLayout.left}px`, 
+                                                                            width: `${renderLayout.width}px`, 
+                                                                            top: '15%', 
+                                                                            height: '70%', 
+                                                                            paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
+                                                                            paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
+                                                                            backgroundColor: `${pColor}90`,
+                                                                            transition: isDraggingCard ? 'none' : 'all 0.1s ease-out'
+                                                                        }} 
+                                                                        onClick={(e) => {
+                                                                            if (!isDraggingCard) toggleCardExpansion(e, card.id);
+                                                                        }}
+                                                                        onMouseDown={(e) => handleDragStart(e, card.id, 'move', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                    >
+                                                                        {/* Left Resize Handle */}
+                                                                        <div 
+                                                                            className="absolute top-0 bottom-0 left-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-l-sm"
+                                                                            onMouseDown={(e) => handleDragStart(e, card.id, 'start', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                        />
+                                                                        
+                                                                        <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none">
+                                                                            <span className="truncate pr-4 flex-1 select-none">{card.title}</span>
+                                                                            <div className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)` }}>
+                                                                                {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Right Resize Handle */}
+                                                                        <div 
+                                                                            className="absolute top-0 bottom-0 right-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-r-sm"
+                                                                            onMouseDown={(e) => handleDragStart(e, card.id, 'end', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                        />
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                     </div>
                                                 ) : (
                                                     <div className="absolute top-0 right-0 pointer-events-none" style={{ left: '300px', height: '1000px', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }}>
-                                                        <div className="absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-yellow-400 border rounded-md" style={{ left: `${cLayout.left}px`, width: 'auto', maxWidth: `${cLayout.width}px`, minWidth: '420px', top: '4px', backgroundColor: '#fef9c3' }} onClick={e => e.stopPropagation()}>
+                                                        <div className="absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-yellow-400 border rounded-md" 
+                                                            style={{ 
+                                                                left: `${card.gantt?.isMilestone ? cLayout.left + (dayWidth / 2) - 10 : cLayout.left}px`, 
+                                                                width: card.gantt?.isMilestone ? '420px' : 'auto', 
+                                                                maxWidth: card.gantt?.isMilestone ? '420px' : `${cLayout.width}px`, 
+                                                                minWidth: '420px', 
+                                                                top: '4px', 
+                                                                backgroundColor: '#fef9c3' 
+                                                            }} 
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
                                                             <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative">
                                                                 <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
-                                                                    <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
+                                                                    <div className="text-xs font-bold text-blue-800">{card.gantt?.isMilestone ? sDateStr : dateDisplay}</div>
                                                                     <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
                                                                     {isOverdue && (
                                                                         <div className="text-[11px] font-bold text-red-600 mt-2 animate-pulse">

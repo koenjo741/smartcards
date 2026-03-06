@@ -31,6 +31,7 @@ export interface GanttCardProps {
   plannedBudget?: number;
   consumedBudget?: number;
   companies?: string[];
+  isMilestone?: boolean;
 }
 
 export interface Card {

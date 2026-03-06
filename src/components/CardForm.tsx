@@ -6,6 +6,7 @@ import type { Project, Card, Attachment, GanttCardProps } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { de } from 'date-fns/locale';
+import clsx from 'clsx';
 registerLocale('de', de);
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -301,9 +302,25 @@ export const CardForm: React.FC<CardFormProps> = ({
                 <div className="space-y-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-300">
-                                Beginn
-                            </label>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-gray-300">
+                                    Beginn
+                                </label>
+                                <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer hover:text-amber-400 transition-colors">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={ganttData.isMilestone || false}
+                                        onChange={(e) => setGanttData(prev => ({ 
+                                            ...prev, 
+                                            isMilestone: e.target.checked,
+                                            // Reset end date when turning into a milestone
+                                            ...(e.target.checked ? { endDate: undefined } : {})
+                                        }))}
+                                        className="rounded border-gray-700 bg-slate-800 text-amber-500 focus:ring-amber-500/50"
+                                    />
+                                    <span>Meilenstein</span>
+                                </label>
+                            </div>
                             <DatePicker
                                 selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
                                 onChange={(date: Date | null) => {
@@ -322,7 +339,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                            <label className={clsx("block text-sm font-medium mb-1", ganttData.isMilestone ? "text-gray-600" : "text-gray-300")}>
                                 Ende
                             </label>
                             <DatePicker
@@ -337,9 +354,13 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     }
                                 }}
                                 dateFormat="dd.MM.yyyy"
-                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
-                                placeholderText="DD.MM.YYYY"
-                                isClearable
+                                className={clsx(
+                                    "w-full px-2 py-1 bg-[#020617] border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500",
+                                    ganttData.isMilestone ? "border-gray-800 text-gray-600 bg-[#020617]/50 cursor-not-allowed" : "border-gray-700"
+                                )}
+                                placeholderText={ganttData.isMilestone ? "Entfällt bei Meilenstein" : "DD.MM.YYYY"}
+                                isClearable={!ganttData.isMilestone}
+                                disabled={ganttData.isMilestone}
                                 todayButton="Heute"
                                 locale="de"
                             />

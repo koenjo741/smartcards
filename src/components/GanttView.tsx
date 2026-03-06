@@ -330,13 +330,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
                                                                     <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
                                                                 </div>
+                                                                <div className="border-b border-blue-900/10 mb-6" />
                                                                 <div>
-                                                                    <h5 className="font-bold text-xs mb-1">Infotext</h5>
-                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">{card.gantt?.info || 'Kein Infotext hinterlegt.'}</div>
+                                                                    <h5 className="font-bold text-xs mb-1">Info</h5>
+                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">{card.gantt?.info || 'Keine Info hinterlegt.'}</div>
                                                                     {card.gantt?.companies && card.gantt.companies.length > 0 && (
                                                                         <>
-                                                                            <h5 className="font-bold text-xs mb-1 text-blue-600">Firmen</h5>
-                                                                            <div className="text-blue-600 text-sm font-semibold">{card.gantt.companies.join(', ')}</div>
+                                                                            <h5 className="font-bold text-sm mb-1 text-blue-600">Firmen</h5>
+                                                                            <div className="text-blue-600 text-xs font-semibold">{card.gantt.companies.join(', ')}</div>
                                                                         </>
                                                                     )}
                                                                 </div>

@@ -11,10 +11,16 @@ interface GanttViewProps {
     onCardClick: (card: Card) => void;
 }
 
-// 50px per day as base, giving enough room for text if tasks are multi-day
-const DAY_WIDTH = 40;
+type ZoomLevel = 'days' | 'weeks' | 'months';
+
+const ZOOM_CONFIG = {
+    days: { width: 40, showDays: true, showWeeks: true },
+    weeks: { width: 12, showDays: false, showWeeks: true },
+    months: { width: 4, showDays: false, showWeeks: false }
+};
+
 const HEADER_HEIGHT = 100;
-const ROW_HEIGHT = 48; // A bit tighter, matching the image's row look
+const ROW_HEIGHT = 48;
 
 export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardClick }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -22,6 +28,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
     const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
     const [scrollLeft, setScrollLeft] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
+    const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
+
+    const dayWidth = ZOOM_CONFIG[zoomLevel].width;
 
     // Track horizontal scroll position for sticky badges
     useEffect(() => {
@@ -84,9 +93,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
             min = startOfMonth(new Date());
             max = addDays(min, 30);
         } else {
-            // Pad the view with 2 weeks before and 4 weeks after for breathing room
-            min = addDays(min, -14);
-            max = addDays(max, 28);
+            // Pad the view for breathing room
+            min = addDays(min, -28); // 4 weeks before
+            max = addDays(max, 56); // 8 weeks after
         }
 
         // Snap min to start of month for cleaner headers
@@ -130,7 +139,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         const daysFromStart = differenceInDays(today, minDate);
         if (daysFromStart >= 0 && daysFromStart <= totalDays) {
             // Scroll to position, centering the day
-            const targetX = (daysFromStart * DAY_WIDTH) - (scrollContainerRef.current.clientWidth / 2) + (DAY_WIDTH / 2);
+            const targetX = (daysFromStart * dayWidth) - (scrollContainerRef.current.clientWidth / 2) + (dayWidth / 2);
             scrollContainerRef.current.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
         }
     };
@@ -156,7 +165,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
             const mStr = format(d, 'MMMM yyyy', { locale: de }).toUpperCase();
             if (mStr !== currentMonthStr) {
                 if (currentMonthStr) {
-                    months.push({ label: currentMonthStr, width: currentMonthDays * DAY_WIDTH });
+                    months.push({ label: currentMonthStr, width: currentMonthDays * dayWidth });
                 }
                 currentMonthStr = mStr;
                 currentMonthDays = 1;
@@ -168,7 +177,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
             const wStr = `KW ${format(d, 'I', { locale: de })}`; // ISO Week number
             if (wStr !== currentWeekStr) {
                 if (currentWeekStr) {
-                    weeks.push({ label: currentWeekStr, width: currentWeekDays * DAY_WIDTH });
+                    weeks.push({ label: currentWeekStr, width: currentWeekDays * dayWidth });
                 }
                 currentWeekStr = wStr;
                 currentWeekDays = 1;
@@ -178,52 +187,58 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
             // Final push for last iteration
             if (index === dates.length - 1) {
-                months.push({ label: currentMonthStr, width: currentMonthDays * DAY_WIDTH });
-                weeks.push({ label: currentWeekStr, width: currentWeekDays * DAY_WIDTH });
+                months.push({ label: currentMonthStr, width: currentMonthDays * dayWidth });
+                weeks.push({ label: currentWeekStr, width: currentWeekDays * dayWidth });
             }
         });
 
+        const config = ZOOM_CONFIG[zoomLevel];
+
         return (
-            <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm flex flex-col" style={{ width: totalDays * DAY_WIDTH, height: HEADER_HEIGHT }}>
+            <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm flex flex-col" style={{ width: totalDays * dayWidth, height: config.showDays ? HEADER_HEIGHT : (config.showWeeks ? 65 : 40) }}>
                 {/* Months Row */}
                 <div className="flex border-b border-gray-200 text-xs font-bold text-teal-600 h-8">
                     {months.map((m, i) => (
                         <div key={`m-${i}`} className="flex items-center px-4 border-r border-gray-200/50" style={{ width: m.width }}>
-                            {m.label}
+                            <span className="truncate">{m.label}</span>
                         </div>
                     ))}
                 </div>
 
                 {/* Weeks Row */}
-                <div className="flex border-b border-gray-200 text-[10px] text-gray-500 font-semibold h-7 bg-gray-50">
-                    {weeks.map((w, i) => (
-                        <div key={`w-${i}`} className="flex items-center px-2 border-r border-gray-200/50" style={{ width: w.width }}>
-                            {w.label}
-                        </div>
-                    ))}
-                </div>
+                {config.showWeeks && (
+                    <div className="flex border-b border-gray-200 text-[10px] text-gray-500 font-semibold h-7 bg-gray-50">
+                        {weeks.map((w, i) => (
+                            <div key={`w-${i}`} className="flex items-center px-1 border-r border-gray-200/50" style={{ width: w.width }}>
+                                <span className="truncate">{w.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Days Row */}
-                <div className="flex h-10 bg-white items-end text-[10px] text-gray-500 font-medium">
-                    {dates.map((d, i) => {
-                        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                        const isToday = differenceInDays(new Date(), d) === 0;
-                        return (
-                            <div
-                                key={`d-${i}`}
-                                className={clsx(
-                                    "flex flex-col items-center justify-center border-r border-gray-200 h-full",
-                                    isWeekend ? "bg-gray-50" : "",
-                                    isToday ? "bg-teal-50 text-teal-600 font-bold border-teal-200" : ""
-                                )}
-                                style={{ width: DAY_WIDTH }}
-                            >
-                                <div className="uppercase mb-0.5" style={{ fontSize: '8px' }}>{format(d, 'eeeeee', { locale: de })}</div>
-                                <div className={clsx("text-xs", isToday ? "text-teal-600" : "text-gray-800")}>{format(d, 'dd')}</div>
-                            </div>
-                        );
-                    })}
-                </div>
+                {config.showDays && (
+                    <div className="flex h-10 bg-white items-end text-[10px] text-gray-500 font-medium">
+                        {dates.map((d, i) => {
+                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                            const isToday = differenceInDays(new Date(), d) === 0;
+                            return (
+                                <div
+                                    key={`d-${i}`}
+                                    className={clsx(
+                                        "flex flex-col items-center justify-center border-r border-gray-200 h-full",
+                                        isWeekend ? "bg-gray-50" : "",
+                                        isToday ? "bg-teal-50 text-teal-600 font-bold border-teal-200" : ""
+                                    )}
+                                    style={{ width: dayWidth }}
+                                >
+                                    <div className="uppercase mb-0.5" style={{ fontSize: '8px' }}>{format(d, 'eeeeee', { locale: de })}</div>
+                                    <div className={clsx("text-xs", isToday ? "text-teal-600" : "text-gray-800")}>{format(d, 'dd')}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         );
     };
@@ -250,8 +265,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         if (duration <= 0) return { left: 0, width: 0, visible: false };
 
         return {
-            left: startOffset * DAY_WIDTH,
-            width: duration * DAY_WIDTH,
+            left: startOffset * dayWidth,
+            width: duration * dayWidth,
             visible: true
         };
     };
@@ -260,9 +275,30 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         <div className="flex flex-col h-full bg-white border-l border-gray-200 rounded-r-xl overflow-hidden shadow-sm">
             {/* Controls / Top Toolbar */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white z-40">
-                <h2 className="text-gray-800 font-bold text-lg flex items-center space-x-2">
-                    <span>📅 Projektplan</span>
-                </h2>
+                <div className="flex items-center space-x-4">
+                    <h2 className="text-gray-800 font-bold text-lg flex items-center space-x-2">
+                        <span>📅 Projektplan</span>
+                    </h2>
+
+                    {/* Zoom Toggle */}
+                    <div className="flex p-0.5 bg-gray-100 rounded-lg">
+                        {(['days', 'weeks', 'months'] as ZoomLevel[]).map((level) => (
+                            <button
+                                key={level}
+                                onClick={() => setZoomLevel(level)}
+                                className={clsx(
+                                    "px-3 py-1 rounded-md text-xs font-bold transition-all",
+                                    zoomLevel === level
+                                        ? "bg-white text-teal-600 shadow-sm"
+                                        : "text-gray-500 hover:text-teal-600"
+                                )}
+                            >
+                                {level === 'days' ? 'Tage' : level === 'weeks' ? 'Wochen' : 'Monate'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="flex space-x-2">
                     <button onClick={scrollToToday} className="px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 rounded transition-colors">
                         Springe zu Heute
@@ -275,7 +311,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                 ref={scrollContainerRef}
                 className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent bg-gray-50/30"
             >
-                <div className="min-w-max relative" style={{ width: totalDays * DAY_WIDTH, minHeight: '100%' }}>
+                <div className="min-w-max relative" style={{ width: totalDays * dayWidth, minHeight: '100%' }}>
 
                     {/* Vertical Grid Lines (Background) */}
                     <div className="absolute inset-0 flex pointer-events-none z-0 mt-[100px]">
@@ -287,10 +323,10 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                     key={`grid-${i}`}
                                     className={clsx(
                                         "border-r border-gray-100 h-full",
-                                        isWeekend && !isToday ? "bg-gray-100/50" : "",
+                                        isWeekend && zoomLevel === 'days' ? "bg-gray-100/50" : "",
                                         isToday ? "bg-teal-50/50 border-teal-100 block" : ""
                                     )}
-                                    style={{ width: DAY_WIDTH }}
+                                    style={{ width: dayWidth }}
                                 />
                             );
                         })}
@@ -341,7 +377,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     opacity: 0.9
                                                 }}
                                             >
-                                                <span className="font-medium mix-blend-screen">{pText}</span>
+                                                {zoomLevel === 'days' && <span className="font-medium mix-blend-screen">{pText}</span>}
                                             </div>
                                         ) : (
                                             <div className="pl-[320px] text-xs text-gray-500 italic">Keine Projektdaten</div>
@@ -398,15 +434,15 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     width: `${Math.max(10, cLayout.left < 300 ? cLayout.width - (300 - cLayout.left) : cLayout.width)}px`,
                                                                     top: '10%',
                                                                     height: '80%',
-                                                                    paddingLeft: '0.75rem',
-                                                                    paddingRight: '0.75rem',
+                                                                    paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
+                                                                    paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
                                                                 }),
                                                             backgroundColor: isCardExpanded ? '#fef9c3' : cColor,
                                                         }}
                                                         onClick={(e) => toggleCardExpansion(e, card.id)}
                                                     >
                                                         {/* Minimized view content */}
-                                                        {!isCardExpanded && (
+                                                        {!isCardExpanded && zoomLevel === 'days' && (
                                                             <div className="flex justify-between items-center text-xs text-blue-900 font-medium whitespace-nowrap overflow-hidden">
                                                                 <span className="truncate">{card.title}</span>
                                                                 <span className="ml-4 flex-shrink-0 text-[10px] opacity-80">{dateDisplay}, {card.gantt?.status}</span>

@@ -377,7 +377,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     opacity: 0.9
                                                 }}
                                             >
-                                                {zoomLevel === 'days' && <span className="font-medium mix-blend-screen">{pText}</span>}
+                                                <span className="font-medium mix-blend-screen">{pText}</span>
                                             </div>
                                         ) : (
                                             <div className="pl-[320px] text-xs text-gray-500 italic">Keine Projektdaten</div>
@@ -442,7 +442,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                         onClick={(e) => toggleCardExpansion(e, card.id)}
                                                     >
                                                         {/* Minimized view content */}
-                                                        {!isCardExpanded && zoomLevel === 'days' && (() => {
+                                                        {!isCardExpanded && (() => {
                                                             const viewportRight = scrollLeft + containerWidth;
                                                             const barLeft = Math.max(300, cLayout.left);
                                                             const barRight = barLeft + cLayout.width;
@@ -450,8 +450,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             // Only stick if the bar is partially off-screen to the right
                                                             const isOffRight = barRight > viewportRight;
                                                             // Calculate how much pixel space we need to "push back" to stay in view
-                                                            // We subtract a small padding (12px) from the right
-                                                            const stickyOffset = isOffRight ? Math.min(cLayout.width - 200, barRight - viewportRight + 12) : 0;
+                                                            const minContentWidth = zoomLevel === 'days' ? 200 : 50;
+                                                            const stickyOffset = isOffRight ? Math.min(cLayout.width - minContentWidth, barRight - viewportRight + 12) : 0;
 
                                                             return (
                                                                 <div className="flex justify-between items-center text-xs text-blue-900 font-medium whitespace-nowrap overflow-hidden w-full relative">
@@ -460,7 +460,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                         className="flex-shrink-0 text-[10px] opacity-80 transition-transform duration-75 ease-out"
                                                                         style={{ transform: `translateX(${-stickyOffset}px)` }}
                                                                     >
-                                                                        {dateDisplay}, {card.gantt?.status}
+                                                                        {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
                                                                     </div>
                                                                 </div>
                                                             );

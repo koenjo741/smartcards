@@ -459,7 +459,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3.5 text-gray-400 hover:text-blue-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
                                                 </div>
                                                 {!isCardExpanded ? (
-                                                    <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
+                                                    <div className="absolute inset-y-0 right-0 pointer-events-none z-10" style={{ left: '300px', clipPath: 'inset(-800px -2000px -800px 0)' }}>
                                                         {(() => {
                                                             const isDraggingCard = dragState?.cardId === card.id;
                                                             let renderLayout = { ...cLayout };
@@ -580,7 +580,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             })()}
                                                     </div>
                                                 ) : (
-                                                    <div className="absolute top-0 right-0 pointer-events-none" style={{ left: '300px', height: '1000px', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }}>
+                                                    <div className="absolute inset-y-0 right-0 pointer-events-none z-50" style={{ left: '300px', clipPath: 'inset(-800px -2000px -2000px 0)' }}>
                                                         <div className="absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-yellow-400 border rounded-md" 
                                                             style={{ 
                                                                 left: `${cLayout.left}px`, 

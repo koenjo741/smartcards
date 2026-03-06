@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import type { Card, Project } from '../types';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import clsx from 'clsx';
-import { format, addDays, startOfMonth, differenceInDays } from 'date-fns';
+import { format, addDays, startOfMonth, differenceInDays, isSameDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 interface GanttViewProps {
@@ -249,11 +249,11 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                         <div className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 h-full" />
                         {dates.map((d, i) => {
                             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                            const isToday = differenceInDays(new Date(), d) === 0;
+                            const isToday = isSameDay(new Date(), d);
                             return (
-                                <div key={`d-${i}`} className={clsx("flex flex-col items-center justify-center border-r border-gray-200 h-full", isWeekend ? "bg-gray-50" : "", isToday ? "bg-teal-50 text-teal-600 font-bold border-teal-200" : "")} style={{ width: dayWidth }}>
+                                <div key={`d-${i}`} className={clsx("flex flex-col items-center justify-center border-r h-full transition-colors", isToday ? "bg-teal-50 text-teal-700 font-bold border-teal-300 shadow-[inset_0_-3px_0_rgba(20,184,166,0.5)]" : isWeekend ? "bg-gray-50 border-gray-200" : "border-gray-200")} style={{ width: dayWidth }}>
                                     <div className="uppercase mb-0.5" style={{ fontSize: '8px' }}>{format(d, 'eeeeee', { locale: de })}</div>
-                                    <div className={clsx("text-xs", isToday ? "text-teal-600" : "text-gray-800")}>{format(d, 'dd')}</div>
+                                    <div className={clsx("text-xs", isToday ? "text-teal-700" : "text-gray-800")}>{format(d, 'dd')}</div>
                                 </div>
                             );
                         })}
@@ -281,9 +281,13 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
             <div ref={scrollContainerRef} className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent bg-gray-50/30">
                 <div className="min-w-max relative" style={{ width: totalDays * dayWidth + 300, minHeight: '100%' }}>
                     <div className="absolute inset-y-0 flex pointer-events-none z-0 mt-[100px]" style={{ left: '300px', width: totalDays * dayWidth }}>
-                        {dates.map((d, i) => (
-                            <div key={`grid-${i}`} className={clsx("border-r border-gray-100 h-full", d.getDay() === 0 || d.getDay() === 6 ? "bg-gray-100/50" : "", differenceInDays(new Date(), d) === 0 ? "bg-teal-50/50 border-teal-100 block" : "")} style={{ width: dayWidth }} />
-                        ))}
+                        {dates.map((d, i) => {
+                            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                            const isToday = isSameDay(new Date(), d);
+                            return (
+                                <div key={`grid-${i}`} className={clsx("border-r h-full transition-colors", isToday ? "bg-teal-50/70 border-teal-300/60 shadow-[inset_0_0_12px_rgba(20,184,166,0.15)] relative z-0" : isWeekend ? "bg-gray-100/50 border-gray-100" : "border-gray-100")} style={{ width: dayWidth }} />
+                            );
+                        })}
                     </div>
                     {renderHeader()}
                     <div className="relative z-10 flex flex-col">

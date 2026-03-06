@@ -260,12 +260,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         let startOffset = differenceInDays(start, minDate);
         let duration = differenceInDays(end, start) + 1; // inclusive
 
-        // Handle bars that start before our minDate (though we pad so unlikely)
-        if (startOffset < 0) {
-            duration += startOffset; // reduce width
-            startOffset = 0;
-        }
-
+        // Allow negative offsets so bars slide naturally under sidebar
         if (duration <= 0) return { left: 0, width: 0, visible: false };
 
         return {
@@ -462,7 +457,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             const isOffRight = barRight > viewportRight;
                                                             // Calculate how much pixel space we need to "push back" to stay in view
                                                             const minContentWidth = zoomLevel === 'days' ? 200 : 50;
-                                                            const stickyOffset = isOffRight ? Math.min(cLayout.width - minContentWidth, barRight - viewportRight + 12) : 0;
+                                                            let stickyOffset = isOffRight ? Math.min(cLayout.width - minContentWidth, barRight - viewportRight + 12) : 0;
+                                                            stickyOffset = Math.max(0, stickyOffset); // Important: don't let it go negative for narrow bars
 
                                                             return (
                                                                 <div className="flex justify-between items-center text-xs text-blue-900 font-medium whitespace-nowrap overflow-hidden w-full relative">

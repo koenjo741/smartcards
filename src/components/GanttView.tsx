@@ -16,7 +16,7 @@ type ZoomLevel = 'days' | 'weeks' | 'months';
 const ZOOM_CONFIG = {
     days: { width: 40, showDays: true, showWeeks: true },
     weeks: { width: 12, showDays: false, showWeeks: true },
-    months: { width: 4, showDays: false, showWeeks: false }
+    months: { width: 6, showDays: false, showWeeks: false }
 };
 
 const HEADER_HEIGHT = 100;

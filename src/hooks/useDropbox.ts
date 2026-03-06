@@ -7,6 +7,10 @@ const REDIRECT_URI = window.location.origin + '/';
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 1000;
 
+// Global cache for account info to prevent API spam when multiple components mount useDropbox
+let cachedUserName: string | null = null;
+let accountCheckPromise: Promise<any> | null = null;
+
 interface SaveResult {
     success: boolean;
     errorType?: 'auth' | 'server_error' | 'network';
@@ -41,6 +45,8 @@ export function useDropbox() {
         setIsAuthenticated(false);
         setDbx(null);
         localStorage.removeItem('dropbox_token');
+        cachedUserName = null;
+        accountCheckPromise = null;
     }, []);
 
     // Handle Auth on Load (URL Hash OR LocalStorage)
@@ -73,17 +79,26 @@ export function useDropbox() {
                 setDbx(newDbx);
                 setIsAuthenticated(true);
 
-                newDbx.usersGetCurrentAccount()
-                    .then(response => {
-                        setUserName(response.result.name.display_name);
+                if (!accountCheckPromise) {
+                    accountCheckPromise = newDbx.usersGetCurrentAccount()
+                        .then(response => {
+                            cachedUserName = response.result.name.display_name;
+                            return response;
+                        })
+                        .catch(err => {
+                            accountCheckPromise = null; // allow retry next time if it failed transiently
+                            throw err;
+                        });
+                }
+
+                accountCheckPromise
+                    .then(() => {
+                        if (cachedUserName) setUserName(cachedUserName);
                         setLastSynced(new Date());
                     })
                     .catch((err: any) => {
                         if (err?.status === 401 || err?.error?.error_summary?.includes('expired_access_token')) {
-                            localStorage.removeItem('dropbox_token');
-                            setDbx(null);
-                            setIsAuthenticated(false);
-                            setConnectionError(true);
+                            handleAuthError();
                         } else {
                             // Transient error, don't clear token
                             console.warn("Failed to get current account (Dropbox transient error)", err);
@@ -181,6 +196,8 @@ export function useDropbox() {
         setDbx(null);
         setIsAuthenticated(false);
         setUserName(null);
+        cachedUserName = null;
+        accountCheckPromise = null;
     }, []);
 
     const uploadFile = useCallback(async (file: File) => {

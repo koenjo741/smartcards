@@ -249,10 +249,12 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
     // Helper to calculate left offset and width for a date range
     const getBarLayout = (startStr?: string, endStr?: string) => {
-        if (!startStr) return { left: 0, width: 0, visible: false };
+        if (!startStr || typeof startStr !== 'string' || startStr.trim() === '' || startStr === 'undefined') {
+            return { left: 0, width: 0, visible: false };
+        }
 
         const start = new Date(startStr);
-        const end = endStr ? new Date(endStr) : start; // Default 1 day if no end
+        const end = endStr ? new Date(endStr) : start;
 
         // Ensure valid dates
         if (isNaN(start.getTime()) || isNaN(end.getTime())) return { left: 0, width: 0, visible: false };
@@ -353,7 +355,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                             return (
                                 <React.Fragment key={project.id}>
                                     {/* PROJECT ROW (Full width background acting as header) */}
-                                    <div className="relative border-b border-gray-200 group flex items-center hover:bg-black/5 transition-colors cursor-pointer" style={{ height: ROW_HEIGHT }} onClick={() => toggleProject(project.id)}>
+                                    <div className="relative border-b border-gray-200 group flex items-center hover:bg-black/5 transition-colors cursor-pointer" style={{ height: ROW_HEIGHT, zIndex: 10 }} onClick={() => toggleProject(project.id)}>
 
                                         {/* Fixed Left Label (Sticky) */}
                                         <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5px_rgba(0,0,0,0.1)]" style={{ backgroundColor: pColor }}>
@@ -371,8 +373,6 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                 const barRight = barLeft + pLayout.width;
 
                                                 const isOffRight = barRight > viewportRight;
-                                                // Simplified sticky logic: move text left if it's off the right edge,
-                                                // but cap it so it doesn't go off the left edge of the bar.
                                                 const stickyOffset = isOffRight ? Math.max(0, Math.min(pLayout.width - 240, barRight - viewportRight + 20)) : 0;
 
                                                 return (
@@ -385,12 +385,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             opacity: 0.95
                                                         }}
                                                     >
-                                                        <div
-                                                            className="flex-shrink-0 font-bold transition-transform duration-75 ease-out"
-                                                            style={{ transform: `translateX(${-stickyOffset}px)` }}
-                                                        >
-                                                            {pText}
-                                                        </div>
+                                                        {pLayout.width > 60 && (
+                                                            <div
+                                                                className="flex-shrink-0 font-bold transition-transform duration-75 ease-out"
+                                                                style={{ transform: `translateX(${-stickyOffset}px)` }}
+                                                            >
+                                                                {pText}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             })()}
@@ -401,10 +403,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                     {isExpanded && projectCards.map(card => {
                                         const cLayout = getBarLayout(card.gantt?.startDate, card.gantt?.endDate);
                                         const isCardExpanded = expandedCards.has(card.id);
-                                        // Lighten the project color for tasks
                                         const cColor = `${pColor}90`; 
 
-                                        // Format dates for display
                                         const sDateStr = card.gantt?.startDate ? format(new Date(card.gantt.startDate), 'dd.MM.yyyy') : '';
                                         const eDateStr = card.gantt?.endDate ? format(new Date(card.gantt.endDate), 'dd.MM.yyyy') : sDateStr;
                                         const dateDisplay = sDateStr === eDateStr ? sDateStr : `${sDateStr} – ${eDateStr}`;
@@ -412,12 +412,12 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                         return (
                                             <div key={card.id} className={clsx(
                                                 "relative border-b border-gray-100 group transition-all",
-                                                isCardExpanded ? "bg-yellow-50 shadow-md" : "hover:bg-gray-50"
+                                                isCardExpanded ? "bg-yellow-50 shadow-lg" : "hover:bg-gray-50"
                                             )}
                                                 style={{ 
                                                     height: isCardExpanded ? 'auto' : ROW_HEIGHT, 
                                                     minHeight: ROW_HEIGHT,
-                                                    zIndex: isCardExpanded ? 50 : 1
+                                                    zIndex: isCardExpanded ? 100 : 1
                                                 }}>
 
                                                 {/* Task Label on Left (Sticky) */}
@@ -438,91 +438,96 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     </button>
                                                 </div>
 
-                                                {/* Timeline Bar Section with clipping container */}
-                                                <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
-                                                    {cLayout.visible && (
-                                                        <div className={clsx("absolute z-10 flex flex-col justify-center shadow-sm pointer-events-auto",
-                                                            isCardExpanded ? "border-yellow-400 border rounded-md" : "rounded-sm"
+                                                {/* Minimized Timeline Bar (Clipped normally) */}
+                                                {!isCardExpanded && (
+                                                    <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
+                                                        {cLayout.visible && (
+                                                            <div className="absolute rounded-sm z-10 flex flex-col justify-center shadow-sm pointer-events-auto"
+                                                                style={{
+                                                                    left: `${cLayout.left}px`,
+                                                                    width: `${cLayout.width}px`,
+                                                                    top: '15%',
+                                                                    height: '70%',
+                                                                    paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
+                                                                    paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
+                                                                    backgroundColor: cColor,
+                                                                }}
+                                                                onClick={(e) => toggleCardExpansion(e, card.id)}
+                                                            >
+                                                                {(() => {
+                                                                    const viewportRight = scrollLeft + containerWidth;
+                                                                    const barLeft = cLayout.left + 300;
+                                                                    const barRight = barLeft + cLayout.width;
+
+                                                                    const isOffRight = barRight > viewportRight;
+                                                                    const minTitleWidth = 60;
+                                                                    const stickyOffset = isOffRight ? Math.max(0, Math.min(cLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
+
+                                                                    return (
+                                                                        <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full">
+                                                                            <span className="truncate pr-4 flex-1">{card.title}</span>
+                                                                            <div
+                                                                                className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out"
+                                                                                style={{ transform: `translateX(${-stickyOffset}px)` }}
+                                                                            >
+                                                                                {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         )}
+                                                    </div>
+                                                )}
+
+                                                {/* Expanded Content Section - Using clip-path to allow vertical growth without side leakage */}
+                                                {isCardExpanded && cLayout.visible && (
+                                                    <div className="absolute top-0 right-0 pointer-events-none" style={{ left: '300px', height: '1000px', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }}>
+                                                        <div className={clsx("absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-yellow-400 border rounded-md")}
                                                             style={{
                                                                 left: `${cLayout.left}px`,
-                                                                ...(isCardExpanded
-                                                                    ? {
-                                                                        width: 'auto',
-                                                                        maxWidth: `${cLayout.width}px`,
-                                                                        minWidth: '380px',
-                                                                        top: '4px',
-                                                                        bottom: '4px',
-                                                                        height: 'auto',
-                                                                    }
-                                                                    : {
-                                                                        width: `${cLayout.width}px`,
-                                                                        top: '15%',
-                                                                        height: '70%',
-                                                                        paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
-                                                                        paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
-                                                                    }),
-                                                                backgroundColor: isCardExpanded ? '#fef9c3' : cColor,
+                                                                width: 'auto',
+                                                                maxWidth: `${cLayout.width}px`,
+                                                                minWidth: '420px',
+                                                                top: '4px',
+                                                                backgroundColor: '#fef9c3',
                                                             }}
-                                                            onClick={(e) => toggleCardExpansion(e, card.id)}
+                                                            onClick={e => e.stopPropagation()}
                                                         >
-                                                            {/* Minimized view content */}
-                                                            {!isCardExpanded && (() => {
-                                                                const viewportRight = scrollLeft + containerWidth;
-                                                                const barLeft = cLayout.left + 300;
-                                                                const barRight = barLeft + cLayout.width;
-
-                                                                const isOffRight = barRight > viewportRight;
-                                                                const minTitleWidth = 60;
-                                                                const stickyOffset = isOffRight ? Math.max(0, Math.min(cLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
-
-                                                                return (
-                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full">
-                                                                        <span className="truncate pr-4 flex-1">{card.title}</span>
-                                                                        <div
-                                                                            className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out"
-                                                                            style={{ transform: `translateX(${-stickyOffset}px)` }}
-                                                                        >
-                                                                            {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })()}
-
-                                                            {/* Expanded view content */}
-                                                            {isCardExpanded && (
-                                                                <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative" onClick={e => e.stopPropagation()}>
-                                                                    <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
-                                                                        <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
-                                                                        <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
-                                                                    </div>
-
-                                                                    <div className="pr-24">
-                                                                        <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
-                                                                        <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
-                                                                    </div>
-
-                                                                    <div>
-                                                                        <h5 className="font-bold text-xs mb-1">Infotext</h5>
-                                                                        <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap">
-                                                                            {card.gantt?.info || 'Kein Infotext hinterlegt.'}
-                                                                        </div>
-
-                                                                        {card.gantt?.companies && card.gantt.companies.length > 0 && (
-                                                                            <>
-                                                                                <h5 className="font-bold text-xs mb-1 text-blue-600">Firmen</h5>
-                                                                                <div className="text-blue-600 text-sm font-medium">
-                                                                                    {card.gantt.companies.join(', ')}
-                                                                                </div>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
+                                                            <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative">
+                                                                <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
+                                                                    <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
+                                                                    <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
 
+                                                                <div className="pr-24">
+                                                                    <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
+                                                                    <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
+                                                                </div>
+
+                                                                <div>
+                                                                    <h5 className="font-bold text-xs mb-1">Infotext</h5>
+                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">
+                                                                        {card.gantt?.info || 'Kein Infotext hinterlegt.'}
+                                                                    </div>
+
+                                                                    {card.gantt?.companies && card.gantt.companies.length > 0 && (
+                                                                        <>
+                                                                            <h5 className="font-bold text-xs mb-1 text-blue-600">Firmen</h5>
+                                                                            <div className="text-blue-600 text-sm font-semibold">
+                                                                                {card.gantt.companies.join(', ')}
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                <button onClick={(e) => toggleCardExpansion(e, card.id)} className="mt-6 self-end px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-yellow-400/30 hover:bg-yellow-400/50 rounded-full transition-colors">
+                                                                    Schließen
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}

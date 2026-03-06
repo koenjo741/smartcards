@@ -317,6 +317,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
                                 placeholderText="DD.MM.YYYY"
                                 required
+                                todayButton="Heute"
                                 locale="de"
                             />
                         </div>
@@ -339,6 +340,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
                                 placeholderText="DD.MM.YYYY"
                                 isClearable
+                                todayButton="Heute"
                                 locale="de"
                             />
                         </div>

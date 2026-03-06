@@ -38,6 +38,7 @@ export interface GanttCardProps {
   consumedBudget?: number;
   companies?: string[];
   milestones?: Milestone[];
+  progress?: number;
 }
 
 export interface Card {

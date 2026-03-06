@@ -361,7 +361,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-300">
                                 Status
@@ -375,6 +375,19 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 <option value="In Arbeit">In Arbeit</option>
                                 <option value="Fertig">Fertig</option>
                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Fortschritt (%)
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={ganttData.progress || 0}
+                                onChange={(e) => setGanttData(prev => ({ ...prev, progress: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) }))}
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-1 text-gray-300">

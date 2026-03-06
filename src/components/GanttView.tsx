@@ -525,6 +525,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                             </div>
                                                                         </div>
 
+                                                                        {/* Progress Bar Rendering */}
+                                                                        {card.gantt?.progress !== undefined && card.gantt.progress > 0 && (
+                                                                            <div 
+                                                                                className="absolute bottom-0 left-0 bg-black/20 pointer-events-none z-0 transition-all duration-300 left-rounded"
+                                                                                style={{ width: `${card.gantt.progress}%`, height: '5%' }}
+                                                                            />
+                                                                        )}
+
                                                                         {/* Milestones rendering */}
                                                                         {card.gantt?.milestones?.map(milestone => {
                                                                             // Calculate milestone position relative to timeline start
@@ -595,7 +603,10 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative">
                                                                 <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
                                                                     <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
-                                                                    <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
+                                                                    <div className="text-[11px] font-semibold text-blue-600 mt-1">
+                                                                        {card.gantt?.status}
+                                                                        {card.gantt?.progress !== undefined ? `, Fortschritt: ${card.gantt.progress}%` : ''}
+                                                                    </div>
                                                                     {isOverdue && (
                                                                         <div className="text-[11px] font-bold text-red-600 mt-2 animate-pulse">
                                                                             Enddatum überschritten!

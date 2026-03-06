@@ -48,7 +48,8 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
         onAttachmentsChange(updated);
 
         try {
-            await deleteFile(attachment.path);
+            const normalizedPath = attachment.path.startsWith('/') ? attachment.path : `/${attachment.path}`;
+            await deleteFile(normalizedPath);
         } catch (error) {
             console.error("Delete failed", error);
             // Revert if critical? usually Dropbox delete is fire & forget or we sync later.
@@ -56,7 +57,9 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
     };
 
     const handlePreview = async (attachment: Attachment) => {
-        const link = await getFileLink(attachment.path);
+        // Ensure path always starts with a slash, older backups might have saved without it
+        const normalizedPath = attachment.path.startsWith('/') ? attachment.path : `/${attachment.path}`;
+        const link = await getFileLink(normalizedPath);
         if (link) {
             window.open(link, '_blank');
         } else {

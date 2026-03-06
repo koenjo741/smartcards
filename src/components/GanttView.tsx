@@ -151,45 +151,6 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         return { left: startOffset * dayWidth, width: duration * dayWidth, visible: true };
     };
 
-    // Summary Bar Logic (Envelope calculation)
-    const projectEnvelopes = useMemo(() => {
-        const envelopeMap: Record<string, { startDate?: string; endDate?: string; hasTasks: boolean }> = {};
-        ganttProjects.forEach(project => {
-            const pCards = ganttCards.filter(c => c.projectIds.includes(project.id));
-            let minS: Date | undefined;
-            let maxE: Date | undefined;
-
-            if (project.gantt?.startDate && project.gantt.startDate !== 'undefined') {
-                const d = new Date(project.gantt.startDate);
-                if (!isNaN(d.getTime())) minS = d;
-            }
-            if (project.gantt?.endDate && project.gantt.endDate !== 'undefined') {
-                const d = new Date(project.gantt.endDate);
-                if (!isNaN(d.getTime())) maxE = d;
-            }
-
-            pCards.forEach(card => {
-                if (card.gantt?.startDate && card.gantt.startDate !== 'undefined') {
-                    const s = new Date(card.gantt.startDate);
-                    if (!isNaN(s.getTime())) {
-                        if (!minS || s < minS) minS = s;
-                        const e = card.gantt.endDate && card.gantt.endDate !== 'undefined' ? new Date(card.gantt.endDate) : s;
-                        if (!isNaN(e.getTime()) && (!maxE || e > maxE)) maxE = e;
-                    }
-                }
-            });
-
-            if (minS) {
-                envelopeMap[project.id] = {
-                    startDate: minS.toISOString(),
-                    endDate: (maxE || minS).toISOString(),
-                    hasTasks: pCards.length > 0
-                };
-            }
-        });
-        return envelopeMap;
-    }, [ganttProjects, ganttCards]);
-
     const renderHeader = () => {
         const months: { label: string; width: number }[] = [];
         const weeks: { label: string; width: number }[] = [];
@@ -283,38 +244,17 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                         {ganttProjects.map((project) => {
                             const isExpanded = expandedProjects.has(project.id);
                             const projectCards = ganttCards.filter(c => c.projectIds.includes(project.id));
-                            const envelope = projectEnvelopes[project.id];
-                            const pLayout = getBarLayout(envelope?.startDate, envelope?.endDate);
                             const pColor = project.color || '#3b82f6';
-                            const pText = `${envelope?.startDate ? format(new Date(envelope.startDate), 'dd.MM.yyyy') : ''}${envelope?.endDate ? ` – ${format(new Date(envelope.endDate), 'dd.MM.yyyy')}` : ''}${project.gantt?.status ? `, ${project.gantt.status}` : ''}`;
-                            const isMeaningful = pLayout.visible && (pLayout.width > dayWidth || envelope?.hasTasks);
 
                             return (
                                 <React.Fragment key={project.id}>
                                     <div className="relative border-b border-gray-200 group flex items-center hover:bg-black/5 transition-colors cursor-pointer" style={{ height: ROW_HEIGHT, zIndex: 10 }} onClick={() => toggleProject(project.id)}>
-                                        <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5px_rgba(0,0,0,0.1)]" style={{ backgroundColor: pColor }}>
+                                        <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5_rgba(0,0,0,0.1)]" style={{ backgroundColor: pColor }}>
                                             <span className="truncate flex-1">{project.name}</span>
                                             <span className="text-white/70 ml-2">{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</span>
                                         </div>
-                                        <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
-                                            {isMeaningful && (() => {
-                                                const viewportRight = scrollLeft + containerWidth;
-                                                const barLeft = pLayout.left + 300;
-                                                const barRight = barLeft + pLayout.width;
-                                                const isOffRight = barRight > viewportRight;
-                                                const stickyOffset = isOffRight ? Math.max(0, Math.min(pLayout.width - 240, barRight - viewportRight + 20)) : 0;
-
-                                                return (
-                                                    <div className="absolute h-[80%] top-[10%] rounded-sm z-10 flex items-center justify-end px-3 text-xs text-white shadow-sm overflow-hidden whitespace-nowrap pointer-events-auto" style={{ left: `${pLayout.left}px`, width: `${pLayout.width}px`, backgroundColor: pColor, opacity: 0.95 }}>
-                                                        {pLayout.width > 60 && (
-                                                            <div className="flex-shrink-0 font-bold transition-transform duration-75 ease-out" style={{ transform: `translateX(${-stickyOffset}px)` }}>
-                                                                {pText}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
+                                        {/* Timeline Bar Section with clipping container - REMOVED per user request */}
+                                        <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }} />
                                     </div>
                                     {isExpanded && projectCards.map(card => {
                                         const cLayout = getBarLayout(card.gantt?.startDate, card.gantt?.endDate);

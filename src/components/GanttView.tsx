@@ -256,20 +256,39 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                         {/* Timeline Bar Section with clipping container - REMOVED per user request */}
                                         <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }} />
                                     </div>
-                                    {isExpanded && projectCards.map(card => {
-                                        const cLayout = getBarLayout(card.gantt?.startDate, card.gantt?.endDate);
-                                        const isCardExpanded = expandedCards.has(card.id);
-                                        const sDateStr = card.gantt?.startDate ? format(new Date(card.gantt.startDate), 'dd.MM.yyyy') : '';
-                                        const eDateStr = card.gantt?.endDate ? format(new Date(card.gantt.endDate), 'dd.MM.yyyy') : sDateStr;
-                                        const dateDisplay = sDateStr === eDateStr ? sDateStr : `${sDateStr} – ${eDateStr}`;
+                                        {isExpanded && projectCards.map(card => {
+                                            const cLayout = getBarLayout(card.gantt?.startDate, card.gantt?.endDate);
+                                            const isCardExpanded = expandedCards.has(card.id);
+                                            const sDateStr = card.gantt?.startDate ? format(new Date(card.gantt.startDate), 'dd.MM.yyyy') : '';
+                                            const eDateStr = card.gantt?.endDate ? format(new Date(card.gantt.endDate), 'dd.MM.yyyy') : sDateStr;
+                                            const dateDisplay = sDateStr === eDateStr ? sDateStr : `${sDateStr} – ${eDateStr}`;
 
-                                        return (
-                                            <div key={card.id} className={clsx("relative border-b border-gray-100 group transition-all", isCardExpanded ? "bg-yellow-50 shadow-lg" : "hover:bg-gray-50")} style={{ height: isCardExpanded ? 'auto' : ROW_HEIGHT, minHeight: ROW_HEIGHT, zIndex: isCardExpanded ? 100 : 1 }}>
-                                                <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-white border-r border-gray-200 shadow-[1px_0_3px_rgba(0,0,0,0.05)]">
-                                                    <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3.5 flex items-center space-x-2 truncate hover:text-blue-600">
-                                                        {card.gantt?.status && <span className={clsx("w-2 h-2 rounded-full flex-shrink-0", card.gantt.status === 'Geplant' && "bg-orange-500", card.gantt.status === 'In Arbeit' && "bg-blue-500", card.gantt.status === 'Fertig' && "bg-green-500")} />}
-                                                        <span className={clsx("text-sm font-medium truncate", isCardExpanded ? "text-blue-600" : "text-gray-700")}>{card.title}</span>
-                                                    </button>
+                                            // Overdue Logic
+                                            const isOverdue = (() => {
+                                                if (!card.gantt?.endDate || card.gantt.endDate === 'undefined' || card.gantt.status === 'Fertig') return false;
+                                                const end = new Date(card.gantt.endDate);
+                                                if (isNaN(end.getTime())) return false;
+                                                const today = new Date();
+                                                today.setHours(0, 0, 0, 0);
+                                                return end < today;
+                                            })();
+
+                                            return (
+                                                <div key={card.id} className={clsx("relative border-b border-gray-100 group transition-all", isCardExpanded ? "bg-yellow-50 shadow-lg" : "hover:bg-gray-50")} style={{ height: isCardExpanded ? 'auto' : ROW_HEIGHT, minHeight: ROW_HEIGHT, zIndex: isCardExpanded ? 100 : 1 }}>
+                                                    <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-white border-r border-gray-200 shadow-[1px_0_3px_rgba(0,0,0,0.05)]">
+                                                        <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3.5 flex items-center space-x-2 truncate hover:text-blue-600">
+                                                            {card.gantt?.status && (
+                                                                <span className={clsx(
+                                                                    "w-2 h-2 rounded-full flex-shrink-0",
+                                                                    isOverdue ? "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]" : (
+                                                                        card.gantt.status === 'Geplant' ? "bg-orange-500" :
+                                                                            card.gantt.status === 'In Arbeit' ? "bg-blue-500" :
+                                                                                "bg-green-500"
+                                                                    )
+                                                                )} />
+                                                            )}
+                                                            <span className={clsx("text-sm font-medium truncate", isCardExpanded ? "text-blue-600" : "text-gray-700")}>{card.title}</span>
+                                                        </button>
                                                     <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3.5 text-gray-400 hover:text-blue-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
                                                 </div>
                                                 {!isCardExpanded ? (
@@ -301,6 +320,11 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                 <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
                                                                     <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
                                                                     <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
+                                                                    {isOverdue && (
+                                                                        <div className="text-[11px] font-bold text-red-600 mt-2 animate-pulse">
+                                                                            Enddatum überschritten!
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                                 <div className="pr-24">
                                                                     <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>

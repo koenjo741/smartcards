@@ -133,6 +133,14 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         });
     };
 
+    const toggleAllProjects = () => {
+        if (expandedProjects.size === ganttProjects.length && ganttProjects.length > 0) {
+            setExpandedProjects(new Set());
+        } else {
+            setExpandedProjects(new Set(ganttProjects.map(p => p.id)));
+        }
+    };
+
     const toggleCardExpansion = (e: React.MouseEvent, cardId: string) => {
         e.stopPropagation();
         setExpandedCards(prev => {
@@ -231,14 +239,22 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         return (
             <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm flex flex-col" style={{ width: totalDays * dayWidth + 300, height: config.showDays ? HEADER_HEIGHT : (config.showWeeks ? 65 : 40) }}>
                 <div className="flex border-b border-gray-200 text-xs font-bold text-teal-600 h-8">
-                    <div className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40" />
+                    <div 
+                        className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 cursor-pointer" 
+                        onDoubleClick={toggleAllProjects} 
+                        title="Doppelklick zum Aus-/Einklappen aller Projekte"
+                    />
                     {months.map((m, i) => (
                         <div key={`m-${i}`} className="flex items-center px-4 border-r border-gray-200/50" style={{ width: m.width }}><span className="truncate">{m.label}</span></div>
                     ))}
                 </div>
                 {config.showWeeks && (
                     <div className="flex border-b border-gray-200 text-[10px] text-gray-500 font-semibold h-7 bg-gray-50">
-                        <div className="w-[300px] shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-40" />
+                        <div 
+                            className="w-[300px] shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-40 cursor-pointer" 
+                            onDoubleClick={toggleAllProjects} 
+                            title="Doppelklick zum Aus-/Einklappen aller Projekte"
+                        />
                         {weeks.map((w, i) => (
                             <div key={`w-${i}`} className="flex items-center px-1 border-r border-gray-200/50" style={{ width: w.width }}><span className="truncate">{w.label}</span></div>
                         ))}
@@ -246,7 +262,11 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                 )}
                 {config.showDays && (
                     <div className="flex h-10 bg-white items-end text-[10px] text-gray-500 font-medium">
-                        <div className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 h-full" />
+                        <div 
+                            className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 h-full cursor-pointer" 
+                            onDoubleClick={toggleAllProjects} 
+                            title="Doppelklick zum Aus-/Einklappen aller Projekte"
+                        />
                         {dates.map((d, i) => {
                             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                             const isToday = isSameDay(new Date(), d);

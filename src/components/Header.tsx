@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div>
                     <div className="flex items-center space-x-2">
                         <h1 className="text-xl md:text-3xl font-bold text-white">
-                            {selectedProject ? selectedProject.name : 'All Cards'}
+                            {selectedProject ? selectedProject.name : 'Project Management'}
                         </h1>
                     </div>
                     <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">

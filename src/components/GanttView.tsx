@@ -32,7 +32,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
     const dayWidth = ZOOM_CONFIG[zoomLevel].width;
 
-    // Track horizontal scroll position for sticky badges
+    // Track horizontal scroll position for sticky badges and handle Ctrl+Wheel zoom
     useEffect(() => {
         const el = scrollContainerRef.current;
         if (!el) return;
@@ -42,9 +42,32 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         };
         onScroll(); // initial
         el.addEventListener('scroll', onScroll, { passive: true });
+
+        // Handle Ctrl+Wheel for zooming
+        const onWheel = (e: WheelEvent) => {
+            if (e.ctrlKey) {
+                e.preventDefault(); // Prevent browser zoom
+                const zoomOrder: ZoomLevel[] = ['months', 'weeks', 'days'];
+                setZoomLevel(prev => {
+                    const currentIndex = zoomOrder.indexOf(prev);
+                    if (e.deltaY < 0 && currentIndex < zoomOrder.length - 1) {
+                        return zoomOrder[currentIndex + 1];
+                    } else if (e.deltaY > 0 && currentIndex > 0) {
+                        return zoomOrder[currentIndex - 1];
+                    }
+                    return prev;
+                });
+            }
+        };
+        el.addEventListener('wheel', onWheel, { passive: false });
+
         const ro = new ResizeObserver(onScroll);
         ro.observe(el);
-        return () => { el.removeEventListener('scroll', onScroll); ro.disconnect(); };
+        return () => { 
+            el.removeEventListener('scroll', onScroll); 
+            el.removeEventListener('wheel', onWheel);
+            ro.disconnect(); 
+        };
     }, []);
 
     // Only consider projects and cards that are explicitly marked as Gantt OR have gantt props

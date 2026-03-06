@@ -30,9 +30,10 @@ export const AttachmentManager: React.FC<AttachmentManagerProps> = ({
                 }
             }
             onAttachmentsChange([...attachments, ...newAttachments]);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Upload failed", error);
-            alert("Failed to upload file to Dropbox.");
+            const msg = error?.error?.error_summary || error?.message || 'Unknown error';
+            alert(`Failed to upload file to Dropbox.\nReason: ${msg}`);
         } finally {
             setIsUploading(false);
             if (fileInputRef.current) fileInputRef.current.value = '';

@@ -60,10 +60,15 @@ export function useDropbox() {
                         setUserName(response.result.name.display_name);
                         setLastSynced(new Date());
                     })
-                    .catch(() => {
-                        localStorage.removeItem('dropbox_token');
-                        setDbx(null);
-                        setIsAuthenticated(false);
+                    .catch((err: any) => {
+                        if (err?.status === 401) {
+                            localStorage.removeItem('dropbox_token');
+                            setDbx(null);
+                            setIsAuthenticated(false);
+                        } else {
+                            // Transient error, don't clear token
+                            console.warn("Failed to get current account (Dropbox transient error)", err);
+                        }
                     })
                     .finally(() => setIsAuthChecking(false));
             } else {
@@ -161,7 +166,24 @@ export function useDropbox() {
     }, []);
 
     const uploadFile = useCallback(async (file: File) => {
-        if (!dbx) throw new Error('Not connected to Dropbox');
+        if (!dbx) {
+            const token = localStorage.getItem('dropbox_token');
+             if (token) {
+                 // Try to create dbx dynamically if not initialized yet
+                 const tempDbx = new Dropbox({ accessToken: token });
+                 const safeName = file.name.replace(/[\\/:"*?<>|_]/g, '-');
+                 const path = `/attachments/${Date.now()}_${safeName}`;
+                 const response = await tempDbx.filesUpload({ path, contents: file });
+                 return {
+                     id: response.result.id,
+                     name: file.name,
+                     path: response.result.path_display || path,
+                     type: file.type,
+                     size: file.size,
+                 };
+             }
+             throw new Error('Not connected to Dropbox');
+        }
 
         const safeName = file.name.replace(/[\\/:"*?<>|_]/g, '-');
         const path = `/attachments/${Date.now()}_${safeName}`;
@@ -178,9 +200,15 @@ export function useDropbox() {
     }, [dbx]);
 
     const getFileLink = useCallback(async (path: string) => {
-        if (!dbx) return null;
+        let client = dbx;
+        if (!client) {
+            const token = localStorage.getItem('dropbox_token');
+            if (token) client = new Dropbox({ accessToken: token });
+        }
+        if (!client) return null;
+        
         try {
-            const response = await dbx.filesGetTemporaryLink({ path });
+            const response = await client.filesGetTemporaryLink({ path });
             return response.result.link;
         } catch {
             return null;
@@ -188,9 +216,15 @@ export function useDropbox() {
     }, [dbx]);
 
     const getFileContent = useCallback(async (path: string) => {
-        if (!dbx) return null;
+        let client = dbx;
+        if (!client) {
+            const token = localStorage.getItem('dropbox_token');
+            if (token) client = new Dropbox({ accessToken: token });
+        }
+        if (!client) return null;
+
         try {
-            const response = await dbx.filesDownload({ path });
+            const response = await client.filesDownload({ path });
             return (response.result as unknown as { fileBlob: Blob }).fileBlob;
         } catch {
             return null;
@@ -198,9 +232,15 @@ export function useDropbox() {
     }, [dbx]);
 
     const deleteFile = useCallback(async (path: string) => {
-        if (!dbx) throw new Error('Not connected');
+        let client = dbx;
+        if (!client) {
+            const token = localStorage.getItem('dropbox_token');
+            if (token) client = new Dropbox({ accessToken: token });
+        }
+        if (!client) throw new Error('Not connected');
+        
         try {
-            await dbx.filesDeleteV2({ path });
+            await client.filesDeleteV2({ path });
             return true;
         } catch (error: unknown) {
             const dbxError = error as { error?: { error_summary?: string } };

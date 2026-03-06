@@ -138,8 +138,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
         const daysFromStart = differenceInDays(today, minDate);
         if (daysFromStart >= 0 && daysFromStart <= totalDays) {
-            // Scroll to position, centering the day
-            const targetX = (daysFromStart * dayWidth) - (scrollContainerRef.current.clientWidth / 2) + (dayWidth / 2);
+            // Scroll to position, centering the day in the visible area (after the 300px label)
+            const dayPos = (daysFromStart * dayWidth) + 300;
+            const targetX = dayPos - (scrollContainerRef.current.clientWidth / 2) - 150; // Offset by half of (viewport - 300)
             scrollContainerRef.current.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
         }
     };
@@ -195,9 +196,10 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         const config = ZOOM_CONFIG[zoomLevel];
 
         return (
-            <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm flex flex-col" style={{ width: totalDays * dayWidth, height: config.showDays ? HEADER_HEIGHT : (config.showWeeks ? 65 : 40) }}>
+            <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm flex flex-col" style={{ width: totalDays * dayWidth + 300, height: config.showDays ? HEADER_HEIGHT : (config.showWeeks ? 65 : 40) }}>
                 {/* Months Row */}
                 <div className="flex border-b border-gray-200 text-xs font-bold text-teal-600 h-8">
+                    <div className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40" />
                     {months.map((m, i) => (
                         <div key={`m-${i}`} className="flex items-center px-4 border-r border-gray-200/50" style={{ width: m.width }}>
                             <span className="truncate">{m.label}</span>
@@ -208,6 +210,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                 {/* Weeks Row */}
                 {config.showWeeks && (
                     <div className="flex border-b border-gray-200 text-[10px] text-gray-500 font-semibold h-7 bg-gray-50">
+                        <div className="w-[300px] shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-40" />
                         {weeks.map((w, i) => (
                             <div key={`w-${i}`} className="flex items-center px-1 border-r border-gray-200/50" style={{ width: w.width }}>
                                 <span className="truncate">{w.label}</span>
@@ -219,6 +222,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                 {/* Days Row */}
                 {config.showDays && (
                     <div className="flex h-10 bg-white items-end text-[10px] text-gray-500 font-medium">
+                        <div className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 h-full" />
                         {dates.map((d, i) => {
                             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                             const isToday = differenceInDays(new Date(), d) === 0;
@@ -311,10 +315,10 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                 ref={scrollContainerRef}
                 className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent bg-gray-50/30"
             >
-                <div className="min-w-max relative" style={{ width: totalDays * dayWidth, minHeight: '100%' }}>
+                <div className="min-w-max relative" style={{ width: totalDays * dayWidth + 300, minHeight: '100%' }}>
 
                     {/* Vertical Grid Lines (Background) */}
-                    <div className="absolute inset-0 flex pointer-events-none z-0 mt-[100px]">
+                    <div className="absolute inset-y-0 flex pointer-events-none z-0 mt-[100px]" style={{ left: '300px', width: totalDays * dayWidth }}>
                         {dates.map((d, i) => {
                             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                             const isToday = differenceInDays(new Date(), d) === 0;
@@ -370,9 +374,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                             <div
                                                 className="absolute h-[80%] top-[10%] rounded-sm right-0 z-10 flex items-center justify-end px-3 text-xs text-white shadow-sm overflow-hidden whitespace-nowrap"
                                                 style={{
-                                                    // Let's draw the bar from its exact left offset. If it goes under the sticky nav, that's fine/expected.
-                                                    left: `${Math.max(300, pLayout.left)}px`, // simple hack: don't let the visual bar draw under the header, start it at least at 300px
-                                                    width: `${Math.max(10, pLayout.left < 300 ? pLayout.width - (300 - pLayout.left) : pLayout.width)}px`, // adjust width if clipped
+                                                    left: `${pLayout.left + 300}px`,
+                                                    width: `${pLayout.width}px`,
                                                     backgroundColor: pColor,
                                                     opacity: 0.9
                                                 }}
@@ -428,18 +431,18 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                         isCardExpanded ? "border-yellow-400 border rounded-md" : ""
                                                     )}
                                                         style={{
-                                                            left: `${Math.max(300, cLayout.left)}px`,
+                                                            left: `${cLayout.left + 300}px`,
                                                             ...(isCardExpanded
                                                                 ? {
                                                                     // Content-fitted: let the box shrink to its content
                                                                     width: 'auto',
-                                                                    maxWidth: `${Math.max(10, cLayout.left < 300 ? cLayout.width - (300 - cLayout.left) : cLayout.width)}px`,
+                                                                    maxWidth: `${cLayout.width}px`,
                                                                     minWidth: '360px',
                                                                     top: '0',
                                                                     height: 'auto',
                                                                 }
                                                                 : {
-                                                                    width: `${Math.max(10, cLayout.left < 300 ? cLayout.width - (300 - cLayout.left) : cLayout.width)}px`,
+                                                                    width: `${cLayout.width}px`,
                                                                     top: '10%',
                                                                     height: '80%',
                                                                     paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem',
@@ -452,7 +455,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                         {/* Minimized view content */}
                                                         {!isCardExpanded && (() => {
                                                             const viewportRight = scrollLeft + containerWidth;
-                                                            const barLeft = Math.max(300, cLayout.left);
+                                                            const barLeft = cLayout.left + 300;
                                                             const barRight = barLeft + cLayout.width;
 
                                                             // Only stick if the bar is partially off-screen to the right

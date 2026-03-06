@@ -137,10 +137,34 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         e.stopPropagation();
         setExpandedCards(prev => {
             const next = new Set(prev);
-            if (next.has(cardId)) next.delete(cardId);
-            else next.add(cardId);
+            if (next.has(cardId)) {
+                next.delete(cardId);
+            } else {
+                next.add(cardId);
+                const card = ganttCards.find(c => c.id === cardId);
+                if (card?.gantt?.startDate) {
+                    setTimeout(() => scrollToDate(card?.gantt?.startDate), 50);
+                }
+            }
             return next;
         });
+    };
+
+    const scrollToDate = (dateStr?: string) => {
+        if (!scrollContainerRef.current || !dateStr) return;
+        const targetDate = new Date(dateStr);
+        if (isNaN(targetDate.getTime())) return;
+        
+        targetDate.setHours(0, 0, 0, 0);
+
+        const daysFromStart = differenceInDays(targetDate, minDate);
+        if (daysFromStart >= 0 && daysFromStart <= totalDays) {
+            const gap = 24; // Small gap so it doesn't touch the sticky nav
+            const dayPos = daysFromStart * dayWidth;
+            const targetX = dayPos - gap;
+            
+            scrollContainerRef.current.scrollTo({ left: Math.max(0, targetX), behavior: 'smooth' });
+        }
     };
 
     const scrollToToday = () => {

@@ -381,11 +381,19 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Fortschritt (%)
                             </label>
                             <input
-                                type="number"
-                                min="0"
-                                max="100"
-                                value={ganttData.progress || 0}
-                                onChange={(e) => setGanttData(prev => ({ ...prev, progress: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) }))}
+                                type="text"
+                                inputMode="numeric"
+                                value={ganttData.progress === 0 ? "0" : (ganttData.progress || '')}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                    setGanttData(prev => ({ ...prev, progress: val === '' ? 0 : parseInt(val, 10) }));
+                                }}
+                                onBlur={(e) => {
+                                    let val = parseInt(e.target.value, 10);
+                                    if (isNaN(val)) val = 0;
+                                    val = Math.max(0, Math.min(100, val));
+                                    setGanttData(prev => ({ ...prev, progress: val }));
+                                }}
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
                             />
                         </div>

@@ -543,18 +543,25 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                             return (
                                                                                 <div 
                                                                                     key={milestone.id}
-                                                                                    className="absolute top-1/2 -translate-y-1/2 rotate-45 border border-white/50 shadow-sm z-20 group"
+                                                                                    className="absolute top-0 bottom-0 z-20 group"
                                                                                     style={{
                                                                                         left: `${relativeLeft}px`,
-                                                                                        width: `${diamondSize}px`,
-                                                                                        height: `${diamondSize}px`,
-                                                                                        backgroundColor: '#f59e0b' // amber-500
+                                                                                        width: `${diamondSize}px`
                                                                                     }}
-                                                                                    title={milestone.title} // Native tooltip
-                                                                                    onClick={(e) => e.stopPropagation()} // Prevent card expansion when clicking milestone
+                                                                                    title={milestone.title}
+                                                                                    onClick={(e) => e.stopPropagation()}
                                                                                 >
+                                                                                    {/* Milestone Diamond */}
+                                                                                    <div 
+                                                                                        className="absolute top-1/2 -translate-y-1/2 rotate-45 border border-white/50 shadow-sm"
+                                                                                        style={{
+                                                                                            width: '100%',
+                                                                                            height: `${diamondSize}px`,
+                                                                                            backgroundColor: '#f59e0b'
+                                                                                        }}
+                                                                                    />
                                                                                     {/* Custom Tooltip on Hover */}
-                                                                                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] font-normal whitespace-nowrap rounded shadow-lg -rotate-45 pointer-events-none">
+                                                                                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-[10px] font-normal whitespace-nowrap rounded shadow-lg pointer-events-none">
                                                                                         <div className="font-bold text-amber-400 mb-0.5">{new Date(milestone.date).toLocaleDateString('de-DE')}</div>
                                                                                         {milestone.title}
                                                                                         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-gray-900" />

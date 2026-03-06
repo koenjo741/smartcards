@@ -619,12 +619,16 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                 </div>
                                                                 <div className="border-b border-blue-900/10 mb-6" />
                                                                 <div>
-                                                                    <h5 className="font-bold text-xs mb-1">Info</h5>
+                                                                    <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Info</h5>
                                                                     <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">{card.gantt?.info || 'Keine Info hinterlegt.'}</div>
                                                                     
+                                                                    {/* Separator line between Info and Milestones/Firmen */}
+                                                                    {(card.gantt?.milestones?.length || card.gantt?.companies?.length) ? (
+                                                                        <div className="border-b border-blue-900/10 mb-4" />
+                                                                    ) : null}
                                                                     {card.gantt?.milestones && card.gantt.milestones.length > 0 && (
                                                                         <div className="mb-4">
-                                                                            <h5 className="font-bold text-[11px] text-blue-800 mb-1.5 uppercase tracking-wider">Meilensteine</h5>
+                                                                            <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Meilensteine</h5>
                                                                             <div className="bg-yellow-500/10 rounded-md border border-yellow-500/20 overflow-hidden">
                                                                                 <table className="w-full text-xs text-left text-gray-700">
                                                                                     <tbody>
@@ -645,8 +649,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     )}
                                                                     {card.gantt?.companies && card.gantt.companies.length > 0 && (
                                                                         <>
-                                                                            <h5 className="font-bold text-sm mb-1 text-blue-600">Firmen</h5>
-                                                                            <div className="text-blue-600 text-xs font-semibold">{card.gantt.companies.join(', ')}</div>
+                                                                            <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Firmen</h5>
+                                                                            <div className="text-sm font-semibold text-gray-800">{card.gantt.companies.join(', ')}</div>
                                                                         </>
                                                                     )}
                                                                 </div>

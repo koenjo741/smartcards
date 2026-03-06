@@ -648,6 +648,7 @@ function App() {
               cards={cards}
               projects={projects}
               onCardClick={handleCardClick}
+              onUpdateCard={handleSaveCard}
             />
           ) : viewMode === 'timeline' ? (
             <TimelineView

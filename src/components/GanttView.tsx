@@ -9,9 +9,19 @@ interface GanttViewProps {
     cards: Card[];
     projects: Project[];
     onCardClick: (card: Card) => void;
+    onUpdateCard?: (card: Card) => void;
 }
 
 type ZoomLevel = 'days' | 'weeks' | 'months';
+
+interface DragState {
+    cardId: string;
+    type: 'move' | 'start' | 'end';
+    startX: number;
+    originalStart: Date;
+    originalEnd: Date;
+    currentDeltaDays: number;
+}
 
 const ZOOM_CONFIG = {
     days: { width: 40, showDays: true, showWeeks: true },
@@ -22,13 +32,14 @@ const ZOOM_CONFIG = {
 const HEADER_HEIGHT = 100;
 const ROW_HEIGHT = 48;
 
-export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardClick }) => {
+export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardClick, onUpdateCard }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
     const [scrollLeft, setScrollLeft] = useState(0);
     const [containerWidth, setContainerWidth] = useState(0);
     const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('days');
+    const [dragState, setDragState] = useState<DragState | null>(null);
 
     const dayWidth = ZOOM_CONFIG[zoomLevel].width;
 
@@ -142,6 +153,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
     };
 
     const toggleCardExpansion = (e: React.MouseEvent, cardId: string) => {
+        // Prevent toggling if we are currently finishing a drag
+        if (dragState) return;
         e.stopPropagation();
         setExpandedCards(prev => {
             const next = new Set(prev);
@@ -157,6 +170,89 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
             return next;
         });
     };
+
+    // --- DRAG & DROP LOGIC ---
+    useEffect(() => {
+        if (!dragState) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            // Adjust for container scroll position 
+            if (scrollContainerRef.current) {
+               // Not strictly necessary to adjust if we track pure screen deltas,
+               // but scrolling while holding complicates things. Delta from start is easiest:
+            }
+
+            const deltaX = e.clientX - dragState.startX;
+            const deltaDays = Math.round(deltaX / dayWidth);
+
+            setDragState(prev => prev ? { ...prev, currentDeltaDays: deltaDays } : null);
+        };
+
+        const handleMouseUp = () => {
+            if (dragState && dragState.currentDeltaDays !== 0 && onUpdateCard) {
+                const card = ganttCards.find(c => c.id === dragState.cardId);
+                if (card) {
+                    let newStart = new Date(dragState.originalStart);
+                    let newEnd = new Date(dragState.originalEnd);
+
+                    if (dragState.type === 'move') {
+                        newStart = addDays(newStart, dragState.currentDeltaDays);
+                        newEnd = addDays(newEnd, dragState.currentDeltaDays);
+                    } else if (dragState.type === 'start') {
+                        newStart = addDays(newStart, dragState.currentDeltaDays);
+                        if (newStart > newEnd) newStart = newEnd; // Prevent negative duration
+                    } else if (dragState.type === 'end') {
+                        newEnd = addDays(newEnd, dragState.currentDeltaDays);
+                        if (newEnd < newStart) newEnd = newStart;
+                    }
+
+                    // To avoid timezone shift issues on string conversion, preserve time roughly
+                    const toLocalISO = (d: Date) => {
+                        const tzo = -d.getTimezoneOffset();
+                        const dif = tzo >= 0 ? '+' : '-';
+                        const pad = (num: number) => (num < 10 ? '0' : '') + num;
+                        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + dif + pad(Math.floor(Math.abs(tzo) / 60)) + ':' + pad(Math.abs(tzo) % 60);
+                    };
+
+                    onUpdateCard({
+                        ...card,
+                        gantt: {
+                            ...card.gantt,
+                            startDate: toLocalISO(newStart),
+                            endDate: toLocalISO(newEnd)
+                        } as any
+                    });
+                }
+            }
+            setDragState(null);
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [dragState, dayWidth, onUpdateCard, ganttCards]);
+
+    const handleDragStart = (e: React.MouseEvent, cardId: string, type: 'move' | 'start' | 'end', originalStartStr?: string, originalEndStr?: string) => {
+        if (!originalStartStr) return;
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const originalStart = new Date(originalStartStr);
+        const originalEnd = originalEndStr ? new Date(originalEndStr) : new Date(originalStart);
+        
+        setDragState({
+            cardId,
+            type,
+            startX: e.clientX,
+            originalStart,
+            originalEnd,
+            currentDeltaDays: 0
+        });
+    };
+    // -------------------------
 
     const scrollToDate = (dateStr?: string) => {
         if (!scrollContainerRef.current || !dateStr) return;
@@ -364,22 +460,76 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                 </div>
                                                 {!isCardExpanded ? (
                                                     <div className="absolute inset-y-0 right-0 overflow-hidden pointer-events-none" style={{ left: '300px' }}>
-                                                        {cLayout.visible && (() => {
+                                                        {(() => {
+                                                            const isDraggingCard = dragState?.cardId === card.id;
+                                                            let renderLayout = { ...cLayout };
+
+                                                            if (isDraggingCard && dragState) {
+                                                                let newStart = new Date(dragState.originalStart);
+                                                                let newEnd = new Date(dragState.originalEnd);
+
+                                                                if (dragState.type === 'move') {
+                                                                    newStart = addDays(newStart, dragState.currentDeltaDays);
+                                                                    newEnd = addDays(newEnd, dragState.currentDeltaDays);
+                                                                } else if (dragState.type === 'start') {
+                                                                    newStart = addDays(newStart, dragState.currentDeltaDays);
+                                                                    if (newStart > newEnd) newStart = newEnd;
+                                                                } else if (dragState.type === 'end') {
+                                                                    newEnd = addDays(newEnd, dragState.currentDeltaDays);
+                                                                    if (newEnd < newStart) newEnd = newStart;
+                                                                }
+
+                                                                renderLayout = getBarLayout(newStart.toISOString(), newEnd.toISOString());
+                                                            }
+
+                                                            if (!renderLayout.visible) return null;
+
                                                             const viewportRight = scrollLeft + containerWidth;
-                                                            const barLeft = cLayout.left + 300;
-                                                            const barRight = barLeft + cLayout.width;
+                                                            const barLeft = renderLayout.left + 300;
+                                                            const barRight = barLeft + renderLayout.width;
                                                             const isOffRight = barRight > viewportRight;
                                                             const minTitleWidth = 60;
-                                                            const stickyOffset = isOffRight ? Math.max(0, Math.min(cLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
+                                                            const stickyOffset = isOffRight ? Math.max(0, Math.min(renderLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
 
                                                             return (
-                                                                <div className="absolute rounded-sm z-10 flex flex-col justify-center shadow-sm pointer-events-auto" style={{ left: `${cLayout.left}px`, width: `${cLayout.width}px`, top: '15%', height: '70%', paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem', paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem', backgroundColor: `${pColor}90` }} onClick={(e) => toggleCardExpansion(e, card.id)}>
-                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full">
-                                                                        <span className="truncate pr-4 flex-1">{card.title}</span>
-                                                                        <div className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out" style={{ transform: `translateX(${-stickyOffset}px)` }}>
+                                                                <div 
+                                                                    className={clsx(
+                                                                        "absolute rounded-sm z-10 flex flex-col justify-center shadow-sm pointer-events-auto",
+                                                                        isDraggingCard ? "cursor-grabbing opacity-80" : "cursor-grab"
+                                                                    )} 
+                                                                    style={{ 
+                                                                        left: `${renderLayout.left}px`, 
+                                                                        width: `${renderLayout.width}px`, 
+                                                                        top: '15%', 
+                                                                        height: '70%', 
+                                                                        paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
+                                                                        paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
+                                                                        backgroundColor: `${pColor}90`,
+                                                                        transition: isDraggingCard ? 'none' : 'all 0.1s ease-out'
+                                                                    }} 
+                                                                    onClick={(e) => {
+                                                                        if (!isDraggingCard) toggleCardExpansion(e, card.id);
+                                                                    }}
+                                                                    onMouseDown={(e) => handleDragStart(e, card.id, 'move', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                >
+                                                                    {/* Left Resize Handle */}
+                                                                    <div 
+                                                                        className="absolute top-0 bottom-0 left-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-l-sm"
+                                                                        onMouseDown={(e) => handleDragStart(e, card.id, 'start', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                    />
+                                                                    
+                                                                    <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none">
+                                                                        <span className="truncate pr-4 flex-1 select-none">{card.title}</span>
+                                                                        <div className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)` }}>
                                                                             {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
                                                                         </div>
                                                                     </div>
+
+                                                                    {/* Right Resize Handle */}
+                                                                    <div 
+                                                                        className="absolute top-0 bottom-0 right-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-r-sm"
+                                                                        onMouseDown={(e) => handleDragStart(e, card.id, 'end', card.gantt?.startDate, card.gantt?.endDate)}
+                                                                    />
                                                                 </div>
                                                             );
                                                         })()}

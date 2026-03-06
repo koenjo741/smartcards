@@ -23,6 +23,12 @@ export interface Attachment {
   size: number;
 }
 
+export interface Milestone {
+  id: string;
+  date: string; // YYYY-MM-DD
+  title: string;
+}
+
 export interface GanttCardProps {
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
@@ -31,7 +37,7 @@ export interface GanttCardProps {
   plannedBudget?: number;
   consumedBudget?: number;
   companies?: string[];
-  isMilestone?: boolean;
+  milestones?: Milestone[];
 }
 
 export interface Card {

@@ -491,48 +491,6 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             const minTitleWidth = 60;
                                                             const stickyOffset = isOffRight ? Math.max(0, Math.min(renderLayout.width - minTitleWidth, barRight - viewportRight + 12)) : 0;
 
-                                                                const isMilestone = card.gantt?.isMilestone;
-                                                                
-                                                                if (isMilestone) {
-                                                                    // For milestones, we want a fixed-width diamond centered on the start date
-                                                                    const diamondSize = 20; // px
-                                                                    // Start at left + half the day width to center on the start day, then offset by half diamond
-                                                                    const diamondLeft = renderLayout.left + (dayWidth / 2) - (diamondSize / 2);
-
-                                                                    return (
-                                                                        <div
-                                                                            className={clsx(
-                                                                                "absolute z-10 flex items-center pointer-events-auto",
-                                                                                isDraggingCard ? "cursor-grabbing opacity-80" : "cursor-grab"
-                                                                            )}
-                                                                            style={{
-                                                                                left: `${diamondLeft}px`,
-                                                                                top: '15%',
-                                                                                height: '70%',
-                                                                                transition: isDraggingCard ? 'none' : 'all 0.1s ease-out'
-                                                                            }}
-                                                                            onClick={(e) => {
-                                                                                if (!isDraggingCard) toggleCardExpansion(e, card.id);
-                                                                            }}
-                                                                            onMouseDown={(e) => handleDragStart(e, card.id, 'move', card.gantt?.startDate, card.gantt?.endDate)}
-                                                                        >
-                                                                            {/* The Diamond */}
-                                                                            <div 
-                                                                                className="rotate-45 shadow-sm border border-black/10 flex-shrink-0"
-                                                                                style={{
-                                                                                    width: `${diamondSize}px`,
-                                                                                    height: `${diamondSize}px`,
-                                                                                    backgroundColor: pColor
-                                                                                }}
-                                                                            />
-                                                                            {/* Milestone Label (always to the right) */}
-                                                                            <span className="ml-3 text-xs text-blue-900 font-bold whitespace-nowrap select-none pointer-events-none drop-shadow-sm bg-white/50 px-1 rounded">
-                                                                                {card.title}
-                                                                            </span>
-                                                                        </div>
-                                                                    );
-                                                                }
-
                                                                 return (
                                                                     <div 
                                                                         className={clsx(
@@ -560,12 +518,50 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                             onMouseDown={(e) => handleDragStart(e, card.id, 'start', card.gantt?.startDate, card.gantt?.endDate)}
                                                                         />
                                                                         
-                                                                        <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none">
+                                                                        <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none z-10">
                                                                             <span className="truncate pr-4 flex-1 select-none">{card.title}</span>
                                                                             <div className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)` }}>
                                                                                 {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
                                                                             </div>
                                                                         </div>
+
+                                                                        {/* Milestones rendering */}
+                                                                        {card.gantt?.milestones?.map(milestone => {
+                                                                            // Calculate milestone position relative to timeline start
+                                                                            const msLayout = getBarLayout(milestone.date, milestone.date);
+                                                                            if (!msLayout.visible) return null;
+                                                                            
+                                                                            // The diamond should be centered on its specific day.
+                                                                            // Its absolute position on the timeline is msLayout.left + dayWidth/2
+                                                                            // Relative to this bar, it's (msLayout.left - renderLayout.left) + dayWidth/2 - diamondSize/2
+                                                                            const diamondSize = 10;
+                                                                            const relativeLeft = (msLayout.left - renderLayout.left) + (dayWidth / 2) - (diamondSize / 2);
+                                                                            
+                                                                            // Don't render if it falls completely outside the current bar visually (though data-wise it shouldn't)
+                                                                            if (relativeLeft < -diamondSize || relativeLeft > renderLayout.width) return null;
+
+                                                                            return (
+                                                                                <div 
+                                                                                    key={milestone.id}
+                                                                                    className="absolute top-1/2 -translate-y-1/2 rotate-45 border border-white/50 shadow-sm z-20 group"
+                                                                                    style={{
+                                                                                        left: `${relativeLeft}px`,
+                                                                                        width: `${diamondSize}px`,
+                                                                                        height: `${diamondSize}px`,
+                                                                                        backgroundColor: '#f59e0b' // amber-500
+                                                                                    }}
+                                                                                    title={milestone.title} // Native tooltip
+                                                                                    onClick={(e) => e.stopPropagation()} // Prevent card expansion when clicking milestone
+                                                                                >
+                                                                                    {/* Custom Tooltip on Hover */}
+                                                                                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[10px] font-normal whitespace-nowrap rounded shadow-lg -rotate-45 pointer-events-none">
+                                                                                        <div className="font-bold text-amber-400 mb-0.5">{new Date(milestone.date).toLocaleDateString('de-DE')}</div>
+                                                                                        {milestone.title}
+                                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-gray-900" />
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
 
                                                                         {/* Right Resize Handle */}
                                                                         <div 
@@ -580,9 +576,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                     <div className="absolute top-0 right-0 pointer-events-none" style={{ left: '300px', height: '1000px', clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }}>
                                                         <div className="absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-yellow-400 border rounded-md" 
                                                             style={{ 
-                                                                left: `${card.gantt?.isMilestone ? cLayout.left + (dayWidth / 2) - 10 : cLayout.left}px`, 
-                                                                width: card.gantt?.isMilestone ? '420px' : 'auto', 
-                                                                maxWidth: card.gantt?.isMilestone ? '420px' : `${cLayout.width}px`, 
+                                                                left: `${cLayout.left}px`, 
+                                                                width: 'auto', 
+                                                                maxWidth: `${cLayout.width}px`, 
                                                                 minWidth: '420px', 
                                                                 top: '4px', 
                                                                 backgroundColor: '#fef9c3' 
@@ -591,7 +587,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                         >
                                                             <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative">
                                                                 <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
-                                                                    <div className="text-xs font-bold text-blue-800">{card.gantt?.isMilestone ? sDateStr : dateDisplay}</div>
+                                                                    <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
                                                                     <div className="text-[11px] font-semibold text-blue-600 mt-1">{card.gantt?.status}</div>
                                                                     {isOverdue && (
                                                                         <div className="text-[11px] font-bold text-red-600 mt-2 animate-pulse">
@@ -607,6 +603,28 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                 <div>
                                                                     <h5 className="font-bold text-xs mb-1">Info</h5>
                                                                     <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">{card.gantt?.info || 'Keine Info hinterlegt.'}</div>
+                                                                    
+                                                                    {card.gantt?.milestones && card.gantt.milestones.length > 0 && (
+                                                                        <div className="mb-4">
+                                                                            <h5 className="font-bold text-[11px] text-blue-800 mb-1.5 uppercase tracking-wider">Meilensteine</h5>
+                                                                            <div className="bg-yellow-500/10 rounded-md border border-yellow-500/20 overflow-hidden">
+                                                                                <table className="w-full text-xs text-left text-gray-700">
+                                                                                    <tbody>
+                                                                                        {card.gantt.milestones.sort((a, b) => a.date.localeCompare(b.date)).map((ms, idx) => (
+                                                                                            <tr key={ms.id} className={idx !== card.gantt!.milestones!.length - 1 ? "border-b border-yellow-500/10" : ""}>
+                                                                                                <td className="py-1 px-2 whitespace-nowrap font-semibold text-amber-700 w-20">
+                                                                                                    {new Date(ms.date).toLocaleDateString('de-DE')}
+                                                                                                </td>
+                                                                                                <td className="py-1 px-2">
+                                                                                                    {ms.title}
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
                                                                     {card.gantt?.companies && card.gantt.companies.length > 0 && (
                                                                         <>
                                                                             <h5 className="font-bold text-sm mb-1 text-blue-600">Firmen</h5>

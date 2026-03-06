@@ -6,7 +6,6 @@ import type { Project, Card, Attachment, GanttCardProps } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { de } from 'date-fns/locale';
-import clsx from 'clsx';
 registerLocale('de', de);
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -62,7 +61,9 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [dueDate, setDueDate] = useState('');
     const [linkedCardIds, setLinkedCardIds] = useState<string[]>([]);
     // GANTT State
-    const [ganttData, setGanttData] = useState<Partial<GanttCardProps>>({ status: 'Geplant' });
+    const [ganttData, setGanttData] = useState<Partial<GanttCardProps>>({ status: 'Geplant', milestones: [] });
+    const [newMilestoneDate, setNewMilestoneDate] = useState<string>('');
+    const [newMilestoneTitle, setNewMilestoneTitle] = useState<string>('');
 
     // Confirmation State
     const [confirmState, setConfirmState] = useState<{
@@ -121,7 +122,7 @@ export const CardForm: React.FC<CardFormProps> = ({
             setAttachments([]);
             setLinkedCardIds([]);
             setIsGantt(false);
-            setGanttData({ status: 'Geplant' });
+            setGanttData({ status: 'Geplant', milestones: [] });
         }
     }, [initialData]);
 
@@ -302,25 +303,9 @@ export const CardForm: React.FC<CardFormProps> = ({
                 <div className="space-y-4 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="block text-sm font-medium text-gray-300">
-                                    Beginn
-                                </label>
-                                <label className="flex items-center space-x-2 text-sm text-gray-400 cursor-pointer hover:text-amber-400 transition-colors">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={ganttData.isMilestone || false}
-                                        onChange={(e) => setGanttData(prev => ({ 
-                                            ...prev, 
-                                            isMilestone: e.target.checked,
-                                            // Reset end date when turning into a milestone
-                                            ...(e.target.checked ? { endDate: undefined } : {})
-                                        }))}
-                                        className="rounded border-gray-700 bg-slate-800 text-amber-500 focus:ring-amber-500/50"
-                                    />
-                                    <span>Meilenstein</span>
-                                </label>
-                            </div>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
+                                Beginn
+                            </label>
                             <DatePicker
                                 selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
                                 onChange={(date: Date | null) => {
@@ -339,7 +324,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                             />
                         </div>
                         <div>
-                            <label className={clsx("block text-sm font-medium mb-1", ganttData.isMilestone ? "text-gray-600" : "text-gray-300")}>
+                            <label className="block text-sm font-medium mb-1 text-gray-300">
                                 Ende
                             </label>
                             <DatePicker
@@ -354,13 +339,9 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     }
                                 }}
                                 dateFormat="dd.MM.yyyy"
-                                className={clsx(
-                                    "w-full px-2 py-1 bg-[#020617] border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500",
-                                    ganttData.isMilestone ? "border-gray-800 text-gray-600 bg-[#020617]/50 cursor-not-allowed" : "border-gray-700"
-                                )}
-                                placeholderText={ganttData.isMilestone ? "Entfällt bei Meilenstein" : "DD.MM.YYYY"}
-                                isClearable={!ganttData.isMilestone}
-                                disabled={ganttData.isMilestone}
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
+                                placeholderText="DD.MM.YYYY"
+                                isClearable
                                 todayButton="Heute"
                                 locale="de"
                             />
@@ -446,6 +427,112 @@ export const CardForm: React.FC<CardFormProps> = ({
                             allGanttCards={cards.filter(c => c.isGantt)}
                             currentCardId={initialData?.id}
                         />
+                    </div>
+
+                    <div className="border-t border-slate-700/50 pt-4 mt-4">
+                        <label className="block text-sm font-medium mb-3 text-gray-300">
+                            Meilensteine
+                        </label>
+                        
+                        {/* List of existing milestones */}
+                        {ganttData.milestones && ganttData.milestones.length > 0 && (
+                            <div className="space-y-2 mb-4">
+                                {ganttData.milestones.sort((a, b) => a.date.localeCompare(b.date)).map(milestone => (
+                                    <div key={milestone.id} className="flex items-center justify-between bg-slate-900/50 p-2 rounded-md border border-slate-700/50">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">
+                                                {new Date(milestone.date).toLocaleDateString('de-DE')}
+                                            </div>
+                                            <div className="text-sm text-gray-200">{milestone.title}</div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setGanttData(prev => ({
+                                                    ...prev,
+                                                    milestones: prev.milestones?.filter(m => m.id !== milestone.id)
+                                                }));
+                                            }}
+                                            className="text-gray-500 hover:text-red-400 p-1"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Add new milestone row */}
+                        <div className="flex items-end space-x-2">
+                            <div className="w-36">
+                                <label className="block text-xs text-gray-400 mb-1">Datum</label>
+                                <DatePicker
+                                    selected={newMilestoneDate ? new Date(newMilestoneDate) : null}
+                                    onChange={(date: Date | null) => {
+                                        if (date) {
+                                            const offset = date.getTimezoneOffset();
+                                            const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+                                            setNewMilestoneDate(adjustedDate.toISOString().split('T')[0]);
+                                        } else {
+                                            setNewMilestoneDate('');
+                                        }
+                                    }}
+                                    dateFormat="dd.MM.yyyy"
+                                    className="w-full px-2 py-1.5 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                    placeholderText="DD.MM.YYYY"
+                                    isClearable
+                                    locale="de"
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-xs text-gray-400 mb-1">Kurztext</label>
+                                <input
+                                    type="text"
+                                    value={newMilestoneTitle}
+                                    onChange={(e) => setNewMilestoneTitle(e.target.value)}
+                                    placeholder="Bezeichnung..."
+                                    className="w-full px-2 py-1.5 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 text-sm"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            if (newMilestoneDate && newMilestoneTitle.trim()) {
+                                                setGanttData(prev => ({
+                                                    ...prev,
+                                                    milestones: [...(prev.milestones || []), {
+                                                        id: Date.now().toString(),
+                                                        date: newMilestoneDate,
+                                                        title: newMilestoneTitle.trim()
+                                                    }]
+                                                }));
+                                                setNewMilestoneDate('');
+                                                setNewMilestoneTitle('');
+                                            }
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                disabled={!newMilestoneDate || !newMilestoneTitle.trim()}
+                                onClick={() => {
+                                    if (newMilestoneDate && newMilestoneTitle.trim()) {
+                                        setGanttData(prev => ({
+                                            ...prev,
+                                            milestones: [...(prev.milestones || []), {
+                                                id: Date.now().toString(),
+                                                date: newMilestoneDate,
+                                                title: newMilestoneTitle.trim()
+                                            }]
+                                        }));
+                                        setNewMilestoneDate('');
+                                        setNewMilestoneTitle('');
+                                    }
+                                }}
+                                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-md transition-colors h-[34px]"
+                            >
+                                Hinzufügen
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

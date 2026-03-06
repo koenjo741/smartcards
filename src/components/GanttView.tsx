@@ -260,7 +260,6 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
         let startOffset = differenceInDays(start, minDate);
         let duration = differenceInDays(end, start) + 1; // inclusive
 
-        // Allow negative offsets so bars slide naturally under sidebar
         if (duration <= 0) return { left: 0, width: 0, visible: false };
 
         return {

@@ -20,6 +20,23 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+    const [scrollLeft, setScrollLeft] = useState(0);
+    const [containerWidth, setContainerWidth] = useState(0);
+
+    // Track horizontal scroll position for sticky badges
+    useEffect(() => {
+        const el = scrollContainerRef.current;
+        if (!el) return;
+        const onScroll = () => {
+            setScrollLeft(el.scrollLeft);
+            setContainerWidth(el.clientWidth);
+        };
+        onScroll(); // initial
+        el.addEventListener('scroll', onScroll, { passive: true });
+        const ro = new ResizeObserver(onScroll);
+        ro.observe(el);
+        return () => { el.removeEventListener('scroll', onScroll); ro.disconnect(); };
+    }, []);
 
     // Only consider projects and cards that are explicitly marked as Gantt OR have gantt props
     const ganttProjects = useMemo(() => projects.filter(p => p.isGantt || p.gantt), [projects]);
@@ -363,16 +380,28 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
                                                 {/* Timeline Bar Section */}
                                                 {cLayout.visible && (
-                                                    <div className={clsx("absolute right-0 z-10 flex flex-col justify-center px-3 shadow-sm",
-                                                        isCardExpanded ? "bg-yellow-300 border-yellow-400 border-t border-b" : ""
+                                                    <div className={clsx("absolute z-10 flex flex-col justify-center shadow-sm",
+                                                        isCardExpanded ? "border-yellow-400 border rounded-md" : ""
                                                     )}
                                                         style={{
                                                             left: `${Math.max(300, cLayout.left)}px`,
-                                                            width: `${Math.max(10, cLayout.left < 300 ? cLayout.width - (300 - cLayout.left) : cLayout.width)}px`,
-                                                            backgroundColor: isCardExpanded ? '#ffff00' : cColor, // Bright yellow if expanded as per mockup
-                                                            top: isCardExpanded ? '0' : '10%',
-                                                            height: isCardExpanded ? '100%' : '80%',
-                                                            minHeight: isCardExpanded ? '200px' : 'auto'
+                                                            ...(isCardExpanded
+                                                                ? {
+                                                                    // Content-fitted: let the box shrink to its content
+                                                                    width: 'auto',
+                                                                    maxWidth: `${Math.max(10, cLayout.left < 300 ? cLayout.width - (300 - cLayout.left) : cLayout.width)}px`,
+                                                                    minWidth: '360px',
+                                                                    top: '0',
+                                                                    height: 'auto',
+                                                                }
+                                                                : {
+                                                                    width: `${Math.max(10, cLayout.left < 300 ? cLayout.width - (300 - cLayout.left) : cLayout.width)}px`,
+                                                                    top: '10%',
+                                                                    height: '80%',
+                                                                    paddingLeft: '0.75rem',
+                                                                    paddingRight: '0.75rem',
+                                                                }),
+                                                            backgroundColor: isCardExpanded ? '#fef9c3' : cColor,
                                                         }}
                                                         onClick={(e) => toggleCardExpansion(e, card.id)}
                                                     >
@@ -384,21 +413,15 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                             </div>
                                                         )}
 
-                                                        {/* Expanded view (Detailed) */}
+                                                        {/* Expanded view (Detailed) — generous padding around content */}
                                                         {isCardExpanded && (
-                                                            <div className="p-4 text-gray-800 text-sm h-full flex flex-col cursor-text select-text" onClick={e => e.stopPropagation()}>
-                                                                <div className="flex justify-between items-start mb-4">
-                                                                    <div>
-                                                                        <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
-                                                                        <div className="font-bold text-lg text-blue-800">{card.title}</div>
-                                                                    </div>
-                                                                    <div className="text-right text-xs text-blue-700 font-medium bg-white/50 p-2 rounded">
-                                                                        <div>{dateDisplay}</div>
-                                                                        <div>{card.gantt?.status}</div>
-                                                                    </div>
+                                                            <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text" onClick={e => e.stopPropagation()}>
+                                                                <div>
+                                                                    <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
+                                                                    <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
                                                                 </div>
 
-                                                                <div className="flex-1 mt-2">
+                                                                <div>
                                                                     <h5 className="font-bold text-xs mb-1">Infotext</h5>
                                                                     <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap">
                                                                         {card.gantt?.info || 'Kein Infotext hinterlegt.'}
@@ -417,6 +440,24 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                         )}
                                                     </div>
                                                 )}
+
+                                                {/* Sticky dates/status badge — computed position at right viewport edge */}
+                                                {isCardExpanded && (() => {
+                                                    // Position the badge at the right edge of the visible scroll area
+                                                    const badgeLeft = scrollLeft + containerWidth - 160; // 160px badge width
+                                                    const barLeft = Math.max(300, cLayout.left);
+                                                    // Only show sticky badge if the yellow box extends beyond viewport
+                                                    const showSticky = barLeft < badgeLeft; // badge is always visible in viewport
+                                                    return showSticky ? (
+                                                        <div className="absolute z-40"
+                                                            style={{ left: `${badgeLeft}px`, top: '4px' }}>
+                                                            <div className="bg-yellow-100/95 backdrop-blur-sm border border-yellow-400 rounded-lg shadow-lg px-3 py-2 text-right whitespace-nowrap">
+                                                                <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
+                                                                <div className="text-[11px] font-semibold text-blue-600 mt-0.5">{card.gantt?.status}</div>
+                                                            </div>
+                                                        </div>
+                                                    ) : null;
+                                                })()}
                                             </div>
                                         );
                                     })}

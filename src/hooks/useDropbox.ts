@@ -16,6 +16,17 @@ interface SaveResult {
 const backoffDelay = (attempt: number) =>
     new Promise<void>(resolve => setTimeout(resolve, BASE_BACKOFF_MS * Math.pow(2, attempt)));
 
+/** Wrapper to prevent Dropbox API from hanging indefinitely */
+const withTimeout = <T>(promise: Promise<T>, ms: number = 30000): Promise<T> => {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`Dropbox API Timeout after ${ms}ms`)), ms);
+        promise.then(
+            res => { clearTimeout(timer); resolve(res); },
+            err => { clearTimeout(timer); reject(err); }
+        );
+    });
+};
+
 export function useDropbox() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -24,6 +35,13 @@ export function useDropbox() {
     const [lastSynced, setLastSynced] = useState<Date | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [connectionError, setConnectionError] = useState<boolean>(false);
+
+    const handleAuthError = useCallback(() => {
+        setConnectionError(true);
+        setIsAuthenticated(false);
+        setDbx(null);
+        localStorage.removeItem('dropbox_token');
+    }, []);
 
     // Handle Auth on Load (URL Hash OR LocalStorage)
     useEffect(() => {
@@ -61,10 +79,11 @@ export function useDropbox() {
                         setLastSynced(new Date());
                     })
                     .catch((err: any) => {
-                        if (err?.status === 401) {
+                        if (err?.status === 401 || err?.error?.error_summary?.includes('expired_access_token')) {
                             localStorage.removeItem('dropbox_token');
                             setDbx(null);
                             setIsAuthenticated(false);
+                            setConnectionError(true);
                         } else {
                             // Transient error, don't clear token
                             console.warn("Failed to get current account (Dropbox transient error)", err);
@@ -115,8 +134,7 @@ export function useDropbox() {
 
                     // Auth error – no retry
                     if (status === 401 || errorSummary?.includes('expired_access_token')) {
-                        setConnectionError(true);
-                        setIsAuthenticated(false);
+                        handleAuthError();
                         return { success: false, errorType: 'auth' };
                     }
 
@@ -166,38 +184,33 @@ export function useDropbox() {
     }, []);
 
     const uploadFile = useCallback(async (file: File) => {
-        if (!dbx) {
+        let client = dbx;
+        if (!client) {
             const token = localStorage.getItem('dropbox_token');
-             if (token) {
-                 // Try to create dbx dynamically if not initialized yet
-                 const tempDbx = new Dropbox({ accessToken: token });
-                 const safeName = file.name.replace(/[\\/:"*?<>|_]/g, '-');
-                 const path = `/attachments/${Date.now()}_${safeName}`;
-                 const response = await tempDbx.filesUpload({ path, contents: file });
-                 return {
-                     id: response.result.id,
-                     name: file.name,
-                     path: response.result.path_display || path,
-                     type: file.type,
-                     size: file.size,
-                 };
-             }
-             throw new Error('Not connected to Dropbox');
+            if (token) client = new Dropbox({ accessToken: token });
         }
+        if (!client) throw new Error('Not connected to Dropbox');
 
         const safeName = file.name.replace(/[\\/:"*?<>|_]/g, '-');
         const path = `/attachments/${Date.now()}_${safeName}`;
 
-        const response = await dbx.filesUpload({ path, contents: file });
-
-        return {
-            id: response.result.id,
-            name: file.name,
-            path: response.result.path_display || path,
-            type: file.type,
-            size: file.size,
-        };
-    }, [dbx]);
+        try {
+            const response = await withTimeout(client.filesUpload({ path, contents: file }), 60000); // 60s for uploads
+            return {
+                id: response.result.id,
+                name: file.name,
+                path: response.result.path_display || path,
+                type: file.type,
+                size: file.size,
+            };
+        } catch (error: any) {
+            console.error('Dropbox upload error:', error);
+            if (error?.status === 401 || error?.error?.error_summary?.includes('expired')) {
+                handleAuthError();
+            }
+            throw error;
+        }
+    }, [dbx, handleAuthError]);
 
     const getFileLink = useCallback(async (path: string) => {
         let client = dbx;
@@ -208,12 +221,16 @@ export function useDropbox() {
         if (!client) return null;
         
         try {
-            const response = await client.filesGetTemporaryLink({ path });
+            const response = await withTimeout(client.filesGetTemporaryLink({ path }), 15000);
             return response.result.link;
-        } catch {
+        } catch (error: any) {
+            console.error('Dropbox getFileLink error for path', path, error);
+            if (error?.status === 401 || error?.error?.error_summary?.includes('expired')) {
+                handleAuthError();
+            }
             return null;
         }
-    }, [dbx]);
+    }, [dbx, handleAuthError]);
 
     const getFileContent = useCallback(async (path: string) => {
         let client = dbx;
@@ -224,12 +241,16 @@ export function useDropbox() {
         if (!client) return null;
 
         try {
-            const response = await client.filesDownload({ path });
+            const response = await withTimeout(client.filesDownload({ path }), 30000);
             return (response.result as unknown as { fileBlob: Blob }).fileBlob;
-        } catch {
+        } catch (error: any) {
+            console.error('Dropbox getFileContent error for path', path, error);
+            if (error?.status === 401 || error?.error?.error_summary?.includes('expired')) {
+                handleAuthError();
+            }
             return null;
         }
-    }, [dbx]);
+    }, [dbx, handleAuthError]);
 
     const deleteFile = useCallback(async (path: string) => {
         let client = dbx;
@@ -240,9 +261,13 @@ export function useDropbox() {
         if (!client) throw new Error('Not connected');
         
         try {
-            await client.filesDeleteV2({ path });
+            await withTimeout(client.filesDeleteV2({ path }), 15000);
             return true;
-        } catch (error: unknown) {
+        } catch (error: any) {
+            console.error('Dropbox deleteFile error for path', path, error);
+            if (error?.status === 401 || error?.error?.error_summary?.includes('expired')) {
+                handleAuthError();
+            }
             const dbxError = error as { error?: { error_summary?: string } };
             if (dbxError?.error?.error_summary?.includes('path_lookup/not_found')) {
                 return true; // Already gone
@@ -250,7 +275,7 @@ export function useDropbox() {
             console.error('Error deleting file:', error);
             return false;
         }
-    }, [dbx]);
+    }, [dbx, handleAuthError]);
 
     return {
         isAuthenticated,

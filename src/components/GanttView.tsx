@@ -405,8 +405,16 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
                                                 {/* Task Label on Left (Sticky) */}
                                                 <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-white border-r border-gray-200">
-                                                    <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3 truncate pr-2 hover:text-blue-600">
-                                                        <span className={clsx("text-sm font-medium", isCardExpanded ? "text-blue-600" : "text-gray-700")}>{card.title}</span>
+                                                    <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3.5 flex items-center space-x-2 truncate hover:text-blue-600">
+                                                        {card.gantt?.status && (
+                                                            <span className={clsx(
+                                                                "w-2 h-2 rounded-full flex-shrink-0",
+                                                                card.gantt.status === 'Geplant' && "bg-orange-500",
+                                                                card.gantt.status === 'In Arbeit' && "bg-blue-500",
+                                                                card.gantt.status === 'Fertig' && "bg-green-500"
+                                                            )} />
+                                                        )}
+                                                        <span className={clsx("text-sm font-medium truncate", isCardExpanded ? "text-blue-600" : "text-gray-700")}>{card.title}</span>
                                                     </button>
                                                     {/* Edit button could go here */}
                                                     <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3 text-gray-400 hover:text-blue-500">

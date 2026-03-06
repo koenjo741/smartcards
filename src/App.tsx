@@ -505,7 +505,8 @@ function App() {
         {/* Middle Column: Card List (30% or fixed width) */}
         <div className={clsx(
           "w-full md:w-[30%] md:min-w-[300px] flex flex-col border-gray-700 md:border-r bg-slate-900 rounded-lg p-4 h-full",
-          expandedCardId ? "hidden md:flex" : "flex"
+          (expandedCardId || viewMode === 'gantt') ? "hidden md:flex" : "flex",
+          viewMode === 'gantt' && "md:hidden"
         )}>
           {/* Sort Controls */}
           <div className="flex space-x-2 mb-4">

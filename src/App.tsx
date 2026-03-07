@@ -498,6 +498,7 @@ function App() {
         onInstallClick={handleInstallClick}
         onOpenNewCard={handleOpenNewCard}
         expandedCardId={expandedCardId}
+        onConnect={handleConnect}
       />
 
       {/* Persistent 3-Column Layout */}

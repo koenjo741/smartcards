@@ -11,6 +11,7 @@ interface HeaderProps {
     onInstallClick: () => void;
     onOpenNewCard: () => void;
     expandedCardId: string | null;
+    onConnect: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
     onInstallClick,
     onOpenNewCard,
     expandedCardId,
+    onConnect,
 }) => {
     return (
         <div className="sticky md:static top-0 z-10">
@@ -41,10 +43,10 @@ export const Header: React.FC<HeaderProps> = ({
 
                         {/* Dropbox Status */}
                         {connectionError ? (
-                            <div className="flex items-center space-x-1 text-yellow-500 font-bold text-[10px] md:text-xs bg-yellow-500/10 px-1.5 py-0.5 rounded animate-pulse">
+                            <button onClick={onConnect} className="flex items-center space-x-1 text-yellow-500 font-bold text-[10px] md:text-xs bg-yellow-500/10 hover:bg-yellow-500/20 px-1.5 py-0.5 rounded animate-pulse cursor-pointer transition-colors" title="Click to reconnect">
                                 <span>⚠️</span>
                                 <span>Dropbox: Disconnected</span>
-                            </div>
+                            </button>
                         ) : isSyncing ? (
                             <div className="flex items-center space-x-1 text-blue-400 font-bold text-[10px] md:text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">
                                 <Loader2 className="w-3 h-3 animate-spin" />
@@ -53,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ) : (
                             <div className="flex items-center space-x-1 text-blue-400 font-bold text-[10px] md:text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">
                                 <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                                <span>Cloud Synced</span>
+                                <span>Dropbox Synced</span>
                             </div>
                         )}
 

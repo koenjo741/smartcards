@@ -32,6 +32,22 @@ const ZOOM_CONFIG = {
 const HEADER_HEIGHT = 100;
 const ROW_HEIGHT = 48;
 
+const renderTextWithLinks = (text: string) => {
+    if (!text) return text;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+        if (part.match(urlRegex)) {
+            return (
+                <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline break-all" onClick={e => e.stopPropagation()}>
+                    {part}
+                </a>
+            );
+        }
+        return part;
+    });
+};
+
 export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardClick, onUpdateCard }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -620,7 +636,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                 <div className="border-b border-blue-900/10 mb-6" />
                                                                 <div>
                                                                     <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Info</h5>
-                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">{card.gantt?.info || 'Keine Info hinterlegt.'}</div>
+                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">
+                                                                        {card.gantt?.info ? renderTextWithLinks(card.gantt.info) : 'Keine Info hinterlegt.'}
+                                                                    </div>
                                                                     
                                                                     {/* Separator line between Info and Milestones/Firmen */}
                                                                     {(card.gantt?.milestones?.length || card.gantt?.companies?.length) ? (

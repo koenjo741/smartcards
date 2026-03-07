@@ -34,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                     <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
                         <p className="hidden md:block text-gray-400">
-                            {selectedProject ? 'Cards for ' + selectedProject.name : 'Manage themes and ideas'}
+                            {selectedProject ? 'Cards for ' + selectedProject.name : 'Where ideas become projects.'}
                         </p>
                         <span className="text-gray-600 text-[10px] md:text-sm font-mono mt-0.5 md:mt-0">v{__APP_VERSION__}</span>
                         <span className="hidden md:inline text-gray-600">|</span>

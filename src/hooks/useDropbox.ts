@@ -99,6 +99,11 @@ export function useDropbox() {
                     .catch((err: any) => {
                         if (err?.status === 401 || err?.error?.error_summary?.includes('expired_access_token')) {
                             handleAuthError();
+                            if (!sessionStorage.getItem('dropbox_auto_connect_attempted')) {
+                                sessionStorage.setItem('dropbox_auto_connect_attempted', '1');
+                                const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+                                window.location.href = authUrl;
+                            }
                         } else {
                             // Transient error, don't clear token
                             console.warn("Failed to get current account (Dropbox transient error)", err);

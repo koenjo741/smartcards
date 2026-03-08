@@ -389,13 +389,14 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 <option value="Fertig">Fertig</option>
                             </select>
                         </div>
-                        <div>
+                        <div className={ganttData.status === 'Geplant' ? 'opacity-50 cursor-not-allowed' : ''}>
                             <label className="block text-sm font-medium mb-1 text-gray-300">
                                 Fortschritt (%)
                             </label>
                             <input
                                 type="text"
                                 inputMode="numeric"
+                                disabled={ganttData.status === 'Geplant'}
                                 value={ganttData.progress === 0 ? "0" : (ganttData.progress || '')}
                                 onChange={(e) => {
                                     const val = e.target.value.replace(/[^0-9]/g, '');
@@ -407,7 +408,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     val = Math.max(0, Math.min(100, val));
                                     setGanttData(prev => ({ ...prev, progress: val }));
                                 }}
-                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
+                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 disabled:bg-slate-900/50 disabled:text-gray-500"
                             />
                         </div>
                         <div>

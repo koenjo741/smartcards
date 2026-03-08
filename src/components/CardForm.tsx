@@ -381,7 +381,14 @@ export const CardForm: React.FC<CardFormProps> = ({
                             </label>
                             <select
                                 value={ganttData.status || 'Geplant'}
-                                onChange={(e) => setGanttData(prev => ({ ...prev, status: e.target.value as 'Geplant' | 'In Arbeit' | 'Fertig' }))}
+                                onChange={(e) => {
+                                    const newStatus = e.target.value as 'Geplant' | 'In Arbeit' | 'Fertig';
+                                    setGanttData(prev => ({ 
+                                        ...prev, 
+                                        status: newStatus,
+                                        progress: newStatus === 'Geplant' ? 0 : prev.progress
+                                    }));
+                                }}
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
                             >
                                 <option value="Geplant">Geplant</option>

@@ -349,10 +349,10 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
         const config = ZOOM_CONFIG[zoomLevel];
         return (
-            <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm flex flex-col" style={{ width: totalDays * dayWidth + 300, height: config.showDays ? HEADER_HEIGHT : (config.showWeeks ? 65 : 40) }}>
-                <div className="flex border-b border-gray-200 text-xs font-bold text-teal-600 h-8">
+            <div className="sticky top-0 z-30 bg-slate-900 border-b border-slate-700 shadow-sm flex flex-col" style={{ width: totalDays * dayWidth + 300, height: config.showDays ? HEADER_HEIGHT : (config.showWeeks ? 65 : 40) }}>
+                <div className="flex border-b border-slate-700 text-xs font-bold text-teal-500 h-8">
                     <div 
-                        className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 cursor-pointer" 
+                        className="w-[300px] shrink-0 border-r border-slate-700 bg-slate-900 sticky left-0 z-40 cursor-pointer" 
                         onDoubleClick={toggleAllProjects} 
                         title="Doppelklick zum Aus-/Einklappen aller Projekte"
                     />
@@ -361,9 +361,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                     ))}
                 </div>
                 {config.showWeeks && (
-                    <div className="flex border-b border-gray-200 text-[10px] text-gray-500 font-semibold h-7 bg-gray-50">
+                    <div className="flex border-b border-slate-700 text-[10px] text-gray-400 font-semibold h-7 bg-slate-800">
                         <div 
-                            className="w-[300px] shrink-0 border-r border-gray-200 bg-gray-50 sticky left-0 z-40 cursor-pointer" 
+                            className="w-[300px] shrink-0 border-r border-slate-700 bg-slate-800 sticky left-0 z-40 cursor-pointer" 
                             onDoubleClick={toggleAllProjects} 
                             title="Doppelklick zum Aus-/Einklappen aller Projekte"
                         />
@@ -373,9 +373,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                     </div>
                 )}
                 {config.showDays && (
-                    <div className="flex h-10 bg-white items-end text-[10px] text-gray-500 font-medium">
+                    <div className="flex h-10 bg-slate-900 items-end text-[10px] text-gray-400 font-medium">
                         <div 
-                            className="w-[300px] shrink-0 border-r border-gray-200 bg-white sticky left-0 z-40 h-full cursor-pointer" 
+                            className="w-[300px] shrink-0 border-r border-slate-700 bg-slate-900 sticky left-0 z-40 h-full cursor-pointer" 
                             onDoubleClick={toggleAllProjects} 
                             title="Doppelklick zum Aus-/Einklappen aller Projekte"
                         />
@@ -383,9 +383,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                             const isToday = isSameDay(new Date(), d);
                             return (
-                                <div key={`d-${i}`} className={clsx("flex flex-col items-center justify-center border-r h-full transition-colors", isToday ? "bg-teal-50 text-teal-700 font-bold border-teal-300 shadow-[inset_0_-3px_0_rgba(20,184,166,0.5)]" : isWeekend ? "bg-gray-50 border-gray-200" : "border-gray-200")} style={{ width: dayWidth }}>
+                                <div key={`d-${i}`} className={clsx("flex flex-col items-center justify-center border-r h-full transition-colors", isToday ? "bg-teal-900/30 text-teal-400 font-bold border-teal-500/50 shadow-[inset_0_-3px_0_rgba(20,184,166,0.5)]" : isWeekend ? "bg-slate-800 border-slate-700" : "border-slate-800")} style={{ width: dayWidth }}>
                                     <div className="uppercase mb-0.5" style={{ fontSize: '8px' }}>{format(d, 'eeeeee', { locale: de })}</div>
-                                    <div className={clsx("text-xs", isToday ? "text-teal-700" : "text-gray-800")}>{format(d, 'dd')}</div>
+                                    <div className={clsx("text-xs", isToday ? "text-teal-400" : "text-gray-300")}>{format(d, 'dd')}</div>
                                 </div>
                             );
                         })}
@@ -396,34 +396,34 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
     };
 
     return (
-        <div className="flex flex-col h-full bg-white border-l border-gray-200 rounded-r-xl overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white z-40">
+        <div className="flex flex-col h-full bg-slate-950 border-l border-slate-700 rounded-r-xl overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between p-3 border-b border-slate-700 bg-slate-900 z-40">
                 <div className="flex items-center space-x-4">
-                    <h2 className="text-gray-800 font-bold text-lg flex items-center space-x-2"><span>📅 Projektplan</span></h2>
-                    <div className="flex p-0.5 bg-gray-100 rounded-lg">
+                    <h2 className="text-gray-100 font-bold text-lg flex items-center space-x-2"><span>📅 Projektplan</span></h2>
+                    <div className="flex p-0.5 bg-slate-800 rounded-lg">
                         {(['days', 'weeks', 'months'] as ZoomLevel[]).map((level) => (
-                            <button key={level} onClick={() => setZoomLevel(level)} className={clsx("px-3 py-1 rounded-md text-xs font-bold transition-all", zoomLevel === level ? "bg-white text-teal-600 shadow-sm" : "text-gray-500 hover:text-teal-600")}>
+                            <button key={level} onClick={() => setZoomLevel(level)} className={clsx("px-3 py-1 rounded-md text-xs font-bold transition-all", zoomLevel === level ? "bg-slate-700 text-teal-400 shadow-sm" : "text-gray-400 hover:text-teal-400")}>
                                 {level === 'days' ? 'Tage' : level === 'weeks' ? 'Wochen' : 'Monate'}
                             </button>
                         ))}
                     </div>
                 </div>
-                <button onClick={scrollToToday} className="px-3 py-1.5 text-xs font-medium border border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 rounded transition-colors">Heute</button>
+                <button onClick={scrollToToday} className="px-3 py-1.5 text-xs font-medium border border-teal-500/30 text-teal-400 bg-teal-900/20 hover:bg-teal-900/40 rounded transition-colors">Heute</button>
             </div>
-            <div ref={scrollContainerRef} className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent bg-gray-50/30">
+            <div ref={scrollContainerRef} className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent bg-slate-950">
                 <div className="min-w-max relative" style={{ width: totalDays * dayWidth + 300, minHeight: '100%' }}>
                     <div className="absolute inset-y-0 flex pointer-events-none z-0 mt-[100px]" style={{ left: '300px', width: totalDays * dayWidth }}>
                         {dates.map((d, i) => {
                             const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                             const isToday = isSameDay(new Date(), d);
                             return (
-                                <div key={`grid-${i}`} className={clsx("border-r h-full transition-colors", isToday ? "bg-teal-50/70 border-teal-300/60 shadow-[inset_0_0_12px_rgba(20,184,166,0.15)] relative z-0" : isWeekend ? "bg-gray-100/50 border-gray-100" : "border-gray-100")} style={{ width: dayWidth }} />
+                                <div key={`grid-${i}`} className={clsx("border-r h-full transition-colors", isToday ? "bg-teal-900/10 border-teal-500/30 shadow-[inset_0_0_12px_rgba(20,184,166,0.1)] relative z-0" : isWeekend ? "bg-slate-900/50 border-slate-800" : "border-slate-800")} style={{ width: dayWidth }} />
                             );
                         })}
                     </div>
                     {renderHeader()}
                     <div className="relative z-10 flex flex-col">
-                        {ganttProjects.length === 0 && <div className="p-8 text-center text-gray-500 sticky left-0 w-full max-w-lg mx-auto mt-10"><p>Keine Projekte vorhanden.</p></div>}
+                        {ganttProjects.length === 0 && <div className="p-8 text-center text-gray-400 sticky left-0 w-full max-w-lg mx-auto mt-10"><p>Keine Projekte vorhanden.</p></div>}
                         {ganttProjects.map((project) => {
                             const isExpanded = expandedProjects.has(project.id);
                             const projectCards = ganttCards.filter(c => c.projectIds.includes(project.id));
@@ -431,8 +431,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
                             return (
                                 <React.Fragment key={project.id}>
-                                    <div className="relative border-b border-gray-200 group flex items-center hover:bg-black/5 transition-colors cursor-pointer" style={{ height: ROW_HEIGHT, zIndex: 10 }} onClick={() => toggleProject(project.id)}>
-                                        <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5_rgba(0,0,0,0.1)]" style={{ backgroundColor: pColor }}>
+                                    <div className="relative border-b border-slate-700 group flex items-center hover:bg-white/5 transition-colors cursor-pointer" style={{ height: ROW_HEIGHT, zIndex: 10 }} onClick={() => toggleProject(project.id)}>
+                                        <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5px_rgba(0,0,0,0.3)]" style={{ backgroundColor: pColor }}>
                                             <span className="truncate flex-1">{project.name}</span>
                                             <span className="text-white/70 ml-2">{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</span>
                                         </div>
@@ -457,9 +457,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                             })();
 
                                             return (
-                                                <div key={card.id} className={clsx("relative border-b border-gray-100 group transition-all", isCardExpanded ? "bg-yellow-50 shadow-lg" : "hover:bg-gray-50")} style={{ height: isCardExpanded ? 'auto' : ROW_HEIGHT, minHeight: ROW_HEIGHT, zIndex: isCardExpanded ? 100 : 1 }}>
-                                                    <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-white border-r border-gray-200 shadow-[1px_0_3px_rgba(0,0,0,0.05)]">
-                                                        <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3.5 flex items-center space-x-2 truncate hover:text-blue-600">
+                                                <div key={card.id} className={clsx("relative border-b border-slate-800 group transition-all", isCardExpanded ? "bg-slate-900 shadow-lg" : "hover:bg-slate-900/50")} style={{ height: isCardExpanded ? 'auto' : ROW_HEIGHT, minHeight: ROW_HEIGHT, zIndex: isCardExpanded ? 100 : 1 }}>
+                                                    <div className="sticky left-0 z-20 flex items-start h-full px-4 w-[300px] bg-slate-900 border-r border-slate-700 shadow-[1px_0_3px_rgba(0,0,0,0.2)]">
+                                                        <button onClick={(e) => toggleCardExpansion(e, card.id)} className="flex-1 text-left pt-3.5 flex items-center space-x-2 truncate hover:text-blue-400">
                                                             {card.gantt?.status && (
                                                                 <span className={clsx(
                                                                     "w-2 h-2 rounded-full flex-shrink-0",
@@ -470,9 +470,9 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     )
                                                                 )} />
                                                             )}
-                                                            <span className={clsx("text-sm font-medium truncate", isCardExpanded ? "text-blue-600" : "text-gray-700")}>{card.title}</span>
+                                                            <span className={clsx("text-sm font-medium truncate", isCardExpanded ? "text-blue-400" : "text-gray-200")}>{card.title}</span>
                                                         </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3.5 text-gray-400 hover:text-blue-500"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); onCardClick(card); }} className="pt-3.5 text-gray-500 hover:text-blue-400"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg></button>
                                                 </div>
                                                 {!isCardExpanded ? (
                                                     <div className="absolute inset-y-0 right-0 pointer-events-none z-10" style={{ left: '300px', clipPath: 'inset(-800px -2000px -800px 0)' }}>
@@ -530,13 +530,13 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     >
                                                                         {/* Left Resize Handle */}
                                                                         <div 
-                                                                            className="absolute top-0 bottom-0 left-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-l-sm"
+                                                                            className="absolute top-0 bottom-0 left-0 w-2 cursor-col-resize z-20 hover:bg-slate-400/20 rounded-l-sm"
                                                                             onMouseDown={(e) => handleDragStart(e, card.id, 'start', card.gantt?.startDate, card.gantt?.endDate)}
                                                                         />
                                                                         
-                                                                        <div className="flex justify-between items-center text-xs text-blue-900 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none z-10">
+                                                                        <div className="flex justify-between items-center text-xs text-blue-100 font-bold whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none z-10">
                                                                             <span className="truncate pr-4 flex-1 select-none">{card.title}</span>
-                                                                            <div className="flex-shrink-0 text-[10px] bg-white/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)` }}>
+                                                                            <div className="flex-shrink-0 text-[10px] bg-black/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)` }}>
                                                                                 {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}
                                                                             </div>
                                                                         </div>
@@ -544,7 +544,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                         {/* Progress Bar Rendering */}
                                                                         {card.gantt?.progress !== undefined && card.gantt.progress > 0 && (
                                                                             <div 
-                                                                                className="absolute bottom-0 left-0 bg-black/20 pointer-events-none z-0 transition-all duration-300 left-rounded"
+                                                                                className="absolute bottom-0 left-0 bg-white/20 pointer-events-none z-0 transition-all duration-300 left-rounded"
                                                                                 style={{ width: `${card.gantt.progress}%`, height: '5%' }}
                                                                             />
                                                                         )}
@@ -596,30 +596,30 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
 
                                                                         {/* Right Resize Handle */}
                                                                         <div 
-                                                                            className="absolute top-0 bottom-0 right-0 w-2 cursor-col-resize z-20 hover:bg-white/30 rounded-r-sm"
+                                                                            className="absolute top-0 bottom-0 right-0 w-2 cursor-col-resize z-20 hover:bg-slate-400/20 rounded-r-sm"
                                                                             onMouseDown={(e) => handleDragStart(e, card.id, 'end', card.gantt?.startDate, card.gantt?.endDate)}
                                                                         />
                                                                     </div>
                                                                 );
                                                             })()}
-                                                    </div>
+                                                     </div>
                                                 ) : (
                                                     <div className="absolute inset-y-0 right-0 pointer-events-none z-50" style={{ left: '300px', clipPath: 'inset(-800px -2000px -2000px 0)' }}>
-                                                        <div className="absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-yellow-400 border rounded-md" 
+                                                        <div className="absolute z-50 flex flex-col shadow-2xl pointer-events-auto border-slate-700 border rounded-md" 
                                                             style={{ 
-                                                                left: `${cLayout.left}px`, 
+                                                                left: `${cLayout.left}px`,
                                                                 width: 'auto', 
                                                                 maxWidth: `${cLayout.width}px`, 
                                                                 minWidth: '420px', 
                                                                 top: '4px', 
-                                                                backgroundColor: '#fef9c3' 
+                                                                backgroundColor: '#0f172a' 
                                                             }} 
                                                             onClick={e => e.stopPropagation()}
                                                         >
-                                                            <div className="p-6 md:p-8 text-gray-800 text-sm flex flex-col cursor-text select-text relative">
+                                                            <div className="p-6 md:p-8 text-gray-100 text-sm flex flex-col cursor-text select-text relative">
                                                                 <div className="absolute top-4 right-4 md:top-6 md:right-6 text-right pointer-events-none sticky right-0">
-                                                                    <div className="text-xs font-bold text-blue-800">{dateDisplay}</div>
-                                                                    <div className="text-[11px] font-semibold text-blue-600 mt-1">
+                                                                    <div className="text-xs font-bold text-blue-400">{dateDisplay}</div>
+                                                                    <div className="text-[11px] font-semibold text-blue-300 mt-1">
                                                                         {card.gantt?.status}
                                                                         {card.gantt?.progress !== undefined ? `, Fortschritt: ${card.gantt.progress}%` : ''}
                                                                     </div>
@@ -630,29 +630,29 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     )}
                                                                 </div>
                                                                 <div className="pr-24">
-                                                                    <div className="text-[10px] uppercase text-blue-600 font-bold mb-1">{project.name}</div>
-                                                                    <div className="font-bold text-lg text-blue-800 mb-3">{card.title}</div>
+                                                                    <div className="text-[10px] uppercase text-blue-400 font-bold mb-1">{project.name}</div>
+                                                                    <div className="font-bold text-lg text-blue-300 mb-3">{card.title}</div>
                                                                 </div>
-                                                                <div className="border-b border-blue-900/10 mb-6" />
+                                                                <div className="border-b border-blue-400/10 mb-6" />
                                                                 <div>
-                                                                    <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Info</h5>
-                                                                    <div className="text-sm border-l-2 border-yellow-500 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed">
+                                                                    <h5 className="font-bold text-[11px] text-blue-400 mb-1.5 uppercase tracking-wider">Info</h5>
+                                                                    <div className="text-sm border-l-2 border-slate-600 pl-3 py-1 mb-4 whitespace-pre-wrap leading-relaxed text-gray-300">
                                                                         {card.gantt?.info ? renderTextWithLinks(card.gantt.info) : 'Keine Info hinterlegt.'}
                                                                     </div>
                                                                     
                                                                     {/* Separator line between Info and Milestones/Firmen */}
                                                                     {(card.gantt?.milestones?.length || card.gantt?.companies?.length) ? (
-                                                                        <div className="border-b border-blue-900/10 mb-4" />
+                                                                        <div className="border-b border-blue-400/10 mb-4" />
                                                                     ) : null}
                                                                     {card.gantt?.milestones && card.gantt.milestones.length > 0 && (
                                                                         <div className="mb-4">
-                                                                            <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Meilensteine</h5>
-                                                                            <div className="bg-yellow-500/10 rounded-md border border-yellow-500/20 overflow-hidden">
-                                                                                <table className="w-full text-xs text-left text-gray-700">
+                                                                            <h5 className="font-bold text-[11px] text-blue-400 mb-1.5 uppercase tracking-wider">Meilensteine</h5>
+                                                                            <div className="bg-slate-800/50 rounded-md border border-slate-700 overflow-hidden">
+                                                                                <table className="w-full text-xs text-left text-gray-300">
                                                                                     <tbody>
                                                                                         {card.gantt.milestones.sort((a, b) => a.date.localeCompare(b.date)).map((ms, idx) => (
-                                                                                            <tr key={ms.id} className={idx !== card.gantt!.milestones!.length - 1 ? "border-b border-yellow-500/10" : ""}>
-                                                                                                <td className="py-1 px-2 whitespace-nowrap font-semibold text-amber-700 w-20">
+                                                                                            <tr key={ms.id} className={idx !== card.gantt!.milestones!.length - 1 ? "border-b border-slate-700/50" : ""}>
+                                                                                                <td className="py-1 px-2 whitespace-nowrap font-semibold text-amber-500 w-20">
                                                                                                     {new Date(ms.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                                                 </td>
                                                                                                 <td className="py-1 px-2">
@@ -667,12 +667,12 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                     )}
                                                                     {card.gantt?.companies && card.gantt.companies.length > 0 && (
                                                                         <>
-                                                                            <h5 className="font-bold text-[11px] text-blue-600 mb-1.5 uppercase tracking-wider">Firmen</h5>
-                                                                            <div className="text-sm font-semibold text-gray-800">{card.gantt.companies.join(', ')}</div>
+                                                                            <h5 className="font-bold text-[11px] text-blue-400 mb-1.5 uppercase tracking-wider">Firmen</h5>
+                                                                            <div className="text-sm font-semibold text-gray-200">{card.gantt.companies.join(', ')}</div>
                                                                         </>
                                                                     )}
                                                                 </div>
-                                                                <button onClick={(e) => toggleCardExpansion(e, card.id)} className="mt-6 self-end px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-yellow-400/30 hover:bg-yellow-400/50 rounded-full transition-colors">Schließen</button>
+                                                                <button onClick={(e) => toggleCardExpansion(e, card.id)} className="mt-6 self-end px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-full transition-colors border border-slate-700">Schließen</button>
                                                             </div>
                                                         </div>
                                                     </div>

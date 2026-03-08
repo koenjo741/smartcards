@@ -558,33 +558,33 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                             // The diamond should be centered on its specific day.
                                                                             // Its absolute position on the timeline is msLayout.left + dayWidth/2
                                                                             // Relative to this bar, it's (msLayout.left - renderLayout.left) + dayWidth/2 - diamondSize/2
-                                                                            const diamondSize = 10;
-                                                                            const relativeLeft = (msLayout.left - renderLayout.left) + (dayWidth / 2) - (diamondSize / 2);
-                                                                            
-                                                                            // Don't render if it falls completely outside the current bar visually (though data-wise it shouldn't)
-                                                                            if (relativeLeft < -diamondSize || relativeLeft > renderLayout.width) return null;
-
-                                                                            return (
-                                                                                <div 
-                                                                                    key={milestone.id}
-                                                                                    className="absolute top-0 bottom-0 z-20 group"
-                                                                                    style={{
-                                                                                        left: `${relativeLeft}px`,
-                                                                                        width: `${diamondSize}px`
-                                                                                    }}
-                                                                                    onClick={(e) => e.stopPropagation()}
-                                                                                >
-                                                                                    {/* Milestone Diamond */}
-                                                                                    <div 
-                                                                                        className="absolute top-1/2 -translate-y-1/2 rotate-45 border border-white/50 shadow-sm"
-                                                                                        style={{
-                                                                                            width: '100%',
-                                                                                            height: `${diamondSize}px`,
-                                                                                            backgroundColor: '#f59e0b'
-                                                                                        }}
-                                                                                    />
-                                                                                    {/* Custom Tooltip on Hover */}
-                                                                                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-[14px] font-normal whitespace-nowrap rounded-md shadow-lg pointer-events-none z-30">
+                                                                             const hoverWidth = 24;
+                                                                             const containerLeft = (msLayout.left - renderLayout.left) + (dayWidth / 2) - (hoverWidth / 2);
+                                                                             
+                                                                             // Don't render if it falls completely outside the current bar visually (though data-wise it shouldn't)
+                                                                             if (containerLeft < -hoverWidth || containerLeft > renderLayout.width) return null;
+ 
+                                                                             return (
+                                                                                 <div 
+                                                                                     key={milestone.id}
+                                                                                     className="absolute h-8 top-1/2 -translate-y-1/2 z-20 group/ms"
+                                                                                     style={{
+                                                                                         left: `${containerLeft}px`,
+                                                                                         width: `${hoverWidth}px`
+                                                                                     }}
+                                                                                     onClick={(e) => e.stopPropagation()}
+                                                                                 >
+                                                                                       {/* Milestone Diamond */}
+                                                                                     <div 
+                                                                                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-white/50 shadow-sm"
+                                                                                         style={{
+                                                                                             width: '10px',
+                                                                                             height: '10px',
+                                                                                             backgroundColor: '#f59e0b'
+                                                                                         }}
+                                                                                     />
+                                                                                     {/* Custom Tooltip on Hover */}
+                                                                                     <div className="hidden group-hover/ms:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-[14px] font-normal whitespace-nowrap rounded-md shadow-lg pointer-events-none z-30">
                                                                                         <div className="font-bold text-amber-400 mb-0.5">{new Date(milestone.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                                                                         {milestone.title}
                                                                                         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-gray-900" />

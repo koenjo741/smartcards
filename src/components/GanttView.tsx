@@ -432,7 +432,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                             return (
                                 <React.Fragment key={project.id}>
                                     <div className="relative border-b border-slate-700 group flex items-center hover:bg-white/5 transition-colors cursor-pointer" style={{ height: ROW_HEIGHT, zIndex: 10 }} onClick={() => toggleProject(project.id)}>
-                                        <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5px_rgba(0,0,0,0.3)]" style={{ backgroundColor: pColor }}>
+                                        <div className="sticky left-0 z-20 flex items-center h-full px-4 w-[300px] shrink-0 font-bold uppercase tracking-wider text-white shadow-[2px_0_5px_rgba(0,0,0,0.3)]" style={{ backgroundColor: `${pColor}F2` }}>
                                             <span className="truncate flex-1">{project.name}</span>
                                             <span className="text-white/70 ml-2">{isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</span>
                                         </div>
@@ -520,7 +520,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                             height: '70%', 
                                                                             paddingLeft: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
                                                                             paddingRight: zoomLevel === 'days' ? '0.75rem' : '0.2rem', 
-                                                                            backgroundColor: `${pColor}90`,
+                                                                            backgroundColor: `${pColor}83`,
                                                                             transition: isDraggingCard ? 'none' : 'all 0.1s ease-out'
                                                                         }} 
                                                                         onClick={(e) => {

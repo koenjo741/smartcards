@@ -544,8 +544,8 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                         {/* Progress Bar Rendering */}
                                                                         {card.gantt?.progress !== undefined && card.gantt.progress > 0 && (
                                                                             <div 
-                                                                                className="absolute bottom-0 left-0 bg-white/20 pointer-events-none z-0 transition-all duration-300 left-rounded"
-                                                                                style={{ width: `${card.gantt.progress}%`, height: '5%' }}
+                                                                                className="absolute bottom-0 left-0 bg-white/40 border-t border-white/10 pointer-events-none z-0 transition-all duration-300 rounded-bl-sm"
+                                                                                style={{ width: `${card.gantt.progress}%`, height: '10%' }}
                                                                             />
                                                                         )}
 

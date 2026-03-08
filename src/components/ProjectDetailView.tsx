@@ -4,6 +4,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { de } from 'date-fns/locale';
 import type { Project, GanttProjectProps, Card } from '../types';
+import { normalizeDateInput } from '../utils/dateUtils';
 
 interface ProjectDetailViewProps {
     project: Project;

@@ -14,6 +14,7 @@ import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { CompanyAutocomplete } from './CompanyAutocomplete';
+import { normalizeDateInput } from '../utils/dateUtils';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -278,6 +279,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
+                                onChangeRaw={(e: any) => {
+                                    if (!e || !e.target) return;
+                                    e.target.value = normalizeDateInput(e.target.value);
+                                }}
                             />
                         </div>
                     )}
@@ -321,6 +326,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 required
                                 todayButton="Heute"
                                 locale="de"
+                                onChangeRaw={(e: any) => {
+                                    if (!e || !e.target) return;
+                                    e.target.value = normalizeDateInput(e.target.value);
+                                }}
                             />
                         </div>
                         <div>
@@ -344,6 +353,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
+                                onChangeRaw={(e: any) => {
+                                    if (!e || !e.target) return;
+                                    e.target.value = normalizeDateInput(e.target.value);
+                                }}
                             />
                         </div>
                     </div>
@@ -503,6 +516,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     placeholderText="DD.MM.YYYY"
                                     isClearable
                                     locale="de"
+                                    onChangeRaw={(e: any) => {
+                                        if (!e || !e.target) return;
+                                        e.target.value = normalizeDateInput(e.target.value);
+                                    }}
                                 />
                             </div>
                             <div className="flex-1">

@@ -38,3 +38,16 @@ export const parseDateString = (dateString: string): Date => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
 };
+
+/** Normalizes a raw date input string (e.g., from a keyboard) to DD.MM.YYYY. */
+export const normalizeDateInput = (input: string): string => {
+    // 1. Replace all commas with dots
+    let normalized = input.replace(/,/g, '.');
+
+    // 2. Handle 8-digit inputs like 15091957 -> 15.09.1957
+    if (/^\d{8}$/.test(normalized)) {
+        normalized = `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.${normalized.slice(4)}`;
+    }
+
+    return normalized;
+};

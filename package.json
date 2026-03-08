@@ -1,7 +1,7 @@
 {
   "name": "smartcards",
   "private": true,
-  "version": "1.2.134",
+  "version": "1.2.135",
   "type": "module",
   "scripts": {
     "dev": "vite",

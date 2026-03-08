@@ -534,7 +534,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                             onMouseDown={(e) => handleDragStart(e, card.id, 'start', card.gantt?.startDate, card.gantt?.endDate)}
                                                                         />
                                                                         
-                                                                        <div className="flex justify-between items-center text-[13.9px] text-blue-100 whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none z-10" style={{ fontWeight: 530 }}>
+                                                                        <div className="flex justify-between items-center text-[14.6px] text-blue-100 whitespace-nowrap overflow-hidden w-full relative h-full pointer-events-none z-10" style={{ fontWeight: 510 }}>
                                                                             <span className="truncate pr-4 flex-1 select-none">{card.title}</span>
                                                                             <div className="flex-shrink-0 text-[13.9px] bg-black/30 px-1 rounded transition-transform duration-75 ease-out select-none" style={{ transform: `translateX(${-stickyOffset}px)`, fontWeight: 400 }}>
                                                                                 {dateDisplay}{zoomLevel === 'days' ? `, ${card.gantt?.status}` : ''}

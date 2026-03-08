@@ -572,7 +572,6 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                                         left: `${relativeLeft}px`,
                                                                                         width: `${diamondSize}px`
                                                                                     }}
-                                                                                    title={milestone.title}
                                                                                     onClick={(e) => e.stopPropagation()}
                                                                                 >
                                                                                     {/* Milestone Diamond */}
@@ -585,7 +584,7 @@ export const GanttView: React.FC<GanttViewProps> = ({ cards, projects, onCardCli
                                                                                         }}
                                                                                     />
                                                                                     {/* Custom Tooltip on Hover */}
-                                                                                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-900 text-white text-[10px] font-normal whitespace-nowrap rounded shadow-lg pointer-events-none">
+                                                                                    <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-gray-900 text-white text-[14px] font-normal whitespace-nowrap rounded-md shadow-lg pointer-events-none z-30">
                                                                                         <div className="font-bold text-amber-400 mb-0.5">{new Date(milestone.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
                                                                                         {milestone.title}
                                                                                         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-gray-900" />

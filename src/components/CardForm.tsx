@@ -41,6 +41,15 @@ const formatCurrency = (value: number | undefined | null): string => {
 // Custom Input for DatePicker to handle manual normalization safely
 const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => {
     const { value, onClick, onChange, onBlur: parentOnBlur, placeholder, className, required, disabled } = props;
+    const [localValue, setLocalValue] = React.useState(value || '');
+
+    React.useEffect(() => {
+        setLocalValue(value || '');
+    }, [value]);
+
+    const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setLocalValue(e.target.value);
+    };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         const input = e.target;
@@ -48,8 +57,18 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => 
         const normalized = normalizeDateInput(rawValue);
 
         if (rawValue !== normalized) {
-            input.value = normalized;
+            setLocalValue(normalized);
             // Trigger onChange so DatePicker parses the normalized value
+            if (onChange) {
+                const event = {
+                    target: { ...input, value: normalized },
+                    currentTarget: { ...input, value: normalized },
+                    type: 'change'
+                } as any;
+                onChange(event);
+            }
+        } else if (rawValue !== value) {
+            // Even if not normalized, if it changed from the prop value, we should update the parent
             if (onChange) {
                 const event = {
                     target: input,
@@ -68,9 +87,9 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => 
     return (
         <input
             ref={ref}
-            value={value}
+            value={localValue}
             onClick={onClick}
-            onChange={onChange}
+            onChange={handleLocalChange}
             onBlur={handleBlur}
             placeholder={placeholder}
             className={className}

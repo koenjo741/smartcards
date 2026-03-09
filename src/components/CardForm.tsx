@@ -38,6 +38,49 @@ const formatCurrency = (value: number | undefined | null): string => {
     return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 };
 
+// Custom Input for DatePicker to handle manual normalization safely
+const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => {
+    const { value, onClick, onChange, onBlur: parentOnBlur, placeholder, className, required, disabled } = props;
+
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const input = e.target;
+        const rawValue = input.value;
+        const normalized = normalizeDateInput(rawValue);
+
+        if (rawValue !== normalized) {
+            input.value = normalized;
+            // Trigger onChange so DatePicker parses the normalized value
+            if (onChange) {
+                const event = {
+                    target: input,
+                    currentTarget: input,
+                    type: 'change'
+                } as any;
+                onChange(event);
+            }
+        }
+        
+        if (parentOnBlur) {
+            parentOnBlur(e);
+        }
+    };
+
+    return (
+        <input
+            ref={ref}
+            value={value}
+            onClick={onClick}
+            onChange={onChange}
+            onBlur={handleBlur}
+            placeholder={placeholder}
+            className={className}
+            required={required}
+            disabled={disabled}
+            type="text"
+        />
+    );
+});
+
 export const CardForm: React.FC<CardFormProps> = ({
     onSave,
     onCancel,
@@ -279,10 +322,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
-                                onChangeRaw={(e: any) => {
-                                    if (!e || !e.target) return;
-                                    e.target.value = normalizeDateInput(e.target.value);
-                                }}
+                                customInput={<CustomDateInput />}
                             />
                         </div>
                     )}
@@ -315,21 +355,25 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
+                                        if (ganttData.endDate && date > new Date(ganttData.endDate)) {
+                                            alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
+                                            setGanttData(prev => ({ ...prev, startDate: undefined }));
+                                            return;
+                                        }
                                         const offset = date.getTimezoneOffset();
                                         const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
                                         setGanttData(prev => ({ ...prev, startDate: adjustedDate.toISOString().split('T')[0] }));
+                                    } else {
+                                        setGanttData(prev => ({ ...prev, startDate: undefined }));
                                     }
                                 }}
                                 dateFormat="dd.MM.yyyy"
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
                                 placeholderText="DD.MM.YYYY"
-                                required
+                                isClearable
                                 todayButton="Heute"
                                 locale="de"
-                                onChangeRaw={(e: any) => {
-                                    if (!e || !e.target) return;
-                                    e.target.value = normalizeDateInput(e.target.value);
-                                }}
+                                customInput={<CustomDateInput />}
                             />
                         </div>
                         <div>
@@ -340,6 +384,11 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 selected={ganttData.endDate ? new Date(ganttData.endDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
+                                        if (ganttData.startDate && date < new Date(ganttData.startDate)) {
+                                            alert('Das Enddatum darf nicht vor dem Startdatum liegen.');
+                                            setGanttData(prev => ({ ...prev, endDate: undefined }));
+                                            return;
+                                        }
                                         const offset = date.getTimezoneOffset();
                                         const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
                                         setGanttData(prev => ({ ...prev, endDate: adjustedDate.toISOString().split('T')[0] }));
@@ -348,15 +397,13 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     }
                                 }}
                                 dateFormat="dd.MM.yyyy"
-                                className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
+                                className={`w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500 ${!ganttData.startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 placeholderText="DD.MM.YYYY"
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
-                                onChangeRaw={(e: any) => {
-                                    if (!e || !e.target) return;
-                                    e.target.value = normalizeDateInput(e.target.value);
-                                }}
+                                disabled={!ganttData.startDate}
+                                customInput={<CustomDateInput />}
                             />
                         </div>
                     </div>
@@ -524,10 +571,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     placeholderText="DD.MM.YYYY"
                                     isClearable
                                     locale="de"
-                                    onChangeRaw={(e: any) => {
-                                        if (!e || !e.target) return;
-                                        e.target.value = normalizeDateInput(e.target.value);
-                                    }}
+                                    customInput={<CustomDateInput />}
                                 />
                             </div>
                             <div className="flex-1">

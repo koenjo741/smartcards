@@ -63,7 +63,10 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => 
                 const event = {
                     target: { ...input, value: normalized },
                     currentTarget: { ...input, value: normalized },
-                    type: 'change'
+                    type: 'change',
+                    persist: () => {},
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
                 } as any;
                 onChange(event);
             }
@@ -73,7 +76,10 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => 
                 const event = {
                     target: input,
                     currentTarget: input,
-                    type: 'change'
+                    type: 'change',
+                    persist: () => {},
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
                 } as any;
                 onChange(event);
             }
@@ -84,6 +90,12 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => 
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.currentTarget.blur();
+        }
+    };
+
     return (
         <input
             ref={ref}
@@ -91,6 +103,7 @@ const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => 
             onClick={onClick}
             onChange={handleLocalChange}
             onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={className}
             required={required}
@@ -374,7 +387,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        if (ganttData.endDate && date > new Date(ganttData.endDate)) {
+                                        if (ganttData.endDate && date > parseDateString(ganttData.endDate)) {
                                             alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
                                             setGanttData(prev => ({ ...prev, startDate: undefined }));
                                             return;
@@ -403,7 +416,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 selected={ganttData.endDate ? new Date(ganttData.endDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        if (ganttData.startDate && date < new Date(ganttData.startDate)) {
+                                        if (ganttData.startDate && date < parseDateString(ganttData.startDate)) {
                                             alert('Das Enddatum darf nicht vor dem Startdatum liegen.');
                                             setGanttData(prev => ({ ...prev, endDate: undefined }));
                                             return;

@@ -4,7 +4,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { de } from 'date-fns/locale';
 import type { Project, GanttProjectProps, Card } from '../types';
-import { normalizeDateInput } from '../utils/dateUtils';
+import { CustomDateInput } from './CustomDateInput';
 
 interface ProjectDetailViewProps {
     project: Project;
@@ -240,10 +240,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
                                 locale={de}
                                 todayButton="Heute"
                                 className="w-full bg-[#020617] border border-gray-700 rounded px-2 py-1 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                                onChangeRaw={(e: any) => {
-                                    if (!e || !e.target) return;
-                                    e.target.value = normalizeDateInput(e.target.value);
-                                }}
+                                customInput={<CustomDateInput />}
                             />
                         </div>
                         <div>
@@ -259,6 +256,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
                                 isClearable
                                 todayButton="Heute"
                                 className="w-full bg-[#020617] border border-gray-700 rounded px-2 py-1 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                customInput={<CustomDateInput />}
                             />
                         </div>
 

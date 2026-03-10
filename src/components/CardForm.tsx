@@ -14,7 +14,8 @@ import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { CompanyAutocomplete } from './CompanyAutocomplete';
-import { normalizeDateInput, parseDateString } from '../utils/dateUtils';
+import { parseDateString } from '../utils/dateUtils';
+import { CustomDateInput } from './CustomDateInput';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -38,80 +39,6 @@ const formatCurrency = (value: number | undefined | null): string => {
     return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 };
 
-// Custom Input for DatePicker to handle manual normalization safely
-const CustomDateInput = React.forwardRef<HTMLInputElement, any>((props, ref) => {
-    const { value, onClick, onChange, onBlur: parentOnBlur, placeholder, className, required, disabled } = props;
-    const [localValue, setLocalValue] = React.useState(value || '');
-
-    React.useEffect(() => {
-        setLocalValue(value || '');
-    }, [value]);
-
-    const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setLocalValue(e.target.value);
-    };
-
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-        const input = e.target;
-        const rawValue = input.value;
-        const normalized = normalizeDateInput(rawValue);
-
-        if (rawValue !== normalized) {
-            setLocalValue(normalized);
-            // Trigger onChange so DatePicker parses the normalized value
-            if (onChange) {
-                const event = {
-                    target: { ...input, value: normalized },
-                    currentTarget: { ...input, value: normalized },
-                    type: 'change',
-                    persist: () => {},
-                    preventDefault: () => {},
-                    stopPropagation: () => {}
-                } as any;
-                onChange(event);
-            }
-        } else if (rawValue !== value) {
-            // Even if not normalized, if it changed from the prop value, we should update the parent
-            if (onChange) {
-                const event = {
-                    target: input,
-                    currentTarget: input,
-                    type: 'change',
-                    persist: () => {},
-                    preventDefault: () => {},
-                    stopPropagation: () => {}
-                } as any;
-                onChange(event);
-            }
-        }
-        
-        if (parentOnBlur) {
-            parentOnBlur(e);
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            e.currentTarget.blur();
-        }
-    };
-
-    return (
-        <input
-            ref={ref}
-            value={localValue}
-            onClick={onClick}
-            onChange={handleLocalChange}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className={className}
-            required={required}
-            disabled={disabled}
-            type="text"
-        />
-    );
-});
 
 export const CardForm: React.FC<CardFormProps> = ({
     onSave,

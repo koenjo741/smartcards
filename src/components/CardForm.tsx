@@ -14,7 +14,7 @@ import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { CompanyAutocomplete } from './CompanyAutocomplete';
-import { normalizeDateInput } from '../utils/dateUtils';
+import { normalizeDateInput, parseDateString } from '../utils/dateUtils';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -216,6 +216,19 @@ export const CardForm: React.FC<CardFormProps> = ({
         }
     }, [selectedProjectIds, isGantt, projects]);
 
+    // Robust Gantt Date Validation
+    useEffect(() => {
+        if (!isGantt) return;
+        if (ganttData.startDate && ganttData.endDate) {
+            const start = parseDateString(ganttData.startDate);
+            const end = parseDateString(ganttData.endDate);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
+                alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
+                setGanttData(prev => ({ ...prev, startDate: undefined }));
+            }
+        }
+    }, [ganttData.startDate, ganttData.endDate, isGantt]);
+
     useEffect(() => {
         if (!initialDataRef.current) return;
 
@@ -337,7 +350,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Due Date
                             </label>
                             <DatePicker
-                                selected={dueDate ? new Date(dueDate) : null}
+                                selected={dueDate ? parseDateString(dueDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
                                         const offset = date.getTimezoneOffset();
@@ -384,14 +397,9 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Beginn
                             </label>
                             <DatePicker
-                                selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
+                                selected={ganttData.startDate ? parseDateString(ganttData.startDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        if (ganttData.endDate && date > parseDateString(ganttData.endDate)) {
-                                            alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
-                                            setGanttData(prev => ({ ...prev, startDate: undefined }));
-                                            return;
-                                        }
                                         const offset = date.getTimezoneOffset();
                                         const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
                                         setGanttData(prev => ({ ...prev, startDate: adjustedDate.toISOString().split('T')[0] }));
@@ -413,14 +421,9 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Ende
                             </label>
                             <DatePicker
-                                selected={ganttData.endDate ? new Date(ganttData.endDate) : null}
+                                selected={ganttData.endDate ? parseDateString(ganttData.endDate) : null}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        if (ganttData.startDate && date < parseDateString(ganttData.startDate)) {
-                                            alert('Das Enddatum darf nicht vor dem Startdatum liegen.');
-                                            setGanttData(prev => ({ ...prev, endDate: undefined }));
-                                            return;
-                                        }
                                         const offset = date.getTimezoneOffset();
                                         const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
                                         setGanttData(prev => ({ ...prev, endDate: adjustedDate.toISOString().split('T')[0] }));

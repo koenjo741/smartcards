@@ -30,12 +30,14 @@ export const formatDueDate = (dateString: string): string => {
     return `${dayStr}.${monthStr}.${yearStr}`;
 };
 
-/** Parses a date string that can be either ISO format or YYYY-MM-DD. */
-export const parseDateString = (dateString: string): Date => {
+export const parseDateString = (dateString: string | undefined | null): Date => {
+    if (!dateString) return new Date(NaN);
     if (dateString.includes('T')) {
         return new Date(dateString);
     }
-    const [year, month, day] = dateString.split('-').map(Number);
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return new Date(NaN);
+    const [year, month, day] = parts.map(Number);
     return new Date(year, month - 1, day);
 };
 

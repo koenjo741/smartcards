@@ -48,7 +48,24 @@ export const normalizeDateInput = (input: string): string => {
 
     // 2. Handle 8-digit inputs like 15091957 -> 15.09.1957
     if (/^\d{8}$/.test(normalized)) {
-        normalized = `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.${normalized.slice(4)}`;
+        return `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.${normalized.slice(4)}`;
+    }
+
+    // 3. Handle cases like 1.2.2027, 01.2.2027, 1.2.27 etc.
+    const parts = normalized.split('.');
+    if (parts.length === 3) {
+        let [day, month, year] = parts;
+        
+        // Pad day and month
+        day = day.padStart(2, '0');
+        month = month.padStart(2, '0');
+        
+        // Handle 2-digit years (assuming 20xx for years like 27)
+        if (year.length === 2) {
+            year = `20${year}`;
+        }
+        
+        return `${day}.${month}.${year}`;
     }
 
     return normalized;

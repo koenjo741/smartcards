@@ -41,6 +41,15 @@ export const parseDateString = (dateString: string | undefined | null): Date => 
     return new Date(year, month - 1, day);
 };
 
+/** Checks if a date string in YYYY-MM-DD or DD.MM.YYYY format represents a real, valid date. */
+export const isValidDate = (date: Date, inputDay: number, inputMonth: number, inputYear: number): boolean => {
+    return (
+        date.getFullYear() === inputYear &&
+        date.getMonth() === inputMonth - 1 &&
+        date.getDate() === inputDay
+    );
+};
+
 /** Normalizes a raw date input string (e.g., from a keyboard) to DD.MM.YYYY. */
 export const normalizeDateInput = (input: string): string => {
     if (!input) return input;

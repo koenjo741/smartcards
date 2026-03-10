@@ -5,6 +5,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { de } from 'date-fns/locale';
 import type { Project, GanttProjectProps, Card } from '../types';
 import { CustomDateInput } from './CustomDateInput';
+import { isValidDate } from '../utils/dateUtils';
 
 interface ProjectDetailViewProps {
     project: Project;
@@ -28,7 +29,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
     const [formattedTotalBudget, setFormattedTotalBudget] = useState<string>('');
     const [formattedYearlyBudgets, setFormattedYearlyBudgets] = useState<Record<string, string>>({});
     const [budgetError, setBudgetError] = useState<string | null>(null);
-    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const budgetSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const ganttDataRef = useRef(ganttData);
+
+    // Sync ref with state
+    useEffect(() => { ganttDataRef.current = ganttData; }, [ganttData]);
 
     // Calculate Spent Budget from Gantt Cards belonging to this project
     const spentBudget = cards
@@ -38,11 +43,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
 
     // Debounced save function
     const debouncedSave = useCallback((dataToSave: GanttProjectProps) => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
+        if (budgetSaveTimeoutRef.current) {
+            clearTimeout(budgetSaveTimeoutRef.current);
         }
 
-        saveTimeoutRef.current = setTimeout(() => {
+        budgetSaveTimeoutRef.current = setTimeout(() => {
             onSave({
                 ...project,
                 gantt: dataToSave
@@ -53,8 +58,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
     // Cleanup timeout on unmount
     useEffect(() => {
         return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
+            if (budgetSaveTimeoutRef.current) {
+                clearTimeout(budgetSaveTimeoutRef.current);
             }
         };
     }, []);
@@ -90,6 +95,37 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
         }
     }, [totalYearlyBudgets, ganttData.totalBudget, isBudgetExceeded]);
 
+    // Enhanced Date Validation
+    useEffect(() => {
+        if (ganttData.startDate && ganttData.endDate) {
+            const start = new Date(ganttData.startDate);
+            const end = new Date(ganttData.endDate);
+
+            // Check for physically impossible dates (e.g., 31.11.)
+            if (!isNaN(start.getTime())) {
+                const parts = ganttData.startDate.split('-');
+                if (!isValidDate(start, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
+                    alert('Ungültiges Startdatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
+                    setGanttData(prev => ({ ...prev, startDate: new Date().toISOString().split('T')[0] }));
+                    return;
+                }
+            }
+            if (!isNaN(end.getTime())) {
+                const parts = ganttData.endDate.split('-');
+                if (!isValidDate(end, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
+                    alert('Ungültiges Enddatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
+                    setGanttData(prev => ({ ...prev, endDate: undefined }));
+                    return;
+                }
+            }
+
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
+                alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
+                setGanttData(prev => ({ ...prev, endDate: undefined }));
+            }
+        }
+    }, [ganttData.startDate, ganttData.endDate]);
+
 
     const handleChange = (field: keyof GanttProjectProps, value: any) => {
         setGanttData(prev => {
@@ -100,12 +136,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
     };
 
     const handleImmediateSave = () => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
+        if (budgetSaveTimeoutRef.current) {
+            clearTimeout(budgetSaveTimeoutRef.current);
         }
+        const currentGantt = ganttDataRef.current;
         onSave({
             ...project,
-            gantt: ganttData
+            gantt: currentGantt
         });
     };
 

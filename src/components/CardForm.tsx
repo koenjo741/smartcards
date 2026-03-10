@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Check, Loader2, Trash2 } from 'lucide-react';
@@ -14,7 +14,7 @@ import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { CompanyAutocomplete } from './CompanyAutocomplete';
-import { parseDateString } from '../utils/dateUtils';
+import { parseDateString, isValidDate } from '../utils/dateUtils';
 import { CustomDateInput } from './CustomDateInput';
 
 interface CardFormProps {
@@ -67,6 +67,14 @@ export const CardForm: React.FC<CardFormProps> = ({
     const [ganttData, setGanttData] = useState<Partial<GanttCardProps>>({ status: 'Geplant', milestones: [] });
     const [newMilestoneDate, setNewMilestoneDate] = useState<string>('');
     const [newMilestoneTitle, setNewMilestoneTitle] = useState<string>('');
+    
+    // Refs to track latest state for immediate saves (fixes race condition)
+    const ganttDataRef = useRef(ganttData);
+    const dueDateRef = useRef(dueDate);
+
+    // Sync refs with state
+    useEffect(() => { ganttDataRef.current = ganttData; }, [ganttData]);
+    useEffect(() => { dueDateRef.current = dueDate; }, [dueDate]);
 
     // Confirmation State
     const [confirmState, setConfirmState] = useState<{
@@ -149,6 +157,25 @@ export const CardForm: React.FC<CardFormProps> = ({
         if (ganttData.startDate && ganttData.endDate) {
             const start = parseDateString(ganttData.startDate);
             const end = parseDateString(ganttData.endDate);
+            
+            // Check for physically impossible dates (e.g., 31.11.)
+            if (!isNaN(start.getTime())) {
+                const parts = ganttData.startDate!.split('-');
+                if (!isValidDate(start, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
+                    alert('Ungültiges Startdatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
+                    setGanttData(prev => ({ ...prev, startDate: undefined }));
+                    return;
+                }
+            }
+            if (!isNaN(end.getTime())) {
+                const parts = ganttData.endDate!.split('-');
+                if (!isValidDate(end, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
+                    alert('Ungültiges Enddatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
+                    setGanttData(prev => ({ ...prev, endDate: undefined }));
+                    return;
+                }
+            }
+
             if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
                 alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
                 setGanttData(prev => ({ ...prev, startDate: undefined }));
@@ -213,18 +240,30 @@ export const CardForm: React.FC<CardFormProps> = ({
 
     const handleImmediateSave = () => {
         const currentData = initialData;
+        const currentGantt = ganttDataRef.current;
+        const currentDueDate = dueDateRef.current;
+
+        // Final check before immediate save
+        if (currentGantt.startDate && currentGantt.endDate) {
+            const start = parseDateString(currentGantt.startDate);
+            const end = parseDateString(currentGantt.endDate);
+            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
+                return; // Early return if invalid range
+            }
+        }
+
         onSave({
             ...(currentData || {}),
             title,
             content,
             projectIds: selectedProjectIds,
-            dueDate: dueDate || undefined,
+            dueDate: currentDueDate || undefined,
             attachments,
             linkedCardIds: linkedCardIds || [],
-            googleEventId: dueDate ? currentData?.googleEventId : undefined,
-            googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined,
+            googleEventId: currentDueDate ? currentData?.googleEventId : undefined,
+            googleCalendarId: currentDueDate ? currentData?.googleCalendarId : undefined,
             isGantt: selectedProjectIds.length === 1 ? isGantt : false,
-            gantt: (selectedProjectIds.length === 1 && isGantt) ? (ganttData as GanttCardProps) : undefined
+            gantt: (selectedProjectIds.length === 1 && isGantt) ? (currentGantt as GanttCardProps) : undefined
         } as Card);
         setSaveStatus('saved');
     };

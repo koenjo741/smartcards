@@ -86,10 +86,11 @@ export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInpu
         }
 
         if (onCommit) {
-            // Use Microtask/Promise to ensure React state has flushed before committing (saving)
-            Promise.resolve().then(() => {
+            // Use a 150ms timeout to ensure React state and parent refs have fully synchronized
+            // before triggering the save (commit). This fixes race conditions on manual entry.
+            setTimeout(() => {
                 onCommit();
-            });
+            }, 150);
         }
     };
 

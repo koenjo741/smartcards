@@ -1,5 +1,5 @@
 import React from 'react';
-import { normalizeDateInput, isValidDate } from '../utils/dateUtils';
+import { parseUserDateInput, formatDisplayDate } from '../utils/dateUtils';
 
 interface CustomDateInputProps {
     value?: string;
@@ -14,7 +14,19 @@ interface CustomDateInputProps {
 }
 
 export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInputProps>((props, ref) => {
-    const { value, onClick, onChange, onBlur: parentOnBlur, onCommit, placeholder, className, required, disabled } = props;
+    const { 
+        value, 
+        onClick, 
+        onChange, 
+        onBlur: parentOnBlur, 
+        onCommit, 
+        placeholder, 
+        className, 
+        required, 
+        disabled 
+    } = props;
+    
+    // localValue is always in DD.MM.YYYY format (display format)
     const [localValue, setLocalValue] = React.useState(value || '');
     const isFocused = React.useRef(false);
 
@@ -36,75 +48,48 @@ export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInpu
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         isFocused.current = false;
-        const input = e.target;
-        const rawValue = input.value;
-        const normalized = normalizeDateInput(rawValue);
+        const rawValue = e.target.value.trim();
+        
+        if (!rawValue) {
+            if (onChange) onChange(e);
+            if (parentOnBlur) parentOnBlur(e);
+            return;
+        }
 
-        if (rawValue !== normalized) {
-            // Check if normalized date is physically valid (e.g., Nov 31st is invalid)
-            const parts = normalized.split('.');
-            if (parts.length === 3) {
-                const day = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10);
-                const year = parseInt(parts[2], 10);
-                const dateObj = new Date(year, month - 1, day);
-                
-                if (!isValidDate(dateObj, day, month, year)) {
-                    alert(`Ungültiges Datum: Der ${normalized} existiert nicht.`);
-                    setLocalValue(value || ''); // Revert to previous valid value
-                    return;
-                }
-            }
+        const parsedDate = parseUserDateInput(rawValue);
 
-            setLocalValue(normalized);
-            // Trigger onChange so DatePicker parses the normalized value
+        if (!parsedDate) {
+            alert(`Ungültiges Datum: "${rawValue}" konnte nicht erkannt werden.`);
+            setLocalValue(value || ''); // Revert to previous valid value from props
+            if (parentOnBlur) parentOnBlur(e);
+            return;
+        }
+
+        const normalized = formatDisplayDate(parsedDate);
+        setLocalValue(normalized);
+
+        // Trigger change if the value actually changed or was normalized
+        if (normalized !== value) {
             if (onChange) {
-                const event = {
-                    target: { ...input, value: normalized },
-                    currentTarget: { ...input, value: normalized },
-                    type: 'change',
-                    persist: () => {},
-                    preventDefault: () => {},
-                    stopPropagation: () => {}
+                // Synthetic event for react-datepicker compatibility
+                const syntheticEvent = {
+                    ...e,
+                    target: { ...e.target, value: normalized },
+                    currentTarget: { ...e.currentTarget, value: normalized }
                 } as any;
-                onChange(event);
-            }
-        } else if (rawValue !== value && rawValue !== '') {
-            // Check validation even for non-normalized but changed values
-            const parts = rawValue.split('.');
-            if (parts.length === 3) {
-                const day = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10);
-                const year = parseInt(parts[2], 10);
-                const dateObj = new Date(year, month - 1, day);
-                if (!isValidDate(dateObj, day, month, year)) {
-                    alert(`Ungültiges Datum: Der ${rawValue} existiert nicht.`);
-                    setLocalValue(value || '');
-                    return;
-                }
-            }
-
-            if (onChange) {
-                const event = {
-                    target: input,
-                    currentTarget: input,
-                    type: 'change',
-                    persist: () => {},
-                    preventDefault: () => {},
-                    stopPropagation: () => {}
-                } as any;
-                onChange(event);
+                onChange(syntheticEvent);
             }
         }
-        
+
         if (parentOnBlur) {
             parentOnBlur(e);
         }
+
         if (onCommit) {
-            // Use a small timeout to ensure DatePicker's internal state has updated
-            setTimeout(() => {
+            // Use Microtask/Promise to ensure React state has flushed before committing (saving)
+            Promise.resolve().then(() => {
                 onCommit();
-            }, 50);
+            });
         }
     };
 

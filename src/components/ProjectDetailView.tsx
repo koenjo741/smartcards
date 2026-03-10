@@ -5,7 +5,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { de } from 'date-fns/locale';
 import type { Project, GanttProjectProps, Card } from '../types';
 import { CustomDateInput } from './CustomDateInput';
-import { isValidDate } from '../utils/dateUtils';
+import { parseISODate, formatISODate } from '../utils/dateUtils';
 
 interface ProjectDetailViewProps {
     project: Project;
@@ -95,31 +95,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
         }
     }, [totalYearlyBudgets, ganttData.totalBudget, isBudgetExceeded]);
 
-    // Enhanced Date Validation
+    // Robust Gantt Date Validation
     useEffect(() => {
         if (ganttData.startDate && ganttData.endDate) {
-            const start = new Date(ganttData.startDate);
-            const end = new Date(ganttData.endDate);
+            const start = parseISODate(ganttData.startDate);
+            const end = parseISODate(ganttData.endDate);
 
-            // Check for physically impossible dates (e.g., 31.11.)
-            if (!isNaN(start.getTime())) {
-                const parts = ganttData.startDate.split('-');
-                if (!isValidDate(start, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
-                    alert('Ungültiges Startdatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
-                    setGanttData(prev => ({ ...prev, startDate: new Date().toISOString().split('T')[0] }));
-                    return;
-                }
-            }
-            if (!isNaN(end.getTime())) {
-                const parts = ganttData.endDate.split('-');
-                if (!isValidDate(end, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
-                    alert('Ungültiges Enddatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
-                    setGanttData(prev => ({ ...prev, endDate: undefined }));
-                    return;
-                }
-            }
-
-            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
+            if (start && end && start > end) {
                 alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
                 setGanttData(prev => ({ ...prev, endDate: undefined }));
             }
@@ -275,12 +257,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
                         <div>
                             <label className="block text-sm font-medium text-gray-400 mb-1">Beginn *</label>
                             <DatePicker
-                                selected={ganttData.startDate ? new Date(ganttData.startDate) : null}
+                                selected={parseISODate(ganttData.startDate)}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        // Adjust for locale time zone issues by picking ISO string part
-                                        const dateStr = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-                                        handleChange('startDate', dateStr);
+                                        handleChange('startDate', formatISODate(date));
                                     }
                                 }}
                                 dateFormat="dd.MM.yyyy"
@@ -293,10 +273,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
                         <div>
                             <label className="block text-sm font-medium text-gray-400 mb-1">Ende (optional)</label>
                             <DatePicker
-                                selected={ganttData.endDate ? new Date(ganttData.endDate) : null}
+                                selected={parseISODate(ganttData.endDate)}
                                 onChange={(date: Date | null) => {
-                                    const dateStr = date ? new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0] : undefined;
-                                    handleChange('endDate', dateStr);
+                                    handleChange('endDate', date ? formatISODate(date) : undefined);
                                 }}
                                 dateFormat="dd.MM.yyyy"
                                 locale={de}

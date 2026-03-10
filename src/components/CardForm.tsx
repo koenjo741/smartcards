@@ -14,7 +14,7 @@ import { AttachmentManager } from './AttachmentManager';
 import { LinkedCardsManager } from './LinkedCardsManager';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { CompanyAutocomplete } from './CompanyAutocomplete';
-import { parseDateString, isValidDate } from '../utils/dateUtils';
+import { parseISODate, formatISODate } from '../utils/dateUtils';
 import { CustomDateInput } from './CustomDateInput';
 
 interface CardFormProps {
@@ -155,28 +155,13 @@ export const CardForm: React.FC<CardFormProps> = ({
     useEffect(() => {
         if (!isGantt) return;
         if (ganttData.startDate && ganttData.endDate) {
-            const start = parseDateString(ganttData.startDate);
-            const end = parseDateString(ganttData.endDate);
+            const start = parseISODate(ganttData.startDate);
+            const end = parseISODate(ganttData.endDate);
             
-            // Check for physically impossible dates (e.g., 31.11.)
-            if (!isNaN(start.getTime())) {
-                const parts = ganttData.startDate!.split('-');
-                if (!isValidDate(start, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
-                    alert('Ungültiges Startdatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
-                    setGanttData(prev => ({ ...prev, startDate: undefined }));
-                    return;
-                }
-            }
-            if (!isNaN(end.getTime())) {
-                const parts = ganttData.endDate!.split('-');
-                if (!isValidDate(end, Number(parts[2]), Number(parts[1]), Number(parts[0]))) {
-                    alert('Ungültiges Enddatum (z.B. der 31. eines Monats mit nur 30 Tagen).');
-                    setGanttData(prev => ({ ...prev, endDate: undefined }));
-                    return;
-                }
-            }
-
-            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
+            // Note: parseISODate returns null if physically invalid because it's used in 
+            // setGanttData via DatePicker which already uses CustomDateInput/utilities.
+            // We just need to check the range here.
+            if (start && end && start > end) {
                 alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
                 setGanttData(prev => ({ ...prev, startDate: undefined }));
             }
@@ -245,9 +230,9 @@ export const CardForm: React.FC<CardFormProps> = ({
 
         // Final check before immediate save
         if (currentGantt.startDate && currentGantt.endDate) {
-            const start = parseDateString(currentGantt.startDate);
-            const end = parseDateString(currentGantt.endDate);
-            if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > end) {
+            const start = parseISODate(currentGantt.startDate);
+            const end = parseISODate(currentGantt.endDate);
+            if (start && end && start > end) {
                 return; // Early return if invalid range
             }
         }
@@ -334,15 +319,12 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Due Date
                             </label>
                             <DatePicker
-                                selected={dueDate ? parseDateString(dueDate) : null}
+                                selected={parseISODate(dueDate)}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        const offset = date.getTimezoneOffset();
-                                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-                                        setDueDate(adjustedDate.toISOString().split('T')[0]);
+                                        setDueDate(formatISODate(date));
                                     } else {
                                         setDueDate('');
-                                        // Deletion is now handled by onSave in App.tsx for better state management
                                     }
                                 }}
                                 dateFormat="dd.MM.yyyy"
@@ -381,12 +363,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Beginn
                             </label>
                             <DatePicker
-                                selected={ganttData.startDate ? parseDateString(ganttData.startDate) : null}
+                                selected={parseISODate(ganttData.startDate)}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        const offset = date.getTimezoneOffset();
-                                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-                                        setGanttData(prev => ({ ...prev, startDate: adjustedDate.toISOString().split('T')[0] }));
+                                        setGanttData(prev => ({ ...prev, startDate: formatISODate(date) }));
                                     } else {
                                         setGanttData(prev => ({ ...prev, startDate: undefined }));
                                     }
@@ -405,12 +385,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 Ende
                             </label>
                             <DatePicker
-                                selected={ganttData.endDate ? parseDateString(ganttData.endDate) : null}
+                                selected={parseISODate(ganttData.endDate)}
                                 onChange={(date: Date | null) => {
                                     if (date) {
-                                        const offset = date.getTimezoneOffset();
-                                        const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-                                        setGanttData(prev => ({ ...prev, endDate: adjustedDate.toISOString().split('T')[0] }));
+                                        setGanttData(prev => ({ ...prev, endDate: formatISODate(date) }));
                                     } else {
                                         setGanttData(prev => ({ ...prev, endDate: undefined }));
                                     }
@@ -575,12 +553,10 @@ export const CardForm: React.FC<CardFormProps> = ({
                             <div className="w-36">
                                 <label className="block text-xs text-gray-400 mb-1">Datum</label>
                                 <DatePicker
-                                    selected={newMilestoneDate ? new Date(newMilestoneDate) : null}
+                                    selected={parseISODate(newMilestoneDate)}
                                     onChange={(date: Date | null) => {
                                         if (date) {
-                                            const offset = date.getTimezoneOffset();
-                                            const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
-                                            setNewMilestoneDate(adjustedDate.toISOString().split('T')[0]);
+                                            setNewMilestoneDate(formatISODate(date));
                                         } else {
                                             setNewMilestoneDate('');
                                         }

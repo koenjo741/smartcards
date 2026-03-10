@@ -1,6 +1,8 @@
 /**
- * Date utility functions extracted from App.tsx for reusability.
+ * Date utility functions for consistent date handling across the application.
  */
+
+export const pad2 = (v: number | string) => String(v).padStart(2, '0');
 
 /** Returns a color string based on how far the due date is from today. */
 export const getDueDateStyle = (dateString: string): string | undefined => {
@@ -8,7 +10,8 @@ export const getDueDateStyle = (dateString: string): string | undefined => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const target = parseDateString(dateString);
+    const target = parseISODate(dateString);
+    if (!target || isNaN(target.getTime())) return undefined;
     target.setHours(0, 0, 0, 0);
 
     const diffTime = target.getTime() - today.getTime();
@@ -20,69 +23,108 @@ export const getDueDateStyle = (dateString: string): string | undefined => {
     return undefined;
 };
 
-/** Formats a date string to DD.MM.YYYY format. */
+/** Formats a date string (ISO or display) to DD.MM.YYYY format. */
 export const formatDueDate = (dateString: string): string => {
     if (!dateString) return '';
-    const date = parseDateString(dateString);
-    const dayStr = date.getDate().toString().padStart(2, '0');
-    const monthStr = (date.getMonth() + 1).toString().padStart(2, '0');
-    const yearStr = date.getFullYear();
-    return `${dayStr}.${monthStr}.${yearStr}`;
+    const date = parseISODate(dateString);
+    if (!date) return '';
+    return formatDisplayDate(date);
 };
 
+/** Format Date object → DD.MM.YYYY */
+export const formatDisplayDate = (date: Date): string => {
+    if (isNaN(date.getTime())) return '';
+    return `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}.${date.getFullYear()}`;
+};
+
+/** Format Date object → YYYY-MM-DD (safe for storage and Google Calendar) */
+export const formatISODate = (date: Date): string => {
+    if (isNaN(date.getTime())) return '';
+    // Use sv-SE locale for stable YYYY-MM-DD format without timezone shifts
+    return date.toLocaleDateString('sv-SE');
+};
+
+/** Legacy support for parseDateString - mapped to parseISODate */
 export const parseDateString = (dateString: string | undefined | null): Date => {
-    if (!dateString) return new Date(NaN);
-    if (dateString.includes('T')) {
-        return new Date(dateString);
-    }
-    const parts = dateString.split('-');
-    if (parts.length !== 3) return new Date(NaN);
-    const [year, month, day] = parts.map(Number);
-    return new Date(year, month - 1, day);
+    return parseISODate(dateString) || new Date(NaN);
 };
 
-/** Checks if a date string in YYYY-MM-DD or DD.MM.YYYY format represents a real, valid date. */
-export const isValidDate = (date: Date, inputDay: number, inputMonth: number, inputYear: number): boolean => {
+/** Safely parses ISO (YYYY-MM-DD) or Display (DD.MM.YYYY) strings into a Date object. */
+export const parseISODate = (value?: string | null): Date | null => {
+    if (!value) return null;
+
+    if (value.includes('T')) {
+        return new Date(value);
+    }
+
+    if (value.includes('-')) {
+        const [y, m, d] = value.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    if (value.includes('.')) {
+        const [d, m, y] = value.split('.').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    return null;
+};
+
+/** Checks if a day, month, and year combination represents a real, valid date. */
+export const isRealDate = (day: number, month: number, year: number): boolean => {
+    const d = new Date(year, month - 1, day);
     return (
-        date.getFullYear() === inputYear &&
-        date.getMonth() === inputMonth - 1 &&
-        date.getDate() === inputDay
+        d.getFullYear() === year &&
+        d.getMonth() === month - 1 &&
+        d.getDate() === day
     );
 };
 
-/** Normalizes a raw date input string (e.g., from a keyboard) to DD.MM.YYYY. */
-export const normalizeDateInput = (input: string): string => {
-    if (!input) return input;
+/** Checks if a Date object corresponds to the input day/month/year. */
+export const isValidDate = (_date: Date, inputDay: number, inputMonth: number, inputYear: number): boolean => {
+    return isRealDate(inputDay, inputMonth, inputYear);
+};
 
-    // 1. Replace all commas, slashes, and spaces with dots
-    let normalized = input.replace(/[,/ ]/g, '.');
+/** 
+ * Robustly parses flexible user input (e.g., "1.2", "1509", "150920", "15/9/27") 
+ * into a Date object, normalizing separators and padding years.
+ */
+export const parseUserDateInput = (input: string): Date | null => {
+    if (!input) return null;
 
-    // 2. Handle 8-digit inputs like 15091957 -> 15.09.1957
+    let normalized = input.replace(/[,/ ]/g, '.').trim();
+
+    // Handle 8-digit inputs like 15091957 -> 15.09.1957
     if (/^\d{8}$/.test(normalized)) {
-        return `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.${normalized.slice(4)}`;
+        normalized = `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.${normalized.slice(4)}`;
     }
 
-    // 3. Handle 6-digit inputs like 150927 -> 15.09.2027
+    // Handle 6-digit inputs like 150927 -> 15.09.2027
     if (/^\d{6}$/.test(normalized)) {
-        return `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.20${normalized.slice(4)}`;
+        normalized = `${normalized.slice(0, 2)}.${normalized.slice(2, 4)}.20${normalized.slice(4)}`;
     }
 
-    // 4. Handle cases like 1.2.2027, 01.2.2027, 1.2.27 etc.
-    const parts = normalized.split('.').filter(p => p !== '');
-    if (parts.length === 3) {
-        let [day, month, year] = parts;
-        
-        // Pad day and month
-        day = day.padStart(2, '0');
-        month = month.padStart(2, '0');
-        
-        // Handle 2-digit years (assuming 20xx for years like 27)
-        if (year.length === 2) {
-            year = `20${year}`;
-        }
-        
-        return `${day}.${month}.${year}`;
+    const parts = normalized.split('.').filter(Boolean);
+
+    // Support partial inputs like "1.2" (assumes current year)
+    if (parts.length === 2) {
+        parts.push(new Date().getFullYear().toString());
     }
 
-    return normalized;
+    if (parts.length !== 3) return null;
+
+    let [day, month, year] = parts.map(Number);
+
+    // Handle 2-digit years
+    if (year < 100) year += 2000;
+
+    if (!isRealDate(day, month, year)) return null;
+
+    return new Date(year, month - 1, day);
+};
+
+/** Kept for backwards compatibility but calls parseUserDateInput */
+export const normalizeDateInput = (input: string): string => {
+    const parsed = parseUserDateInput(input);
+    return parsed ? formatDisplayDate(parsed) : input;
 };

@@ -16,6 +16,7 @@ import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { CompanyAutocomplete } from './CompanyAutocomplete';
 import { parseISODate, formatISODate } from '../utils/dateUtils';
 import { CustomDateInput } from './CustomDateInput';
+import { CalendarHeaderInput } from './CalendarHeaderInput';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -337,6 +338,16 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
+                                renderCustomHeader={(headerProps) => (
+                                    <CalendarHeaderInput
+                                        {...headerProps}
+                                        onSelectDate={(d) => {
+                                            const newDate = formatISODate(d);
+                                            setDueDate(newDate);
+                                            dueDateRef.current = newDate;
+                                        }}
+                                    />
+                                )}
                                 customInput={<CustomDateInput onCommit={handleImmediateSave} />}
                             />
                         </div>
@@ -382,6 +393,19 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
+                                renderCustomHeader={(headerProps) => (
+                                    <CalendarHeaderInput
+                                        {...headerProps}
+                                        onSelectDate={(d) => {
+                                            const nextDate = formatISODate(d);
+                                            setGanttData(prev => {
+                                                const next = { ...prev, startDate: nextDate };
+                                                ganttDataRef.current = next;
+                                                return next;
+                                            });
+                                        }}
+                                    />
+                                )}
                                 customInput={<CustomDateInput onCommit={handleImmediateSave} />}
                             />
                         </div>
@@ -406,6 +430,19 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 todayButton="Heute"
                                 locale="de"
                                 disabled={!ganttData.startDate}
+                                renderCustomHeader={(headerProps) => (
+                                    <CalendarHeaderInput
+                                        {...headerProps}
+                                        onSelectDate={(d) => {
+                                            const nextDate = formatISODate(d);
+                                            setGanttData(prev => {
+                                                const next = { ...prev, endDate: nextDate };
+                                                ganttDataRef.current = next;
+                                                return next;
+                                            });
+                                        }}
+                                    />
+                                )}
                                 customInput={<CustomDateInput onCommit={handleImmediateSave} />}
                             />
                         </div>
@@ -600,6 +637,12 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     placeholderText="DD.MM.YYYY"
                                     isClearable
                                     locale="de"
+                                    renderCustomHeader={(headerProps) => (
+                                        <CalendarHeaderInput
+                                            {...headerProps}
+                                            onSelectDate={(d) => setNewMilestoneDate(formatISODate(d))}
+                                        />
+                                    )}
                                     customInput={<CustomDateInput />}
                                 />
                             </div>

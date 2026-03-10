@@ -1,5 +1,5 @@
 import React from 'react';
-import { normalizeDateInput } from '../utils/dateUtils';
+import { normalizeDateInput, isValidDate } from '../utils/dateUtils';
 
 interface CustomDateInputProps {
     value?: string;
@@ -41,6 +41,21 @@ export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInpu
         const normalized = normalizeDateInput(rawValue);
 
         if (rawValue !== normalized) {
+            // Check if normalized date is physically valid (e.g., Nov 31st is invalid)
+            const parts = normalized.split('.');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const year = parseInt(parts[2], 10);
+                const dateObj = new Date(year, month - 1, day);
+                
+                if (!isValidDate(dateObj, day, month, year)) {
+                    alert(`Ungültiges Datum: Der ${normalized} existiert nicht.`);
+                    setLocalValue(value || ''); // Revert to previous valid value
+                    return;
+                }
+            }
+
             setLocalValue(normalized);
             // Trigger onChange so DatePicker parses the normalized value
             if (onChange) {
@@ -54,8 +69,21 @@ export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInpu
                 } as any;
                 onChange(event);
             }
-        } else if (rawValue !== value) {
-            // Even if not normalized, if it changed from the prop value, we should update the parent
+        } else if (rawValue !== value && rawValue !== '') {
+            // Check validation even for non-normalized but changed values
+            const parts = rawValue.split('.');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const year = parseInt(parts[2], 10);
+                const dateObj = new Date(year, month - 1, day);
+                if (!isValidDate(dateObj, day, month, year)) {
+                    alert(`Ungültiges Datum: Der ${rawValue} existiert nicht.`);
+                    setLocalValue(value || '');
+                    return;
+                }
+            }
+
             if (onChange) {
                 const event = {
                     target: input,
@@ -82,6 +110,8 @@ export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInpu
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
             e.currentTarget.blur();
         }
     };

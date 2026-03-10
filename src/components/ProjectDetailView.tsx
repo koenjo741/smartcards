@@ -99,6 +99,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
         });
     };
 
+    const handleImmediateSave = () => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        onSave({
+            ...project,
+            gantt: ganttData
+        });
+    };
+
     const handleTotalBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const rawValue = e.target.value;
         setFormattedTotalBudget(rawValue);

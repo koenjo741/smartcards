@@ -211,6 +211,24 @@ export const CardForm: React.FC<CardFormProps> = ({
         } as Card);
     };
 
+    const handleImmediateSave = () => {
+        const currentData = initialData;
+        onSave({
+            ...(currentData || {}),
+            title,
+            content,
+            projectIds: selectedProjectIds,
+            dueDate: dueDate || undefined,
+            attachments,
+            linkedCardIds: linkedCardIds || [],
+            googleEventId: dueDate ? currentData?.googleEventId : undefined,
+            googleCalendarId: dueDate ? currentData?.googleCalendarId : undefined,
+            isGantt: selectedProjectIds.length === 1 ? isGantt : false,
+            gantt: (selectedProjectIds.length === 1 && isGantt) ? (ganttData as GanttCardProps) : undefined
+        } as Card);
+        setSaveStatus('saved');
+    };
+
     const toggleProject = (projectId: string) => {
         setSelectedProjectIds(prev =>
             prev.includes(projectId)
@@ -294,7 +312,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
-                                customInput={<CustomDateInput />}
+                                customInput={<CustomDateInput onCommit={handleImmediateSave} />}
                             />
                         </div>
                     )}
@@ -340,7 +358,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 isClearable
                                 todayButton="Heute"
                                 locale="de"
-                                customInput={<CustomDateInput />}
+                                customInput={<CustomDateInput onCommit={handleImmediateSave} />}
                             />
                         </div>
                         <div>
@@ -365,7 +383,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 todayButton="Heute"
                                 locale="de"
                                 disabled={!ganttData.startDate}
-                                customInput={<CustomDateInput />}
+                                customInput={<CustomDateInput onCommit={handleImmediateSave} />}
                             />
                         </div>
                     </div>

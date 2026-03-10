@@ -32,9 +32,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
     const budgetSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const ganttDataRef = useRef(ganttData);
 
-    // Sync ref with state
-    useEffect(() => { ganttDataRef.current = ganttData; }, [ganttData]);
-
     // Calculate Spent Budget from Gantt Cards belonging to this project
     const spentBudget = cards
         .filter(card => card.isGantt && card.projectIds.includes(project.id) && card.gantt?.consumedBudget)
@@ -67,6 +64,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
     useEffect(() => {
         if (project.gantt) {
             setGanttData(project.gantt);
+            ganttDataRef.current = project.gantt;
             setFormattedTotalBudget(formatCurrency(project.gantt.totalBudget));
 
             // Format yearly budgets
@@ -112,6 +110,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
     const handleChange = (field: keyof GanttProjectProps, value: any) => {
         setGanttData(prev => {
             const newData = { ...prev, [field]: value };
+            ganttDataRef.current = newData;
             debouncedSave(newData);
             return newData;
         });
@@ -140,6 +139,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
         if (numValue === undefined || !isNaN(numValue)) {
             setGanttData(prev => {
                 const newData = { ...prev, totalBudget: numValue };
+                ganttDataRef.current = newData;
                 debouncedSave(newData);
                 return newData;
             });
@@ -166,6 +166,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, c
                         [year]: numValue
                     }
                 };
+                ganttDataRef.current = newData;
                 debouncedSave(newData);
                 return newData;
             });

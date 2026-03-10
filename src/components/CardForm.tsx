@@ -72,10 +72,6 @@ export const CardForm: React.FC<CardFormProps> = ({
     const ganttDataRef = useRef(ganttData);
     const dueDateRef = useRef(dueDate);
 
-    // Sync refs with state
-    useEffect(() => { ganttDataRef.current = ganttData; }, [ganttData]);
-    useEffect(() => { dueDateRef.current = dueDate; }, [dueDate]);
-
     // Confirmation State
     const [confirmState, setConfirmState] = useState<{
         isOpen: boolean;
@@ -112,28 +108,34 @@ export const CardForm: React.FC<CardFormProps> = ({
     useEffect(() => {
         if (initialData) {
             // Update state if initialData changes (e.g. from Sync)
-            // We check if value is different to avoid unnecessary re-renders, 
-            // though React state updates are cheap if value is same.
-            // The critical part is that we DO update if the server sent new data.
-            setTitle(prev => initialData.title !== prev ? initialData.title : prev);
-            setContent(prev => initialData.content !== prev ? initialData.content : prev);
-            setSelectedProjectIds(prev => JSON.stringify(initialData.projectIds) !== JSON.stringify(prev) ? (initialData.projectIds || []) : prev);
-            setDueDate(prev => (initialData.dueDate || '') !== prev ? (initialData.dueDate || '') : prev);
-            setAttachments(prev => JSON.stringify(initialData.attachments) !== JSON.stringify(prev) ? (initialData.attachments || []) : prev);
-            setLinkedCardIds(prev => JSON.stringify(initialData.linkedCardIds) !== JSON.stringify(prev) ? (initialData.linkedCardIds || []) : prev);
-            setIsGantt(prev => (initialData.isGantt || false) !== prev ? (initialData.isGantt || false) : prev);
+            setTitle(initialData.title || '');
+            setContent(initialData.content || '');
+            setSelectedProjectIds(initialData.projectIds || []);
+            
+            const newDueDate = initialData.dueDate || '';
+            setDueDate(newDueDate);
+            dueDateRef.current = newDueDate;
+
+            setAttachments(initialData.attachments || []);
+            setLinkedCardIds(initialData.linkedCardIds || []);
+            setIsGantt(initialData.isGantt || false);
+            
             if (initialData.gantt) {
                 setGanttData(initialData.gantt);
+                ganttDataRef.current = initialData.gantt;
             }
         } else {
             setTitle('');
             setContent('');
             setSelectedProjectIds([]);
             setDueDate('');
+            dueDateRef.current = '';
             setAttachments([]);
             setLinkedCardIds([]);
             setIsGantt(false);
-            setGanttData({ status: 'Geplant', milestones: [] });
+            const defaultGantt = { status: 'Geplant' as const, milestones: [] };
+            setGanttData(defaultGantt);
+            ganttDataRef.current = defaultGantt;
         }
     }, [initialData]);
 
@@ -163,7 +165,11 @@ export const CardForm: React.FC<CardFormProps> = ({
             // We just need to check the range here.
             if (start && end && start > end) {
                 alert('Das Startdatum darf nicht nach dem Enddatum liegen.');
-                setGanttData(prev => ({ ...prev, startDate: undefined }));
+                setGanttData(prev => {
+                    const next = { ...prev, startDate: undefined };
+                    ganttDataRef.current = next;
+                    return next;
+                });
             }
         }
     }, [ganttData.startDate, ganttData.endDate, isGantt]);
@@ -321,11 +327,9 @@ export const CardForm: React.FC<CardFormProps> = ({
                             <DatePicker
                                 selected={parseISODate(dueDate)}
                                 onChange={(date: Date | null) => {
-                                    if (date) {
-                                        setDueDate(formatISODate(date));
-                                    } else {
-                                        setDueDate('');
-                                    }
+                                    const newDate = date ? formatISODate(date) : '';
+                                    setDueDate(newDate);
+                                    dueDateRef.current = newDate;
                                 }}
                                 dateFormat="dd.MM.yyyy"
                                 className="w-full px-3 py-2 bg-slate-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500"
@@ -365,11 +369,12 @@ export const CardForm: React.FC<CardFormProps> = ({
                             <DatePicker
                                 selected={parseISODate(ganttData.startDate)}
                                 onChange={(date: Date | null) => {
-                                    if (date) {
-                                        setGanttData(prev => ({ ...prev, startDate: formatISODate(date) }));
-                                    } else {
-                                        setGanttData(prev => ({ ...prev, startDate: undefined }));
-                                    }
+                                    const nextDate = date ? formatISODate(date) : undefined;
+                                    setGanttData(prev => {
+                                        const next = { ...prev, startDate: nextDate };
+                                        ganttDataRef.current = next;
+                                        return next;
+                                    });
                                 }}
                                 dateFormat="dd.MM.yyyy"
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
@@ -387,11 +392,12 @@ export const CardForm: React.FC<CardFormProps> = ({
                             <DatePicker
                                 selected={parseISODate(ganttData.endDate)}
                                 onChange={(date: Date | null) => {
-                                    if (date) {
-                                        setGanttData(prev => ({ ...prev, endDate: formatISODate(date) }));
-                                    } else {
-                                        setGanttData(prev => ({ ...prev, endDate: undefined }));
-                                    }
+                                    const nextDate = date ? formatISODate(date) : undefined;
+                                    setGanttData(prev => {
+                                        const next = { ...prev, endDate: nextDate };
+                                        ganttDataRef.current = next;
+                                        return next;
+                                    });
                                 }}
                                 dateFormat="dd.MM.yyyy"
                                 className={`w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 placeholder-gray-500 ${!ganttData.startDate ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -427,11 +433,15 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 value={ganttData.status || 'Geplant'}
                                 onChange={(e) => {
                                     const newStatus = e.target.value as 'Geplant' | 'In Arbeit' | 'Fertig';
-                                    setGanttData(prev => ({ 
-                                        ...prev, 
-                                        status: newStatus,
-                                        progress: newStatus === 'Geplant' ? 0 : prev.progress
-                                    }));
+                                    setGanttData(prev => { 
+                                        const next = { 
+                                            ...prev, 
+                                            status: newStatus,
+                                            progress: newStatus === 'Geplant' ? 0 : prev.progress
+                                        };
+                                        ganttDataRef.current = next;
+                                        return next;
+                                    });
                                 }}
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100"
                             >
@@ -451,13 +461,21 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 value={ganttData.progress === 0 ? "0" : (ganttData.progress || '')}
                                 onChange={(e) => {
                                     const val = e.target.value.replace(/[^0-9]/g, '');
-                                    setGanttData(prev => ({ ...prev, progress: val === '' ? 0 : parseInt(val, 10) }));
+                                    setGanttData(prev => {
+                                        const next = { ...prev, progress: val === '' ? 0 : parseInt(val, 10) };
+                                        ganttDataRef.current = next;
+                                        return next;
+                                    });
                                 }}
                                 onBlur={(e) => {
                                     let val = parseInt(e.target.value, 10);
                                     if (isNaN(val)) val = 0;
                                     val = Math.max(0, Math.min(100, val));
-                                    setGanttData(prev => ({ ...prev, progress: val }));
+                                    setGanttData(prev => {
+                                        const next = { ...prev, progress: val };
+                                        ganttDataRef.current = next;
+                                        return next;
+                                    });
                                 }}
                                 className="w-full px-2 py-1 bg-[#020617] border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-100 disabled:bg-slate-900/50 disabled:text-gray-500"
                             />
@@ -473,7 +491,11 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     const val = e.target.value.replace(/\./g, '').replace(',', '.');
                                     const num = val === '' ? undefined : Number(val);
                                     if (num === undefined || !isNaN(num)) {
-                                        setGanttData(prev => ({ ...prev, plannedBudget: num }));
+                                        setGanttData(prev => {
+                                            const next = { ...prev, plannedBudget: num };
+                                            ganttDataRef.current = next;
+                                            return next;
+                                        });
                                         e.target.value = formatCurrency(num);
                                     }
                                 }}
@@ -491,7 +513,11 @@ export const CardForm: React.FC<CardFormProps> = ({
                                     const val = e.target.value.replace(/\./g, '').replace(',', '.');
                                     const num = val === '' ? undefined : Number(val);
                                     if (num === undefined || !isNaN(num)) {
-                                        setGanttData(prev => ({ ...prev, consumedBudget: num }));
+                                        setGanttData(prev => {
+                                            const next = { ...prev, consumedBudget: num };
+                                            ganttDataRef.current = next;
+                                            return next;
+                                        });
                                         e.target.value = formatCurrency(num);
                                     }
                                 }}
@@ -509,7 +535,11 @@ export const CardForm: React.FC<CardFormProps> = ({
                         </label>
                         <CompanyAutocomplete
                             value={ganttData.companies || []}
-                            onChange={(companies) => setGanttData(prev => ({ ...prev, companies }))}
+                            onChange={(companies) => setGanttData(prev => {
+                                const next = { ...prev, companies };
+                                ganttDataRef.current = next;
+                                return next;
+                            })}
                             allGanttCards={cards.filter(c => c.isGantt)}
                             currentCardId={initialData?.id}
                         />
@@ -534,10 +564,14 @@ export const CardForm: React.FC<CardFormProps> = ({
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                setGanttData(prev => ({
-                                                    ...prev,
-                                                    milestones: prev.milestones?.filter(m => m.id !== milestone.id)
-                                                }));
+                                                setGanttData(prev => {
+                                                    const next = {
+                                                        ...prev,
+                                                        milestones: prev.milestones?.filter(m => m.id !== milestone.id)
+                                                    };
+                                                    ganttDataRef.current = next;
+                                                    return next;
+                                                });
                                             }}
                                             className="text-gray-500 hover:text-red-400 p-1"
                                         >
@@ -581,14 +615,18 @@ export const CardForm: React.FC<CardFormProps> = ({
                                         if (e.key === 'Enter') {
                                             e.preventDefault();
                                             if (newMilestoneDate && newMilestoneTitle.trim()) {
-                                                setGanttData(prev => ({
-                                                    ...prev,
-                                                    milestones: [...(prev.milestones || []), {
-                                                        id: Date.now().toString(),
-                                                        date: newMilestoneDate,
-                                                        title: newMilestoneTitle.trim()
-                                                    }]
-                                                }));
+                                                setGanttData(prev => {
+                                                    const next = {
+                                                        ...prev,
+                                                        milestones: [...(prev.milestones || []), {
+                                                            id: Date.now().toString(),
+                                                            date: newMilestoneDate,
+                                                            title: newMilestoneTitle.trim()
+                                                        }]
+                                                    };
+                                                    ganttDataRef.current = next;
+                                                    return next;
+                                                });
                                                 setNewMilestoneDate('');
                                                 setNewMilestoneTitle('');
                                             }
@@ -601,14 +639,18 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 disabled={!newMilestoneDate || !newMilestoneTitle.trim()}
                                 onClick={() => {
                                     if (newMilestoneDate && newMilestoneTitle.trim()) {
-                                        setGanttData(prev => ({
-                                            ...prev,
-                                            milestones: [...(prev.milestones || []), {
-                                                id: Date.now().toString(),
-                                                date: newMilestoneDate,
-                                                title: newMilestoneTitle.trim()
-                                            }]
-                                        }));
+                                        setGanttData(prev => {
+                                            const next = {
+                                                ...prev,
+                                                milestones: [...(prev.milestones || []), {
+                                                    id: Date.now().toString(),
+                                                    date: newMilestoneDate,
+                                                    title: newMilestoneTitle.trim()
+                                                }]
+                                            };
+                                            ganttDataRef.current = next;
+                                            return next;
+                                        });
                                         setNewMilestoneDate('');
                                         setNewMilestoneTitle('');
                                     }

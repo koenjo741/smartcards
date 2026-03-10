@@ -86,11 +86,11 @@ export const CustomDateInput = React.forwardRef<HTMLInputElement, CustomDateInpu
         }
 
         if (onCommit) {
-            // Use a 150ms timeout to ensure React state and parent refs have fully synchronized
+            // Use a 200ms timeout to ensure React state and parent refs have fully synchronized
             // before triggering the save (commit). This fixes race conditions on manual entry.
             setTimeout(() => {
                 onCommit();
-            }, 150);
+            }, 200);
         }
     };
 

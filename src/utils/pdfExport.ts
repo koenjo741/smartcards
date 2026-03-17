@@ -103,8 +103,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             canvas: [
                                 { 
                                     type: 'line', 
-                                    x1: 56.69, y1: 34.02, 
-                                    x2: 538.58, y2: 34.02, 
+                                    x1: 0, y1: 34.02, 
+                                    x2: 481.89, y2: 34.02, 
                                     lineWidth: 0.5, 
                                     lineColor: '#DCDCDC' 
                                 }
@@ -119,7 +119,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                     fontSize: 8,
                                     color: '#999999',
                                     alignment: 'right',
-                                    margin: [0, 0, 56.69, 0]
+                                    margin: [0, 0, 0, 0] // Global margins already handle this
                                 }
                             ]
                         }

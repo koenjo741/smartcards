@@ -44,9 +44,25 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
         }
 
-        // 2. Convert HTML to pdfmake structure
+        // 2. Convert HTML to pdfmake structure with custom HR handling
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
-            tableAutoSize: true
+            tableAutoSize: true,
+            customTag: (element: any) => {
+                if (element.nodeName.toLowerCase() === 'hr') {
+                    return {
+                        canvas: [
+                            {
+                                type: 'line',
+                                x1: 0, y1: 0,
+                                x2: 481.89, // Precise content width for A4 with 2cm margins
+                                lineWidth: 0.5,
+                                lineColor: '#EAEAEA' // 10% lighter than #DCDCDC
+                            }
+                        ],
+                        margin: [0, 12, 0, 12]
+                    };
+                }
+            }
         });
 
         // 3. Define PDF document
@@ -58,7 +74,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     style: 'subheader'
                 },
                 // Blue header line - precisely matches content width
-                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 481.9, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], margin: [0, 0, 0, 20] },
+                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 481.89, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], margin: [0, 0, 0, 20] },
                 pdfContent
             ],
             pageSize: 'A4',
@@ -75,18 +91,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
                 h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
                 p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.3 },
-                // Highlighter fine-tuning: 
-                // Using background color and a slightly tighter line-height to center vertically
+                // Highlighter fine-tuning: slightly lower line-height for the marker itself
                 mark: { 
                     background: '#FFFF00', 
                     color: '#000000',
-                    lineHeight: 1.0 // Tight line-height helps center the background on the text
-                },
-                // Styling for <hr> tags
-                "html-hr": {
-                    margin: [0, 12, 0, 12],
-                    color: '#EAEAEA', // 10% lighter than #DCDCDC
-                    lineWidth: 0.5
+                    lineHeight: 1.05 
                 },
                 table: { margin: [0, 10, 0, 10] },
                 "html-table": { fontSize: 9 },

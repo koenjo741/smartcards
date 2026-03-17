@@ -1,53 +1,53 @@
-import * as pdfMake from 'pdfmake/build/pdfmake';
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfmake from 'html-to-pdfmake';
 
 /**
  * Exports HTML content to a PDF file in A4 portrait format using pdfmake.
- * This ensures selectable text, correct page breaks, and exact layout.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
-        // Initialize pdfMake VFS (virtual file system) for fonts
-        const pMake = (pdfMake as any).default || pdfMake;
-        const pFonts = (pdfFonts as any).default || pdfFonts;
-        pMake.vfs = pFonts.pdfMake?.vfs || pFonts.vfs;
+        // Initialize VFS (fonts)
+        if ((pdfFonts as any).pdfMake?.vfs) {
+            (pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
+        } else if ((pdfFonts as any).vfs) {
+            (pdfMake as any).vfs = (pdfFonts as any).vfs;
+        }
 
         // 1. Prepare HTML and convert images
         const parser = new DOMParser();
-        // Wrap with a div to ensure root styles are applied
-        const doc = parser.parseFromString(`<div style="font-family: Helvetica, Arial, sans-serif; font-size: 10pt;">${html}</div>`, 'text/html');
+        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
         
-        // Ensure all highlighters have black text for readability
+        // Ensure highlighters are readable
         const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
         highlightElements.forEach(el => {
             (el as HTMLElement).style.color = '#000000';
-            // Extract hex color if possible, or fallback to yellow
             const bg = (el as HTMLElement).style.backgroundColor;
-            if (bg && bg.includes('rgb')) {
-                // Keep it as is, html-to-pdfmake handles rgb
-            } else if (!bg) {
+            if (!bg || bg === '') {
                 (el as HTMLElement).style.backgroundColor = '#FFFF00';
             }
         });
 
+        // Convert images to Base64
         const images = Array.from(doc.getElementsByTagName('img'));
         for (const img of images) {
             try {
-                const dataUrl = await getBase64Image(img.src);
-                img.src = dataUrl;
+                if (img.src && !img.src.startsWith('data:')) {
+                    const dataUrl = await getBase64Image(img.src);
+                    img.src = dataUrl;
+                }
                 img.style.maxWidth = '100%';
             } catch (err) {
-                console.warn('PDF Image Load Error:', err);
+                console.warn('PDF Image conversion failed:', err);
             }
         }
 
-        // 2. Convert HTML to pdfmake structure
+        // 2. Convert HTML to pdfmake JSON structure
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
             tableAutoSize: true
         });
 
-        // 3. Define the document structure
+        // 3. Define PDF document
         const docDefinition: any = {
             content: [
                 { text: title, style: 'header' },
@@ -59,19 +59,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 pdfContent
             ],
             pageSize: 'A4',
-            pageMargins: [56.69, 70.87, 56.69, 70.87], // 2cm side, 2.5cm top/bottom in pt
+            pageMargins: [56.69, 70.87, 56.69, 70.87],
             styles: {
-                header: {
-                    fontSize: 14,
-                    bold: true,
-                    margin: [0, 0, 0, 5],
-                    color: '#1e293b'
-                },
-                subheader: {
-                    fontSize: 8,
-                    color: '#64748b',
-                    margin: [0, 0, 0, 10]
-                },
+                header: { fontSize: 14, bold: true, margin: [0, 0, 0, 5], color: '#1e293b' },
+                subheader: { fontSize: 8, color: '#64748b', margin: [0, 0, 0, 10] },
                 h1: { fontSize: 14, bold: true, margin: [0, 10, 0, 10], color: '#1e293b' },
                 h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
                 h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
@@ -91,13 +82,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     stack: [
                         {
                             canvas: [
-                                {
-                                    type: 'line',
-                                    x1: 56.69, y1: 0,
-                                    x2: 538.58, y2: 0, 
-                                    lineWidth: 0.5,
-                                    lineColor: '#DCDCDC'
-                                }
+                                { type: 'line', x1: 56.69, y1: 0, x2: 538.58, y2: 0, lineWidth: 0.5, lineColor: '#DCDCDC' }
                             ],
                             margin: [0, 0, 0, 10]
                         },
@@ -119,12 +104,12 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
         };
 
-        // 4. Create and Download
-        pMake.createPdf(docDefinition).download(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        // 4. Generate and Download
+        pdfMake.createPdf(docDefinition).download(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);
-        alert('Ein Fehler ist beim PDF-Export aufgetreten.');
+        alert('PDF Export fehlgeschlagen: ' + (error instanceof Error ? error.message : String(error)));
     }
 };
 
@@ -140,14 +125,11 @@ function getBase64Image(url: string): Promise<string> {
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject('No context');
-                return;
-            }
+            if (!ctx) return reject('No canvas context');
             ctx.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
         };
-        img.onerror = () => reject(`Load error for ${url}`);
+        img.onerror = () => reject(`Loading error: ${url}`);
         img.src = url;
     });
 }

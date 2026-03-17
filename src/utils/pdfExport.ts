@@ -2,160 +2,93 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfmake from 'html-to-pdfmake';
 
-// Set VFS fonts globally for stability
-if ((pdfFonts as any).pdfMake?.vfs) {
-    (pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
-} else if ((pdfFonts as any).vfs) {
-    (pdfMake as any).vfs = (pdfFonts as any).vfs;
-}
-
 /**
- * Exports HTML content to a PDF file.
- * Refined structure to prevent layout errors and ensure bündige lines.
+ * PDF Export Utility v1.3.23 - Emergency Stability Patch
+ * Reverting to minimal viable structure while maintaining aesthetic goals.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
-        const safeTitle = (title || 'Export').trim();
-        
-        // 1. Prepare HTML and convert images
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
-        
-        // Cleanup images and set highlighters
-        const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
-        highlightElements.forEach(el => {
-            (el as HTMLElement).style.color = '#000000';
-            if (!(el as HTMLElement).style.backgroundColor) {
-                (el as HTMLElement).style.backgroundColor = '#FFFF00';
-            }
-        });
+        // 1. Initialize fonts
+        const pMake = (pdfMake as any).default || pdfMake;
+        const pFonts = (pdfFonts as any).default || pdfFonts;
+        pMake.vfs = pFonts.pdfMake?.vfs || pFonts.vfs;
 
-        const images = Array.from(doc.getElementsByTagName('img'));
-        for (const img of images) {
-            try {
-                if (img.src && !img.src.startsWith('data:')) {
-                    img.src = await getBase64Image(img.src);
-                }
-                img.style.maxWidth = '100%';
-            } catch (err) {
-                console.warn('PDF Image conversion failed:', err);
-                img.remove(); // Remove failing images to prevent export crash
-            }
-        }
-
-        // 2. Convert HTML to pdfmake structure
-        // We use a more stable way to handle HRs by pre-processing or explicit styling
-        const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
-            tableAutoSize: true,
-            defaultStyles: {
-                p: { margin: [0, 0, 0, 8] }
-            }
-        });
-
-        // 3. Define PDF document
-        // We calculate the content width: 210mm (595.28pt) - 2 * 20mm (56.69pt) = 481.9pt
+        const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const contentWidth = 481.89;
 
-        const docDefinition: any = {
+        // 2. Pre-process HTML (Safe HR replacement)
+        let processedHtml = (html || '').trim() || '<p>&nbsp;</p>';
+        processedHtml = processedHtml.replace(/<hr\s*\/?>/gi, 
+            '<div style="border-top: 0.5pt solid #EAEAEA; margin: 10px 0;"></div>'
+        );
+
+        // 3. Convert HTML safely
+        // We use a clean DOM container
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<div>${processedHtml}</div>`, 'text/html');
+        
+        // Finalize highlighters (vertical centering)
+        const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
+        highlightElements.forEach(el => {
+            if (el instanceof HTMLElement) {
+                el.style.color = '#000000';
+                if (!el.style.backgroundColor) el.style.backgroundColor = '#FFFF00';
+            }
+        });
+
+        // Convert images
+        const images = Array.from(doc.getElementsByTagName('img'));
+        for (const img of images) {
+            try { if (img.src && !img.src.startsWith('data:')) img.src = await getBase64Image(img.src); }
+            catch (e) { img.remove(); }
+        }
+
+        const pdfContent = htmlToPdfmake(doc.body.innerHTML, { tableAutoSize: true });
+
+        // 4. Document Definition - EXTREMELY SAFE STRUCTURE
+        const docDef: any = {
             content: [
-                { text: safeTitle, style: 'header' },
-                { 
-                    text: `Exportiert am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
-                    style: 'subheader'
-                },
-                // Blue header line
-                { 
-                    canvas: [{ type: 'line', x1: 0, y1: 5, x2: contentWidth, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], 
-                    margin: [0, 0, 0, 20] 
-                },
-                pdfContent
+                { text: safeTitle, fontSize: 13, bold: true, margin: [0, 0, 0, 2], color: '#1e293b' },
+                { text: `Exportiert am ${new Date().toLocaleDateString('de-DE')}`, fontSize: 8, color: '#64748b', margin: [0, 0, 0, 10] },
+                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: contentWidth, y2: 0, lineWidth: 1, lineColor: '#3b82f6' }], margin: [0, 0, 0, 20] },
+                // Wrapping in stack ensures that even if pdfContent is an empty array, it won't crash the top-level content list
+                { stack: Array.isArray(pdfContent) ? pdfContent : [pdfContent] }
             ],
             pageSize: 'A4',
             pageMargins: [56.69, 70.87, 56.69, 70.87],
             styles: {
-                header: { fontSize: 13, bold: true, margin: [0, 0, 0, 5], color: '#1e293b' },
-                subheader: { fontSize: 8, color: '#64748b', margin: [0, 0, 0, 10] },
-                h1: { fontSize: 13, bold: true, margin: [0, 10, 0, 10], color: '#1e293b' },
-                h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
-                h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
-                p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.3 },
-                mark: { 
-                    background: '#FFFF00', 
-                    color: '#000000',
-                    lineHeight: 1.05 
-                },
-                // Styling for HR tags from html-to-pdfmake
-                "html-hr": {
-                    margin: [0, 12, 0, 12],
-                    color: '#EAEAEA',
-                    border: [false, true, false, false], // Use border to simulate 0.5pt line
-                    lineWidth: 0.5 
-                },
-                table: { margin: [0, 10, 0, 10] },
-                "html-table": { fontSize: 9 },
-                "html-th": { bold: true, fillColor: '#1e293b', color: 'white', alignment: 'left' }
+                mark: { background: '#FFFF00', color: '#000000', lineHeight: 1.0 }
             },
-            defaultStyle: {
-                fontSize: 10,
-                lineHeight: 1.3,
-                color: '#000000'
-            },
-            footer: (currentPage: number, pageCount: number) => {
-                return {
-                    stack: [
-                        {
-                            canvas: [
-                                { 
-                                    type: 'line', 
-                                    x1: 0, y1: 28.35, 
-                                    x2: contentWidth, y2: 28.35, 
-                                    lineWidth: 0.5, 
-                                    lineColor: '#DCDCDC' 
-                                }
-                            ],
-                            margin: [0, 0, 0, 10]
-                        },
-                        {
-                            columns: [
-                                { text: '', width: '*' },
-                                {
-                                    text: `Seite ${currentPage}/${pageCount}`,
-                                    fontSize: 8,
-                                    color: '#999999',
-                                    alignment: 'right'
-                                }
-                            ]
-                        }
-                    ],
-                    margin: [56.69, 0, 56.69, 20]
-                };
-            }
+            footer: (curr: number, total: number) => ({
+                margin: [56.69, 0, 56.69, 20],
+                stack: [
+                    { canvas: [{ type: 'line', x1: 0, y1: 0, x2: contentWidth, y2: 0, lineWidth: 0.5, lineColor: '#DCDCDC' }], margin: [0, 25, 0, 10] },
+                    { text: `Seite ${curr}/${total}`, alignment: 'right', fontSize: 8, color: '#999999' }
+                ]
+            })
         };
 
-        // 4. Generate and Download
-        const pdf = pdfMake.createPdf(docDefinition);
-        pdf.download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        // 5. Download
+        pMake.createPdf(docDef).download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);
-        alert('PDF Export fehlgeschlagen: ' + (error instanceof Error ? error.message : String(error)));
+        alert('PDF Export fehlgeschlagen. Bitte versuche es erneut.');
     }
 };
 
-function getBase64Image(url: string): Promise<string> {
+async function getBase64Image(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'Anonymous';
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
+            canvas.width = img.width; canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            if (!ctx) return reject('No canvas context');
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
+            if (ctx) { ctx.drawImage(img, 0, 0); resolve(canvas.toDataURL('image/png')); }
+            else reject('Canvas error');
         };
-        img.onerror = () => reject(`Loading error: ${url}`);
+        img.onerror = () => reject('Image load error');
         img.src = url;
     });
 }

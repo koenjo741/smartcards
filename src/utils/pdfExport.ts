@@ -40,8 +40,16 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
     try {
         // 1. Prepare HTML and convert images
         const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+        // Wrap with a div to ensure root styles are applied
+        const doc = parser.parseFromString(`<div style="font-family: Arial; font-size: 10pt;">${html}</div>`, 'text/html');
         
+        // Ensure all highlighters have black text for readability
+        const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
+        highlightElements.forEach(el => {
+            (el as HTMLElement).style.color = '#000000';
+            // If it's a mark tag but has no background color style, it will use the pdfmake 'mark' style
+        });
+
         const images = Array.from(doc.getElementsByTagName('img'));
         for (const img of images) {
             try {
@@ -55,7 +63,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         // 2. Convert HTML to pdfmake structure
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
-            tableAutoSize: true
+            tableAutoSize: true,
+            window: window
         });
 
         // 3. Define the document structure
@@ -87,19 +96,17 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
                 h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
                 p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.4 },
-                // Fix for highlighter: Using light semi-transparent colors 
-                // and ensuring background property is used correctly for inline text
-                mark: { 
-                    background: '#FFFF00', // Yellow
-                    color: '#000000'
-                },
+                // Support both tag-based and class-based highlighting
+                mark: { background: '#FFFF00', color: '#000000' },
+                "html-mark": { background: '#FFFF00', color: '#000000' },
                 table: { margin: [0, 10, 0, 10] },
                 "html-table": { fontSize: 9 },
                 "html-th": { bold: true, fillColor: '#1e293b', color: 'white', alignment: 'left' }
             },
             defaultStyle: {
                 fontSize: 10,
-                lineHeight: 1.4
+                lineHeight: 1.4,
+                color: '#000000' // Ensure base text is black
             },
             footer: (currentPage: number, pageCount: number) => {
                 return {

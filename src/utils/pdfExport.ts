@@ -3,7 +3,10 @@ import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfmake from 'html-to-pdfmake';
 
 // Initialize pdfMake with default fonts
-(pdfMake as any).vfs = pdfFonts.vfs;
+const vfs = (pdfFonts as any).pdfMake?.vfs || (pdfFonts as any).vfs;
+if (vfs) {
+    (pdfMake as any).vfs = vfs;
+}
 
 /**
  * Helper to convert image URL to base64 data URL

@@ -48,7 +48,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
             tableAutoSize: true,
             customTag: (element: any) => {
-                if (element.nodeName.toLowerCase() === 'hr') {
+                const nodeName = element?.nodeName?.toLowerCase();
+                if (nodeName === 'hr') {
                     return {
                         canvas: [
                             {

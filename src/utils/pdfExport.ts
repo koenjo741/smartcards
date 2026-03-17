@@ -103,8 +103,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             canvas: [
                                 { 
                                     type: 'line', 
-                                    x1: 56.69, y1: 0, 
-                                    x2: 538.58, y2: 0, 
+                                    x1: 56.69, y1: 14.17, 
+                                    x2: 538.58, y2: 14.17, 
                                     lineWidth: 0.5, 
                                     lineColor: '#DCDCDC' 
                                 }

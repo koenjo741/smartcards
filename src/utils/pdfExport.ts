@@ -2,89 +2,76 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfmake from 'html-to-pdfmake';
 
+// Set VFS fonts globally for stability
+if ((pdfFonts as any).pdfMake?.vfs) {
+    (pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
+} else if ((pdfFonts as any).vfs) {
+    (pdfMake as any).vfs = (pdfFonts as any).vfs;
+}
+
 /**
- * Exports HTML content to a PDF file in A4 portrait format using pdfmake.
- * Safety-first version to prevent "toLowerCase" errors and handle HR elements correctly.
+ * Exports HTML content to a PDF file.
+ * Refined structure to prevent layout errors and ensure bündige lines.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
-        // Initialize VFS (fonts)
-        const pMake = (pdfMake as any).default || pdfMake;
-        const pFonts = (pdfFonts as any).default || pdfFonts;
+        const safeTitle = (title || 'Export').trim();
         
-        if (pFonts.pdfMake?.vfs) {
-            pMake.vfs = pFonts.pdfMake.vfs;
-        } else if (pFonts.vfs) {
-            pMake.vfs = pFonts.vfs;
-        }
-
         // 1. Prepare HTML and convert images
         const parser = new DOMParser();
         const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
         
-        // Finalize highlighters
+        // Cleanup images and set highlighters
         const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
         highlightElements.forEach(el => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.style.color = '#000000';
-            const bg = htmlEl.style.backgroundColor;
-            if (!bg || bg === '') {
-                htmlEl.style.backgroundColor = '#FFFF00';
+            (el as HTMLElement).style.color = '#000000';
+            if (!(el as HTMLElement).style.backgroundColor) {
+                (el as HTMLElement).style.backgroundColor = '#FFFF00';
             }
         });
 
-        // Convert images to Base64
         const images = Array.from(doc.getElementsByTagName('img'));
         for (const img of images) {
             try {
                 if (img.src && !img.src.startsWith('data:')) {
-                    const dataUrl = await getBase64Image(img.src);
-                    img.src = dataUrl;
+                    img.src = await getBase64Image(img.src);
                 }
                 img.style.maxWidth = '100%';
             } catch (err) {
                 console.warn('PDF Image conversion failed:', err);
+                img.remove(); // Remove failing images to prevent export crash
             }
         }
 
-        // 2. Convert HTML to pdfmake structure with safely guarded customTag
+        // 2. Convert HTML to pdfmake structure
+        // We use a more stable way to handle HRs by pre-processing or explicit styling
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
             tableAutoSize: true,
-            customTag: (element: any) => {
-                // Safeguard against non-element nodes or missing properties
-                if (!element || typeof element.nodeName !== 'string') return;
-                
-                const nodeName = element.nodeName.toLowerCase();
-                if (nodeName === 'hr') {
-                    return {
-                        canvas: [
-                            {
-                                type: 'line',
-                                x1: 0, y1: 0,
-                                x2: 481.89, // Precise content width for A4 (210mm - 2x2.0cm)
-                                lineWidth: 0.5,
-                                lineColor: '#EAEAEA'
-                            }
-                        ],
-                        margin: [0, 12, 0, 12]
-                    };
-                }
+            defaultStyles: {
+                p: { margin: [0, 0, 0, 8] }
             }
         });
 
         // 3. Define PDF document
+        // We calculate the content width: 210mm (595.28pt) - 2 * 20mm (56.69pt) = 481.9pt
+        const contentWidth = 481.89;
+
         const docDefinition: any = {
             content: [
-                { text: title, style: 'header' },
+                { text: safeTitle, style: 'header' },
                 { 
                     text: `Exportiert am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
                     style: 'subheader'
                 },
-                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 481.89, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], margin: [0, 0, 0, 20] },
+                // Blue header line
+                { 
+                    canvas: [{ type: 'line', x1: 0, y1: 5, x2: contentWidth, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], 
+                    margin: [0, 0, 0, 20] 
+                },
                 pdfContent
             ],
             pageSize: 'A4',
-            pageMargins: [56.69, 70.87, 56.69, 70.87], // 2cm Left/Right, 2.5cm Top/Bottom
+            pageMargins: [56.69, 70.87, 56.69, 70.87],
             styles: {
                 header: { fontSize: 13, bold: true, margin: [0, 0, 0, 5], color: '#1e293b' },
                 subheader: { fontSize: 8, color: '#64748b', margin: [0, 0, 0, 10] },
@@ -96,6 +83,13 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     background: '#FFFF00', 
                     color: '#000000',
                     lineHeight: 1.05 
+                },
+                // Styling for HR tags from html-to-pdfmake
+                "html-hr": {
+                    margin: [0, 12, 0, 12],
+                    color: '#EAEAEA',
+                    border: [false, true, false, false], // Use border to simulate 0.5pt line
+                    lineWidth: 0.5 
                 },
                 table: { margin: [0, 10, 0, 10] },
                 "html-table": { fontSize: 9 },
@@ -114,7 +108,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                 { 
                                     type: 'line', 
                                     x1: 0, y1: 28.35, 
-                                    x2: 481.89, y2: 28.35, 
+                                    x2: contentWidth, y2: 28.35, 
                                     lineWidth: 0.5, 
                                     lineColor: '#DCDCDC' 
                                 }
@@ -128,8 +122,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                     text: `Seite ${currentPage}/${pageCount}`,
                                     fontSize: 8,
                                     color: '#999999',
-                                    alignment: 'right',
-                                    margin: [0, 0, 0, 0]
+                                    alignment: 'right'
                                 }
                             ]
                         }
@@ -140,8 +133,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         };
 
         // 4. Generate and Download
-        const safeTitle = (title || 'Export').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        pMake.createPdf(docDefinition).download(`${safeTitle}.pdf`);
+        const pdf = pdfMake.createPdf(docDefinition);
+        pdf.download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);
@@ -149,9 +142,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
     }
 };
 
-/**
- * Helper to convert image URL to base64 data URL
- */
 function getBase64Image(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const img = new Image();

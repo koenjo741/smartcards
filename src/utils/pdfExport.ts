@@ -47,7 +47,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             try {
                 const dataUrl = await getBase64Image(img.src);
                 img.src = dataUrl;
-                // Add some basic styling markers for conversion
                 img.style.maxWidth = '100%';
             } catch (err) {
                 console.warn('PDF Image Load Error:', err);
@@ -55,7 +54,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         }
 
         // 2. Convert HTML to pdfmake structure
-        // html-to-pdfmake converts HTML tags to JSON objects pdfmake understands
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
             tableAutoSize: true
         });
@@ -85,12 +83,16 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     color: '#64748b',
                     margin: [0, 0, 0, 10]
                 },
-                // Mapping standard tags to styles
                 h1: { fontSize: 14, bold: true, margin: [0, 10, 0, 10], color: '#1e293b' },
                 h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
                 h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
                 p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.4 },
-                mark: { background: 'yellow' }, // Fixed highlighter
+                // Fix for highlighter: Using light semi-transparent colors 
+                // and ensuring background property is used correctly for inline text
+                mark: { 
+                    background: '#FFFF00', // Yellow
+                    color: '#000000'
+                },
                 table: { margin: [0, 10, 0, 10] },
                 "html-table": { fontSize: 9 },
                 "html-th": { bold: true, fillColor: '#1e293b', color: 'white', alignment: 'left' }
@@ -107,7 +109,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                 {
                                     type: 'line',
                                     x1: 56.69, y1: 0,
-                                    x2: 538.58, y2: 0, // 595.28 - 56.69
+                                    x2: 538.58, y2: 0, 
                                     lineWidth: 0.5,
                                     lineColor: '#DCDCDC'
                                 }

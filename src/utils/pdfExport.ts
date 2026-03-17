@@ -85,7 +85,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 // Styling for <hr> tags
                 "html-hr": {
                     margin: [0, 12, 0, 12],
-                    color: '#DCDCDC'
+                    color: '#EAEAEA', // 10% lighter than #DCDCDC
+                    lineWidth: 0.5
                 },
                 table: { margin: [0, 10, 0, 10] },
                 "html-table": { fontSize: 9 },

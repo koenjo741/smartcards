@@ -8,17 +8,23 @@ import html2canvas from 'html2canvas';
  * @param title The title for the PDF file (default: 'Card_Content')
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
+    // A4 dimensions in pt: 595.28 x 841.89
+    // 1 pt = 1/72 inch
+    // 2.5 cm = 2.5 / 2.54 * 72 = 70.86 pt
+    const TOP_MARGIN_PT = 70.86;
+    const BOTTOM_RESERVE_PT = 50; // Footer area + gap
+
     // Create a temporary container to render the HTML
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
     container.style.top = '0';
-    container.style.width = '700px'; // Approx width for A4 content with margins
+    container.style.width = '700px'; 
     container.style.padding = '40px';
     container.style.backgroundColor = 'white';
     container.style.color = 'black';
     container.style.fontFamily = 'Inter, sans-serif';
-    
+
     // Add some basic styling to match the editor look
     container.className = 'ProseMirror prose';
     container.innerHTML = `
@@ -26,19 +32,32 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .ProseMirror {
                 color: #000000 !important;
                 font-family: 'Inter', sans-serif;
-                font-size: 14px;
-                line-height: 1.5;
+                font-size: 12pt;
+                line-height: 1.4;
             }
-            .ProseMirror p { margin-bottom: 0.75em; }
-            .ProseMirror h1 { font-size: 2em; margin-top: 0.67em; margin-bottom: 0.67em; font-weight: bold; }
-            .ProseMirror h2 { font-size: 1.5em; margin-top: 0.83em; margin-bottom: 0.83em; font-weight: bold; }
-            .ProseMirror h3 { font-size: 1.17em; margin-top: 1em; margin-bottom: 1em; font-weight: bold; }
+            .ProseMirror p { margin-bottom: 0.5em; }
             
+            /* Font size overrides */
+            .ProseMirror h1 { font-size: 16pt; margin-top: 0; margin-bottom: 0.8em; font-weight: bold; }
+            .ProseMirror h2 { font-size: 14pt; margin-top: 1em; margin-bottom: 0.6em; font-weight: bold; }
+            .ProseMirror h3 { font-size: 13pt; margin-top: 1em; margin-bottom: 0.5em; font-weight: bold; }
+            
+            /* Bullet alignment fix */
             .ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin-bottom: 1rem; }
             .ProseMirror ul { list-style-type: disc !important; }
-            .ProseMirror ol { list-style-type: decimal !important; }
-            .ProseMirror li { margin-bottom: 0.25em; }
+            .ProseMirror li { 
+                margin-bottom: 0.25em; 
+                display: list-item;
+                vertical-align: middle;
+            }
             
+            /* Highlight fix: ensuring it wraps text tightly */
+            mark, .ProseMirror [style*="background-color"] {
+                display: inline-block;
+                line-height: 1;
+                padding: 2px 0;
+            }
+
             /* Premium Table Design from index.css */
             .ProseMirror table {
                 width: 100% !important;
@@ -52,13 +71,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .ProseMirror th {
                 background-color: #1e293b !important;
                 color: #ffffff !important;
-                padding: 10px 12px;
+                padding: 8px 10px;
                 text-align: left;
+                font-size: 11pt;
                 font-weight: 600;
                 border-bottom: 1px solid #334155;
             }
             .ProseMirror td {
-                padding: 10px 12px;
+                padding: 8px 10px;
+                font-size: 11pt;
                 border-bottom: 1px solid #e2e8f0;
                 border-right: 1px solid #e2e8f0;
                 color: #334155;
@@ -70,12 +91,13 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .ProseMirror img { max-width: 100%; height: auto; display: block; margin: 15px 0; border-radius: 4px; }
             
             .pdf-header { 
-                margin-bottom: 30px; 
-                padding-bottom: 15px; 
-                border-bottom: 2px solid #3b82f6;
+                margin-top: 0;
+                margin-bottom: 20px; 
+                padding-bottom: 10px; 
+                border-bottom: 1.5px solid #3b82f6;
             }
-            .pdf-header h1 { margin: 0; color: #1e293b; font-size: 28px; }
-            .pdf-date { font-size: 11px; color: #64748b; margin-top: 5px; }
+            .pdf-header h1 { margin: 0; color: #1e293b; font-size: 16pt; font-weight: bold; }
+            .pdf-date { font-size: 9pt; color: #64748b; margin-top: 5px; }
         </style>
         <div class="pdf-header">
             <h1>${title}</h1>
@@ -91,7 +113,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
     try {
         // Wait for images to load
         const images = container.getElementsByTagName('img');
-        const imgPromises = Array.from(images).map(img => {
+        const imgPromises = Array.from(images).map(imgElement => {
+            const img = imgElement as HTMLImageElement;
             if (img.complete) return Promise.resolve();
             return new Promise((resolve) => {
                 img.onload = resolve;
@@ -110,7 +133,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         const imgData = canvas.toDataURL('image/jpeg', 1.0);
         
-        // A4 dimensions in pt: 595.28 x 841.89
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'pt',
@@ -120,15 +142,17 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         
-        // Calculate dimensions to fit width
-        const imgWidth = pageWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        // Calculate content area (A4 minus margins)
+        const contentWidth = pageWidth - 60; // 30pt side margins
+        const contentHeight = (canvas.height * contentWidth) / canvas.width;
         
-        let heightLeft = imgHeight;
-        let position = 0;
+        // Useable area per page
+        const usableHeight = pageHeight - TOP_MARGIN_PT - BOTTOM_RESERVE_PT;
+        
+        let heightLeft = contentHeight;
 
-        // Calculate total pages
-        const totalPages = Math.ceil(imgHeight / pageHeight);
+        // Calculate total pages based on usable height
+        const totalPages = Math.ceil(contentHeight / usableHeight);
 
         // Function to add footer
         const addFooter = (pageNum: number) => {
@@ -145,20 +169,36 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             pdf.text(text, pageWidth - textWidth - 30, pageHeight - 20);
         };
 
-        // Add first page
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        addFooter(1);
-        heightLeft -= pageHeight;
+        // Page loop
         let currentPage = 1;
-
-        // Add subsequent pages if content is longer than one page
         while (heightLeft > 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            currentPage++;
-            pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            if (currentPage > 1) pdf.addPage();
+            
+            // Add image chunk
+            // We slice the source image conceptually by shifting the position
+            // Drawing the image starting at TOP_MARGIN_PT
+            pdf.addImage(
+                imgData, 
+                'JPEG', 
+                30, 
+                TOP_MARGIN_PT - (usableHeight * (currentPage - 1)), 
+                contentWidth, 
+                contentHeight
+            );
+
+            // Draw a white rectangle over the footer area to prevent overflow
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, pageHeight - BOTTOM_RESERVE_PT + 15, pageWidth, BOTTOM_RESERVE_PT, 'F');
+            
+            // Draw a white rectangle over the top margin for subsequent pages if needed
+            if (currentPage > 1) {
+                pdf.rect(0, 0, pageWidth, TOP_MARGIN_PT - 5, 'F');
+            }
+
             addFooter(currentPage);
-            heightLeft -= pageHeight;
+            
+            heightLeft -= usableHeight;
+            currentPage++;
         }
 
         // Save the PDF

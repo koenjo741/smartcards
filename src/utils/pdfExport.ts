@@ -119,12 +119,12 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                     fontSize: 8,
                                     color: '#999999',
                                     alignment: 'right',
-                                    margin: [0, 0, 0, 0] // Global margins already handle this
+                                    margin: [0, 0, 0, 0]
                                 }
                             ]
                         }
                     ],
-                    margin: [0, 0, 0, 20]
+                    margin: [56.69, 0, 56.69, 20]
                 };
             }
         };

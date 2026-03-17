@@ -4,29 +4,32 @@ import htmlToPdfmake from 'html-to-pdfmake';
 
 /**
  * Exports HTML content to a PDF file in A4 portrait format using pdfmake.
- * Final polish for highlighter alignment, title sizing, and line styling consistency.
+ * Safety-first version to prevent "toLowerCase" errors and handle HR elements correctly.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
         // Initialize VFS (fonts)
-        if ((pdfFonts as any).pdfMake?.vfs) {
-            (pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
-        } else if ((pdfFonts as any).vfs) {
-            (pdfMake as any).vfs = (pdfFonts as any).vfs;
+        const pMake = (pdfMake as any).default || pdfMake;
+        const pFonts = (pdfFonts as any).default || pdfFonts;
+        
+        if (pFonts.pdfMake?.vfs) {
+            pMake.vfs = pFonts.pdfMake.vfs;
+        } else if (pFonts.vfs) {
+            pMake.vfs = pFonts.vfs;
         }
 
         // 1. Prepare HTML and convert images
         const parser = new DOMParser();
-        // We use a clean container
         const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
         
-        // Finalize highlighters: force black text and ensure they are inline
+        // Finalize highlighters
         const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
         highlightElements.forEach(el => {
-            (el as HTMLElement).style.color = '#000000';
-            const bg = (el as HTMLElement).style.backgroundColor;
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.color = '#000000';
+            const bg = htmlEl.style.backgroundColor;
             if (!bg || bg === '') {
-                (el as HTMLElement).style.backgroundColor = '#FFFF00';
+                htmlEl.style.backgroundColor = '#FFFF00';
             }
         });
 
@@ -44,20 +47,23 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
         }
 
-        // 2. Convert HTML to pdfmake structure with custom HR handling
+        // 2. Convert HTML to pdfmake structure with safely guarded customTag
         const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
             tableAutoSize: true,
             customTag: (element: any) => {
-                const nodeName = element?.nodeName?.toLowerCase();
+                // Safeguard against non-element nodes or missing properties
+                if (!element || typeof element.nodeName !== 'string') return;
+                
+                const nodeName = element.nodeName.toLowerCase();
                 if (nodeName === 'hr') {
                     return {
                         canvas: [
                             {
                                 type: 'line',
                                 x1: 0, y1: 0,
-                                x2: 481.89, // Precise content width for A4 with 2cm margins
+                                x2: 481.89, // Precise content width for A4 (210mm - 2x2.0cm)
                                 lineWidth: 0.5,
-                                lineColor: '#EAEAEA' // 10% lighter than #DCDCDC
+                                lineColor: '#EAEAEA'
                             }
                         ],
                         margin: [0, 12, 0, 12]
@@ -74,25 +80,18 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     text: `Exportiert am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
                     style: 'subheader'
                 },
-                // Blue header line - precisely matches content width
                 { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 481.89, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], margin: [0, 0, 0, 20] },
                 pdfContent
             ],
             pageSize: 'A4',
             pageMargins: [56.69, 70.87, 56.69, 70.87], // 2cm Left/Right, 2.5cm Top/Bottom
             styles: {
-                header: { 
-                    fontSize: 13, 
-                    bold: true, 
-                    margin: [0, 0, 0, 5], 
-                    color: '#1e293b' 
-                },
+                header: { fontSize: 13, bold: true, margin: [0, 0, 0, 5], color: '#1e293b' },
                 subheader: { fontSize: 8, color: '#64748b', margin: [0, 0, 0, 10] },
                 h1: { fontSize: 13, bold: true, margin: [0, 10, 0, 10], color: '#1e293b' },
                 h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
                 h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
                 p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.3 },
-                // Highlighter fine-tuning: slightly lower line-height for the marker itself
                 mark: { 
                     background: '#FFFF00', 
                     color: '#000000',
@@ -141,7 +140,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         };
 
         // 4. Generate and Download
-        pdfMake.createPdf(docDefinition).download(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        const safeTitle = (title || 'Export').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        pMake.createPdf(docDefinition).download(`${safeTitle}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);

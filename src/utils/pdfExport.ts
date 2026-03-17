@@ -2,27 +2,28 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfmake from 'html-to-pdfmake';
 
-// Initialize fonts
-const pMake = (pdfMake as any).default || pdfMake;
-const pFonts = (pdfFonts as any).default || pdfFonts;
-if (pFonts.pdfMake?.vfs) pMake.vfs = pFonts.pdfMake.vfs;
-else if (pFonts.vfs) pMake.vfs = pFonts.vfs;
+// Robust initialization for all environments
+const pm = (pdfMake as any).default || pdfMake;
+const pf = (pdfFonts as any).default || pdfFonts;
+if (pf && pf.pdfMake && pf.pdfMake.vfs) pm.vfs = pf.pdfMake.vfs;
+else if (pf && pf.vfs) pm.vfs = pf.vfs;
 
 /**
- * PDF Export Utility v1.3.26
- * - Corrects internal HR lines (table-less canvas approach for absolute look-alike).
- * - Forces identical 2.0cm left-alignment for text block and footer.
+ * PDF Export Utility v1.3.27 - Ultimate Stability & Alignment
+ * - Uses a split-and-merge strategy for HR lines to bypass parsing crashes.
+ * - Forces perfect 2.0cm left-alignment for text block and footer.
+ * - Refined font sizes (Title: 12pt, Body: 10pt).
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
-        const contentWidth = 481.89; // 210mm - 2*20mm = 170mm = 481.89pt
+        const contentWidth = 481.89; // (210mm - 2*20mm) to pt
 
-        // 1. Prepare HTML and extract content
+        // 1. Pre-process Images and Highlighters (DOM side)
         const parser = new DOMParser();
         const doc = parser.parseFromString(`<div>${html || ''}</div>`, 'text/html');
         
-        // Highlighters
+        // Highlighters styling
         const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));
         highlightElements.forEach(el => {
             if (el instanceof HTMLElement) {
@@ -38,54 +39,72 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             catch (e) { img.remove(); }
         }
 
-        // 2. Convert to pdfmake structure AND map HRs to clean lines
-        const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
-            tableAutoSize: true,
-            customTag: (el: any) => {
-                // Safeguard against non-element nodes or missing properties
-                if (!el || !el.nodeName) return;
-                
-                if (el.nodeName.toLowerCase() === 'hr') {
-                    // Match footer line exactly: canvas line, 0.5pt, color #EAEAEA
-                    return {
-                        canvas: [
-                            {
-                                type: 'line',
-                                x1: 0, y1: 0,
-                                x2: contentWidth, y2: 0,
-                                lineWidth: 0.5,
-                                lineColor: '#EAEAEA'
-                            }
-                        ],
-                        margin: [0, 12, 0, 12]
-                    };
-                }
+        // 2. Strategy: Split HTML by <hr> and convert parts separately
+        // This avoids the 'text' property crash often caused by customTag HR mapping.
+        let rawHtml = doc.body.innerHTML;
+        const hrMarker = '___HR_DIVIDER_STABLE___';
+        rawHtml = rawHtml.replace(/<hr\s*\/?>/gi, hrMarker);
+        
+        const htmlParts = rawHtml.split(hrMarker);
+        const resolvedNodes: any[] = [];
+
+        for (let i = 0; i < htmlParts.length; i++) {
+            const part = htmlParts[i].trim();
+            if (part) {
+                const nodes = htmlToPdfmake(part, { tableAutoSize: true });
+                if (Array.isArray(nodes)) resolvedNodes.push(...nodes);
+                else resolvedNodes.push(nodes);
             }
-        });
+            
+            // Insert the line manually between parts
+            if (i < htmlParts.length - 1) {
+                resolvedNodes.push({
+                    canvas: [
+                        {
+                            type: 'line',
+                            x1: 0, y1: 0,
+                            x2: contentWidth, y2: 0,
+                            lineWidth: 0.5,
+                            lineColor: '#E5E5E5' // 10% lighter than #DCDCDC
+                        }
+                    ],
+                    margin: [0, 15, 0, 15] // Healthy spacing for the internal separators
+                });
+            }
+        }
 
         // 3. Document Definition
         const docDefinition: any = {
             content: [
-                { text: safeTitle, fontSize: 13, bold: true, margin: [0, 0, 0, 2], color: '#1e293b' },
+                { text: safeTitle, style: 'header' },
                 { 
                     text: `Exportiert am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
-                    fontSize: 8, color: '#64748b', margin: [0, 0, 0, 12] 
+                    style: 'subheader'
                 },
+                // Blue line - precisely 1pt
                 { 
                     canvas: [{ type: 'line', x1: 0, y1: 0, x2: contentWidth, y2: 0, lineWidth: 1, lineColor: '#3b82f6' }], 
-                    margin: [0, 0, 0, 20] 
+                    margin: [0, 0, 0, 15] 
                 },
-                // Wrapper stack for stability
-                { stack: Array.isArray(pdfContent) ? pdfContent : [pdfContent] }
+                // The main content nodes
+                { stack: resolvedNodes }
             ],
             pageSize: 'A4',
-            pageMargins: [56.69, 70.87, 56.69, 70.87], // EXACT 2.0cm (56.69pt) LEFT/RIGHT
+            pageMargins: [56.69, 70.87, 56.69, 70.87], // 2.0cm Side Margins
             styles: {
-                mark: { background: '#FFFF00', color: '#000000', lineHeight: 1.0 },
-                p: { margin: [0, 0, 0, 5], lineHeight: 1.3 },
-                // Final styles for tables
-                table: { margin: [0, 5, 0, 10] },
-                "html-table": { fontSize: 9 }
+                header: { 
+                    fontSize: 12, 
+                    bold: true, 
+                    margin: [0, 0, 0, 2], 
+                    color: '#1e293b' 
+                },
+                subheader: { fontSize: 8, color: '#64748b', margin: [0, 0, 0, 10] },
+                p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.3 },
+                mark: { 
+                    background: '#FFFF00', 
+                    color: '#000000',
+                    lineHeight: 1.0 
+                }
             },
             defaultStyle: {
                 fontSize: 10,
@@ -106,7 +125,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                     lineColor: '#DCDCDC' 
                                 }
                             ],
-                            margin: [0, 28, 0, 10]
+                            margin: [0, 25, 0, 10] // Positions line 25pt from footer bottom
                         },
                         {
                             columns: [
@@ -120,10 +139,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         };
 
         // 4. Download
-        pMake.createPdf(docDefinition).download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        pm.createPdf(docDefinition).download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
 
     } catch (error) {
-        console.error('PDF Export Final Error:', error);
+        console.error('PDF Export Critical Error:', error);
         alert('PDF Export fehlgeschlagen. Bitte versuche es erneut.');
     }
 };
@@ -137,9 +156,9 @@ async function getBase64Image(url: string): Promise<string> {
             canvas.width = img.width; canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             if (ctx) { ctx.drawImage(img, 0, 0); resolve(canvas.toDataURL('image/png')); }
-            else reject();
+            else reject('Canvas error');
         };
-        img.onerror = () => reject();
+        img.onerror = () => reject('Image load error');
         img.src = url;
     });
 }

@@ -10,76 +10,69 @@ import html2canvas from 'html2canvas';
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     // A4 dimensions in pt: 595.28 x 841.89
     // 1 pt = 1/72 inch
-    // 2.5 cm = 2.5 / 2.54 * 72 = 70.86 pt
-    const TOP_MARGIN_PT = 70.86;
-    const BOTTOM_RESERVE_PT = 50; // Footer area + gap
-
+    // 2.5 cm = 2.5 / 2.54 * 72 = 70.866 pt
+    const MARGIN_PT = 70.866;
+    
     // Create a temporary container to render the HTML
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
     container.style.top = '0';
-    container.style.width = '700px'; 
-    container.style.padding = '40px';
+    // Match the PDF content width exactly for predictable scaling
+    container.style.width = '453.5pt'; // (595.28 - 2 * 70.866)
     container.style.backgroundColor = 'white';
     container.style.color = 'black';
     container.style.fontFamily = 'Inter, sans-serif';
 
     // Add some basic styling to match the editor look
-    container.className = 'ProseMirror prose';
+    container.className = 'ProseMirror';
     container.innerHTML = `
         <style>
             .ProseMirror {
                 color: #000000 !important;
                 font-family: 'Inter', sans-serif;
-                font-size: 12pt;
-                line-height: 1.4;
+                font-size: 11pt; 
+                line-height: 1.5;
+                padding: 0;
             }
             .ProseMirror p { margin-bottom: 0.5em; }
             
-            /* Font size overrides */
-            .ProseMirror h1 { font-size: 16pt; margin-top: 0; margin-bottom: 0.8em; font-weight: bold; }
-            .ProseMirror h2 { font-size: 14pt; margin-top: 1em; margin-bottom: 0.6em; font-weight: bold; }
-            .ProseMirror h3 { font-size: 13pt; margin-top: 1em; margin-bottom: 0.5em; font-weight: bold; }
+            .ProseMirror h1 { font-size: 15pt; margin-top: 0; margin-bottom: 0.8em; font-weight: bold; }
+            .ProseMirror h2 { font-size: 13pt; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: bold; }
+            .ProseMirror h3 { font-size: 12pt; margin-top: 1.2em; margin-bottom: 0.5em; font-weight: bold; }
             
-            /* Bullet alignment fix */
-            .ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+            .ProseMirror ul, .ProseMirror ol { padding-left: 1.25rem; margin-bottom: 0.75rem; }
             .ProseMirror ul { list-style-type: disc !important; }
             .ProseMirror li { 
-                margin-bottom: 0.25em; 
-                display: list-item;
-                vertical-align: middle;
+                margin-bottom: 0.3em;
             }
             
-            /* Highlight fix: ensuring it wraps text tightly */
             mark, .ProseMirror [style*="background-color"] {
-                display: inline-block;
-                line-height: 1;
-                padding: 2px 0;
+                padding: 1px 0;
+                border-radius: 2px;
             }
 
-            /* Premium Table Design from index.css */
             .ProseMirror table {
                 width: 100% !important;
                 border-collapse: separate !important;
                 border-spacing: 0;
-                margin: 1em 0;
+                margin: 1.5em 0;
                 border: 1px solid #e2e8f0;
-                border-radius: 8px;
+                border-radius: 6px;
                 overflow: hidden;
             }
             .ProseMirror th {
                 background-color: #1e293b !important;
                 color: #ffffff !important;
-                padding: 8px 10px;
+                padding: 6pt 8pt;
                 text-align: left;
-                font-size: 11pt;
+                font-size: 10pt;
                 font-weight: 600;
                 border-bottom: 1px solid #334155;
             }
             .ProseMirror td {
-                padding: 8px 10px;
-                font-size: 11pt;
+                padding: 6pt 8pt;
+                font-size: 10pt;
                 border-bottom: 1px solid #e2e8f0;
                 border-right: 1px solid #e2e8f0;
                 color: #334155;
@@ -92,12 +85,12 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             
             .pdf-header { 
                 margin-top: 0;
-                margin-bottom: 20px; 
-                padding-bottom: 10px; 
-                border-bottom: 1.5px solid #3b82f6;
+                margin-bottom: 25pt; 
+                padding-bottom: 12pt; 
+                border-bottom: 1pt solid #3b82f6;
             }
-            .pdf-header h1 { margin: 0; color: #1e293b; font-size: 16pt; font-weight: bold; }
-            .pdf-date { font-size: 9pt; color: #64748b; margin-top: 5px; }
+            .pdf-header h1 { margin: 0; color: #1e293b; font-size: 15pt; font-weight: bold; }
+            .pdf-date { font-size: 8.5pt; color: #64748b; margin-top: 4pt; }
         </style>
         <div class="pdf-header">
             <h1>${title}</h1>
@@ -118,20 +111,21 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             if (img.complete) return Promise.resolve();
             return new Promise((resolve) => {
                 img.onload = resolve;
-                img.onerror = resolve; // Continue even if image fails
+                img.onerror = resolve;
             });
         });
         await Promise.all(imgPromises);
 
-        // Render with html2canvas
+        // Render with html2canvas - using windowWidth to prevent mobile-style scaling
         const canvas = await html2canvas(container, {
-            scale: 2, // Better resolution
+            scale: 2,
             useCORS: true,
             logging: false,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            windowWidth: 800 
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
         const pdf = new jsPDF({
             orientation: 'portrait',
@@ -142,73 +136,65 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         
-        // Calculate content area (A4 minus margins)
-        const contentWidth = pageWidth - 60; // 30pt side margins
-        const contentHeight = (canvas.height * contentWidth) / canvas.width;
+        // Exact content area
+        const contentWidth = pageWidth - (2 * MARGIN_PT);
+        const imgCanvasWidth = canvas.width;
+        const imgCanvasHeight = canvas.height;
         
-        // Useable area per page
-        const usableHeight = pageHeight - TOP_MARGIN_PT - BOTTOM_RESERVE_PT;
-        
-        let heightLeft = contentHeight;
-
-        // Calculate total pages based on usable height
-        const totalPages = Math.ceil(contentHeight / usableHeight);
+        const finalImgHeight = (imgCanvasHeight * contentWidth) / imgCanvasWidth;
+        const usableHeight = pageHeight - (2 * MARGIN_PT);
+        const totalPages = Math.ceil(finalImgHeight / usableHeight);
 
         // Function to add footer
         const addFooter = (pageNum: number) => {
-            // Light gray line separator
-            pdf.setDrawColor(220, 220, 220);
-            pdf.setLineWidth(0.5);
-            pdf.line(30, pageHeight - 35, pageWidth - 30, pageHeight - 35);
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, pageHeight - MARGIN_PT, pageWidth, MARGIN_PT, 'F');
 
-            // Pagination text
-            pdf.setFontSize(10);
-            pdf.setTextColor(100, 100, 100);
+            pdf.setDrawColor(200, 200, 200);
+            pdf.setLineWidth(0.5);
+            pdf.line(MARGIN_PT, pageHeight - 35, pageWidth - MARGIN_PT, pageHeight - 35);
+
+            pdf.setFontSize(9);
+            pdf.setTextColor(120, 120, 120);
             const text = `Seite ${pageNum} / ${totalPages}`;
-            const textWidth = pdf.getStringUnitWidth(text) * 10 / pdf.internal.scaleFactor;
-            pdf.text(text, pageWidth - textWidth - 30, pageHeight - 20);
+            const textWidth = (pdf.getStringUnitWidth(text) * 9) / pdf.internal.scaleFactor;
+            pdf.text(text, pageWidth - MARGIN_PT - textWidth, pageHeight - 20);
         };
 
-        // Page loop
-        let currentPage = 1;
-        while (heightLeft > 0) {
-            if (currentPage > 1) pdf.addPage();
+        // Render pages
+        for (let i = 0; i < totalPages; i++) {
+            if (i > 0) pdf.addPage();
             
-            // Add image chunk
-            // We slice the source image conceptually by shifting the position
-            // Drawing the image starting at TOP_MARGIN_PT
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+
+            const sourceTop = i * usableHeight;
+            
             pdf.addImage(
                 imgData, 
                 'JPEG', 
-                30, 
-                TOP_MARGIN_PT - (usableHeight * (currentPage - 1)), 
+                MARGIN_PT, 
+                MARGIN_PT - sourceTop, 
                 contentWidth, 
-                contentHeight
+                finalImgHeight
             );
 
-            // Draw a white rectangle over the footer area to prevent overflow
+            // Clean up Top Margin
             pdf.setFillColor(255, 255, 255);
-            pdf.rect(0, pageHeight - BOTTOM_RESERVE_PT + 15, pageWidth, BOTTOM_RESERVE_PT, 'F');
-            
-            // Draw a white rectangle over the top margin for subsequent pages if needed
-            if (currentPage > 1) {
-                pdf.rect(0, 0, pageWidth, TOP_MARGIN_PT - 5, 'F');
-            }
+            pdf.rect(0, 0, pageWidth, MARGIN_PT - 0.5, 'F');
 
-            addFooter(currentPage);
-            
-            heightLeft -= usableHeight;
-            currentPage++;
+            addFooter(i + 1);
         }
 
-        // Save the PDF
-        pdf.save(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        pdf.save(`${sanitizedTitle}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);
-        throw error;
+        alert('Ein Fehler ist beim PDF-Export aufgetreten.');
     } finally {
-        // Clean up
-        document.body.removeChild(container);
+        if (container.parentNode) {
+            document.body.removeChild(container);
+        }
     }
 };

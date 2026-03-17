@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { ErrorBoundary } from './ErrorBoundary';
-import { Check, Loader2, Trash2 } from 'lucide-react';
+import { Check, Loader2, Trash2, FileText } from 'lucide-react';
 import type { Project, Card, Attachment, GanttCardProps } from '../types';
 import { RichTextEditor } from './RichTextEditor';
 import DatePicker, { registerLocale } from 'react-datepicker';
@@ -17,6 +17,7 @@ import { CompanyAutocomplete } from './CompanyAutocomplete';
 import { parseISODate, formatISODate } from '../utils/dateUtils';
 import { CustomDateInput } from './CustomDateInput';
 import { CalendarHeaderInput } from './CalendarHeaderInput';
+import { exportCardToPdf } from '../utils/pdfExport';
 
 interface CardFormProps {
     onSave: (card: Omit<Card, 'id'> | Card) => void;
@@ -96,6 +97,7 @@ export const CardForm: React.FC<CardFormProps> = ({
     const { listUpcomingEvents } = useGoogleCalendar();
 
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     // Use ref to hold the latest onSave callback to avoid effect dependencies
     const onSaveRef = React.useRef(onSave);
@@ -268,7 +270,18 @@ export const CardForm: React.FC<CardFormProps> = ({
         );
     };
 
-
+    const handleExportPdf = async () => {
+        if (!content) return;
+        setIsExportingPdf(true);
+        try {
+            await exportCardToPdf(content, title || 'Card_Content');
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Export fehlgeschlagen. Bitte versuchen Sie es erneut.');
+        } finally {
+            setIsExportingPdf(false);
+        }
+    };
 
     return (
         <form onSubmit={handleSubmit} className={`space-y-4 ${className || ''}`}>
@@ -303,9 +316,25 @@ export const CardForm: React.FC<CardFormProps> = ({
             {!isGantt ? (
                 <>
                     <div>
-                        <label className="block text-sm font-medium mb-1 text-gray-300">
-                            Content
-                        </label>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-sm font-medium text-gray-300">
+                                Content
+                            </label>
+                            <button
+                                type="button"
+                                onClick={handleExportPdf}
+                                disabled={isExportingPdf || !content}
+                                className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-500/5 px-2 py-1 rounded border border-blue-500/20"
+                                title="Inhalt als PDF exportieren (A4 Portrait)"
+                            >
+                                {isExportingPdf ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                    <FileText className="w-3 h-3" />
+                                )}
+                                <span>PDF Export</span>
+                            </button>
+                        </div>
                         <div className="flex-1 min-h-[400px]">
                             <ErrorBoundary fallbackTitle="Editor Error" fallbackMessage="Could not load the text editor.">
                                 <RichTextEditor

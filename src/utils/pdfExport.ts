@@ -8,10 +8,12 @@ import html2canvas from 'html2canvas';
  * @param title The title for the PDF file (default: 'Card_Content')
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
-    // A4 dimensions in pt: 595.28 x 841.89
     // 1 pt = 1/72 inch
-    // 2.5 cm = 2.5 / 2.54 * 72 = 70.866 pt
-    const MARGIN_PT = 70.866;
+    // 2.5 cm = 70.866 pt
+    // 2.0 cm = 56.692 pt
+    const TOP_MARGIN_PT = 70.866;
+    const BOTTOM_MARGIN_PT = 70.866;
+    const SIDE_MARGIN_PT = 56.692; // 2 cm
     
     // Create a temporary container to render the HTML
     const container = document.createElement('div');
@@ -19,7 +21,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
     container.style.left = '-9999px';
     container.style.top = '0';
     // Match the PDF content width exactly for predictable scaling
-    container.style.width = '453.5pt'; // (595.28 - 2 * 70.866)
+    container.style.width = '481.9pt'; // (595.28 - 2 * 56.692)
     container.style.backgroundColor = 'white';
     container.style.color = 'black';
     container.style.fontFamily = 'Inter, sans-serif';
@@ -31,15 +33,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .ProseMirror {
                 color: #000000 !important;
                 font-family: 'Inter', sans-serif;
-                font-size: 11pt; 
+                font-size: 10pt; /* Adjusted: 10pt */
                 line-height: 1.5;
                 padding: 0;
             }
             .ProseMirror p { margin-bottom: 0.5em; }
             
-            .ProseMirror h1 { font-size: 15pt; margin-top: 0; margin-bottom: 0.8em; font-weight: bold; }
-            .ProseMirror h2 { font-size: 13pt; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: bold; }
-            .ProseMirror h3 { font-size: 12pt; margin-top: 1.2em; margin-bottom: 0.5em; font-weight: bold; }
+            .ProseMirror h1 { font-size: 14pt; margin-top: 0; margin-bottom: 0.8em; font-weight: bold; }
+            .ProseMirror h2 { font-size: 12pt; margin-top: 1.2em; margin-bottom: 0.6em; font-weight: bold; }
+            .ProseMirror h3 { font-size: 11pt; margin-top: 1.2em; margin-bottom: 0.5em; font-weight: bold; }
             
             .ProseMirror ul, .ProseMirror ol { padding-left: 1.25rem; margin-bottom: 0.75rem; }
             .ProseMirror ul { list-style-type: disc !important; }
@@ -47,9 +49,14 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 margin-bottom: 0.3em;
             }
             
+            /* Enhanced Highlight Alignment */
             mark, .ProseMirror [style*="background-color"] {
-                padding: 1px 0;
+                display: inline;
+                padding: 0.1em 0;
+                box-decoration-break: clone;
+                -webkit-box-decoration-break: clone;
                 border-radius: 2px;
+                vertical-align: baseline;
             }
 
             .ProseMirror table {
@@ -57,24 +64,24 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 border-collapse: separate !important;
                 border-spacing: 0;
                 margin: 1.5em 0;
-                border: 1px solid #e2e8f0;
+                border: 0.5pt solid #e2e8f0;
                 border-radius: 6px;
                 overflow: hidden;
             }
             .ProseMirror th {
                 background-color: #1e293b !important;
                 color: #ffffff !important;
-                padding: 6pt 8pt;
+                padding: 5pt 7pt;
                 text-align: left;
-                font-size: 10pt;
+                font-size: 9pt;
                 font-weight: 600;
-                border-bottom: 1px solid #334155;
+                border-bottom: 0.5pt solid #334155;
             }
             .ProseMirror td {
-                padding: 6pt 8pt;
-                font-size: 10pt;
-                border-bottom: 1px solid #e2e8f0;
-                border-right: 1px solid #e2e8f0;
+                padding: 5pt 7pt;
+                font-size: 9pt;
+                border-bottom: 0.5pt solid #e2e8f0;
+                border-right: 0.5pt solid #e2e8f0;
                 color: #334155;
             }
             .ProseMirror td:last-child { border-right: none; }
@@ -89,8 +96,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 padding-bottom: 12pt; 
                 border-bottom: 1pt solid #3b82f6;
             }
-            .pdf-header h1 { margin: 0; color: #1e293b; font-size: 15pt; font-weight: bold; }
-            .pdf-date { font-size: 8.5pt; color: #64748b; margin-top: 4pt; }
+            .pdf-header h1 { margin: 0; color: #1e293b; font-size: 14pt; font-weight: bold; }
+            .pdf-date { font-size: 8pt; color: #64748b; margin-top: 4pt; }
         </style>
         <div class="pdf-header">
             <h1>${title}</h1>
@@ -136,29 +143,30 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         
-        // Exact content area
-        const contentWidth = pageWidth - (2 * MARGIN_PT);
+        const contentWidth = pageWidth - (2 * SIDE_MARGIN_PT);
         const imgCanvasWidth = canvas.width;
         const imgCanvasHeight = canvas.height;
         
         const finalImgHeight = (imgCanvasHeight * contentWidth) / imgCanvasWidth;
-        const usableHeight = pageHeight - (2 * MARGIN_PT);
+        const usableHeight = pageHeight - TOP_MARGIN_PT - BOTTOM_MARGIN_PT;
         const totalPages = Math.ceil(finalImgHeight / usableHeight);
 
         // Function to add footer
         const addFooter = (pageNum: number) => {
+            // White out bottom margin
             pdf.setFillColor(255, 255, 255);
-            pdf.rect(0, pageHeight - MARGIN_PT, pageWidth, MARGIN_PT, 'F');
+            pdf.rect(0, pageHeight - BOTTOM_MARGIN_PT, pageWidth, BOTTOM_MARGIN_PT, 'F');
 
+            // Line & Text
             pdf.setDrawColor(200, 200, 200);
             pdf.setLineWidth(0.5);
-            pdf.line(MARGIN_PT, pageHeight - 35, pageWidth - MARGIN_PT, pageHeight - 35);
+            pdf.line(SIDE_MARGIN_PT, pageHeight - 35, pageWidth - SIDE_MARGIN_PT, pageHeight - 35);
 
             pdf.setFontSize(9);
             pdf.setTextColor(120, 120, 120);
             const text = `Seite ${pageNum} / ${totalPages}`;
             const textWidth = (pdf.getStringUnitWidth(text) * 9) / pdf.internal.scaleFactor;
-            pdf.text(text, pageWidth - MARGIN_PT - textWidth, pageHeight - 20);
+            pdf.text(text, pageWidth - SIDE_MARGIN_PT - textWidth, pageHeight - 20);
         };
 
         // Render pages
@@ -173,15 +181,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             pdf.addImage(
                 imgData, 
                 'JPEG', 
-                MARGIN_PT, 
-                MARGIN_PT - sourceTop, 
+                SIDE_MARGIN_PT, 
+                TOP_MARGIN_PT - sourceTop, 
                 contentWidth, 
                 finalImgHeight
             );
 
             // Clean up Top Margin
             pdf.setFillColor(255, 255, 255);
-            pdf.rect(0, 0, pageWidth, MARGIN_PT - 0.5, 'F');
+            pdf.rect(0, 0, pageWidth, TOP_MARGIN_PT - 0.5, 'F');
 
             addFooter(i + 1);
         }

@@ -1,161 +1,139 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import pdfMake from 'pdfmake/build/pdfmake';
+import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import htmlToPdfmake from 'html-to-pdfmake';
+
+// Initialize pdfMake with default fonts
+(pdfMake as any).vfs = pdfFonts.vfs;
 
 /**
- * Exports HTML content to a PDF file in A4 portrait format.
+ * Helper to convert image URL to base64 data URL
+ */
+function getBase64Image(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject('No context');
+                return;
+            }
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => reject(`Load error for ${url}`);
+        img.src = url;
+    });
+}
+
+/**
+ * Exports HTML content to a PDF file in A4 portrait format using pdfmake.
+ * This ensures selectable text, correct page breaks, and exact layout.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
-    // A4 dimensions in PT
-    const PAGE_W = 595.28;
-    const PAGE_H = 841.89;
-    
-    // Margins (2.5cm = 70.866pt, 2cm = 56.692pt)
-    const MT = 70.866; 
-    const MB = 70.866;
-    const MS = 56.692;
-
-    const CONTENT_W = PAGE_W - (2 * MS);
-    const USABLE_H = PAGE_H - MT - MB;
-
-    // Fixed pixel width for rendering consistency
-    const RENDER_WIDTH_PX = 642;
-
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '0';
-    container.style.width = `${RENDER_WIDTH_PX}px`;
-    container.style.backgroundColor = 'white';
-    container.style.color = 'black';
-    container.style.padding = '0';
-    container.style.margin = '0';
-
-    container.className = 'ProseMirror';
-    container.innerHTML = `
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-            
-            .ProseMirror {
-                color: #000000 !important;
-                font-family: 'Inter', sans-serif !important;
-                font-size: 10pt !important;
-                line-height: 1.5 !important;
-                padding: 0;
-            }
-            .ProseMirror p { margin: 0 0 0.5em 0; }
-            .ProseMirror h1 { font-size: 14pt !important; margin: 0 0 0.8em 0; font-weight: bold; }
-            .ProseMirror h2 { font-size: 12pt !important; margin: 1.2em 0 0.6em 0; font-weight: bold; }
-            .ProseMirror h3 { font-size: 11pt !important; margin: 1.2em 0 0.5em 0; font-weight: bold; }
-            
-            .ProseMirror ul, .ProseMirror ol { padding-left: 1.5em; margin: 0 0 0.75em 0; }
-            .ProseMirror li { margin-bottom: 0.3em; }
-
-            /* Highlighter Fix: Using linear-gradient and forcing vertical-align for html2canvas precision */
-            mark, .ProseMirror [style*="background-color"] {
-                background: linear-gradient(to bottom, #00ffff 0%, #00ffff 100%) !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                display: inline;
-                vertical-align: baseline;
-            }
-
-            .ProseMirror table {
-                width: 100% !important;
-                border-collapse: collapse;
-                margin: 1em 0;
-            }
-            .ProseMirror th, .ProseMirror td {
-                padding: 6pt 8pt;
-                border: 0.5pt solid #e2e8f0;
-                font-size: 9pt;
-            }
-            .ProseMirror th { background-color: #1e293b; color: #ffffff; }
-            
-            .ProseMirror img { max-width: 100%; height: auto; display: block; margin: 15pt 0; }
-            
-            .pdf-header { 
-                border-bottom: 1pt solid #3b82f6;
-                padding-bottom: 10pt;
-                margin-bottom: 20pt;
-            }
-            .pdf-header h1 { margin: 0; font-size: 14pt; color: #1e293b; }
-            .pdf-date { font-size: 8pt; color: #64748b; margin-top: 4pt; }
-        </style>
-        <div class="pdf-header">
-            <h1>${title}</h1>
-            <div class="pdf-date">Exportiert am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</div>
-        </div>
-        <div class="pdf-content">${html}</div>
-    `;
-
-    document.body.appendChild(container);
-
     try {
-        await document.fonts.ready;
-        const images = Array.from(container.getElementsByTagName('img'));
-        await Promise.all(images.map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
-        }));
-
-        const canvas = await html2canvas(container, {
-            scale: 2, 
-            useCORS: true,
-            backgroundColor: '#ffffff',
-            logging: false,
-            width: RENDER_WIDTH_PX
-        });
-
-        const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-        const pxToPt = CONTENT_W / canvas.width;
-        const fullImgH = canvas.height * pxToPt;
-        const totalPages = Math.ceil(fullImgH / USABLE_H);
-
-        const addFooter = (pageNum: number) => {
-            pdf.setFillColor(255, 255, 255);
-            pdf.rect(0, PAGE_H - MB + 5, PAGE_W, MB, 'F');
-            
-            pdf.setDrawColor(220, 220, 220);
-            pdf.setLineWidth(0.5);
-            pdf.line(MS, PAGE_H - 40, PAGE_W - MS, PAGE_H - 40);
-
-            pdf.setFontSize(8);
-            pdf.setTextColor(150, 150, 150);
-            const text = `Seite ${pageNum} / ${totalPages}`;
-            pdf.text(text, PAGE_W - MS - 40, PAGE_H - 25);
-        };
-
-        for (let i = 0; i < totalPages; i++) {
-            if (i > 0) pdf.addPage();
-
-            pdf.setFillColor(255, 255, 255);
-            pdf.rect(0, 0, PAGE_W, PAGE_H, 'F');
-
-            const sourceY = i * USABLE_H;
-            
-            // Critical fix for clipping: Using PNG and explicit crop behavior
-            pdf.addImage(
-                canvas.toDataURL('image/png'), 
-                'PNG', 
-                MS, 
-                MT - sourceY, 
-                CONTENT_W, 
-                fullImgH
-            );
-
-            // Clean borders
-            pdf.setFillColor(255, 255, 255);
-            pdf.rect(0, 0, PAGE_W, MT - 0.5, 'F');
-
-            addFooter(i + 1);
+        // 1. Prepare HTML and convert images
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(`<div>${html}</div>`, 'text/html');
+        
+        const images = Array.from(doc.getElementsByTagName('img'));
+        for (const img of images) {
+            try {
+                const dataUrl = await getBase64Image(img.src);
+                img.src = dataUrl;
+                // Add some basic styling markers for conversion
+                img.style.maxWidth = '100%';
+            } catch (err) {
+                console.warn('PDF Image Load Error:', err);
+            }
         }
 
-        const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        pdf.save(`${sanitizedTitle}.pdf`);
+        // 2. Convert HTML to pdfmake structure
+        // html-to-pdfmake converts HTML tags to JSON objects pdfmake understands
+        const pdfContent = htmlToPdfmake(doc.body.innerHTML, {
+            tableAutoSize: true
+        });
+
+        // 3. Define the document structure
+        const docDefinition: any = {
+            content: [
+                { text: title, style: 'header' },
+                { 
+                    text: `Exportiert am ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
+                    style: 'subheader'
+                },
+                { canvas: [{ type: 'line', x1: 0, y1: 5, x2: 481.9, y2: 5, lineWidth: 1, lineColor: '#3b82f6' }], margin: [0, 0, 0, 20] },
+                pdfContent
+            ],
+            pageSize: 'A4',
+            pageMargins: [56.69, 70.87, 56.69, 70.87], // 2cm side, 2.5cm top/bottom in pt
+            styles: {
+                header: {
+                    fontSize: 14,
+                    bold: true,
+                    margin: [0, 0, 0, 5],
+                    color: '#1e293b'
+                },
+                subheader: {
+                    fontSize: 8,
+                    color: '#64748b',
+                    margin: [0, 0, 0, 10]
+                },
+                // Mapping standard tags to styles
+                h1: { fontSize: 14, bold: true, margin: [0, 10, 0, 10], color: '#1e293b' },
+                h2: { fontSize: 12, bold: true, margin: [0, 10, 0, 5], color: '#1e293b' },
+                h3: { fontSize: 11, bold: true, margin: [0, 8, 0, 4], color: '#1e293b' },
+                p: { fontSize: 10, margin: [0, 0, 0, 5], lineHeight: 1.4 },
+                mark: { background: 'yellow' }, // Fixed highlighter
+                table: { margin: [0, 10, 0, 10] },
+                "html-table": { fontSize: 9 },
+                "html-th": { bold: true, fillColor: '#1e293b', color: 'white', alignment: 'left' }
+            },
+            defaultStyle: {
+                fontSize: 10,
+                lineHeight: 1.4
+            },
+            footer: (currentPage: number, pageCount: number) => {
+                return {
+                    stack: [
+                        {
+                            canvas: [
+                                {
+                                    type: 'line',
+                                    x1: 56.69, y1: 0,
+                                    x2: 538.58, y2: 0, // 595.28 - 56.69
+                                    lineWidth: 0.5,
+                                    lineColor: '#DCDCDC'
+                                }
+                            ],
+                            margin: [0, 0, 0, 10]
+                        },
+                        {
+                            columns: [
+                                { text: '', width: '*' },
+                                {
+                                    text: `Seite ${currentPage} / ${pageCount}`,
+                                    fontSize: 8,
+                                    color: '#999999',
+                                    alignment: 'right',
+                                    margin: [0, 0, 56.69, 0]
+                                }
+                            ]
+                        }
+                    ],
+                    margin: [0, 0, 0, 20]
+                };
+            }
+        };
+
+        // 4. Create and Download
+        pdfMake.createPdf(docDefinition).download(`${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);
-    } finally {
-        if (container.parentNode) document.body.removeChild(container);
+        alert('Ein Fehler ist beim PDF-Export aufgetreten.');
     }
 };

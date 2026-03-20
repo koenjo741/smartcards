@@ -5,11 +5,20 @@ import htmlToPdfmake from 'html-to-pdfmake';
 // Robust initialization for all environments
 const pm = (pdfMake as any).default || pdfMake;
 const pf = (pdfFonts as any).default || pdfFonts;
-if (pf && pf.pdfMake && pf.pdfMake.vfs) pm.vfs = pf.pdfMake.vfs;
-else if (pf && pf.vfs) pm.vfs = pf.vfs;
+
+// Robust vfs assignment for varied module structures (CJS/ESM interop in Vite)
+if (pf && pf.pdfMake && pf.pdfMake.vfs) {
+    pm.vfs = pf.pdfMake.vfs;
+} else if (pf && pf.vfs) {
+    pm.vfs = pf.vfs;
+} else if (pf) {
+    pm.vfs = (pf as any).vfs || pf; 
+} else {
+    console.error('PDF Export: Could not load vfs_fonts. PDF generation may fail.');
+}
 
 /**
- * PDF Export Utility v1.3.27 - Ultimate Stability & Alignment
+ * PDF Export Utility v1.3.28 - Ultimate Stability & Alignment
  * - Uses a split-and-merge strategy for HR lines to bypass parsing crashes.
  * - Forces perfect 2.0cm left-alignment for text block and footer.
  * - Refined font sizes (Title: 12pt, Body: 10pt).

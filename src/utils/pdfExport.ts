@@ -70,8 +70,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             window: window,
             tableAutoSize: true,
             defaultStyles: {
-                p: { marginBottom: 0, lineHeight: 1.1 },
-                li: { marginBottom: 0 },
+                p: { marginBottom: 0, lineHeight: 1.0 },
+                li: { marginBottom: 0, lineHeight: 1.0 },
                 a: { color: '#2563eb', decoration: 'underline' },
                 mark: { background: 'yellow' }
             },
@@ -120,16 +120,16 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 { text: '', margin: [0, 15, 0, 0] },
                 ...(Array.isArray(content) ? content : [content]).filter(Boolean)
             ],
-            defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.15, color: '#000000' },
+            defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.0, color: '#000000' },
             styles: {
-                header: { fontSize: 22, bold: true, marginBottom: 4 },
-                subheader: { fontSize: 18, bold: true, marginBottom: 2 },
-                h1: { fontSize: 22, bold: true, marginBottom: 4 },
-                h2: { fontSize: 18, bold: true, marginBottom: 2 },
-                h3: { fontSize: 16, bold: true, marginBottom: 1.5 },
-                h4: { fontSize: 14, bold: true, marginBottom: 1.2 },
-                h5: { fontSize: 13, bold: true, marginBottom: 0.8 },
-                h6: { fontSize: 12, bold: true, marginBottom: 0.8 },
+                header: { fontSize: 22, bold: true, marginBottom: 0.5 },
+                subheader: { fontSize: 18, bold: true, marginBottom: 0.5 },
+                h1: { fontSize: 22, bold: true, marginBottom: 0.5 },
+                h2: { fontSize: 18, bold: true, marginBottom: 0.5 },
+                h3: { fontSize: 16, bold: true, marginBottom: 0.5 },
+                h4: { fontSize: 14, bold: true, marginBottom: 0.5 },
+                h5: { fontSize: 13, bold: true, marginBottom: 0.5 },
+                h6: { fontSize: 12, bold: true, marginBottom: 0.5 },
                 quote: { italic: true },
                 small: { fontSize: 10 },
                 mark: { background: 'yellow' }

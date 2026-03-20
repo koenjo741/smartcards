@@ -70,8 +70,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             window: window,
             tableAutoSize: true,
             defaultStyles: {
-                p: { marginBottom: 1.8, lineHeight: 1.0 },
-                li: { marginBottom: 1.2 },
+                p: { marginBottom: 0.8, lineHeight: 1.0 },
+                li: { marginBottom: 0.5 },
                 a: { color: '#2563eb', decoration: 'underline' },
                 mark: { background: 'yellow' }
             },
@@ -94,8 +94,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 if (currentPage === 1) {
                     return {
                         stack: [
-                            { text: safeTitle, fontSize: 16, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 0] },
-                            { text: exportTimeText, fontSize: 9, color: '#999999', margin: [MARGIN_2_5_CM, 1, MARGIN_2_5_CM, 2] },
+                            { text: safeTitle, fontSize: 17, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 0] },
+                            { text: exportTimeText, fontSize: 10, color: '#999999', margin: [MARGIN_2_5_CM, 1, MARGIN_2_5_CM, 2] },
                             {
                                 canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.5, lineColor: '#3b82f6' }],
                                 margin: [MARGIN_2_5_CM, 2, MARGIN_2_5_CM, 0]
@@ -112,7 +112,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
                             margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 0]
                         },
-                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 8, margin: [0, 20, MARGIN_2_5_CM, 0] }
+                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 9, margin: [0, 20, MARGIN_2_5_CM, 0] }
                     ]
                 };
             },
@@ -120,18 +120,18 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 { text: '', margin: [0, 15, 0, 0] },
                 ...(Array.isArray(content) ? content : [content]).filter(Boolean)
             ],
-            defaultStyle: { font: 'Roboto', fontSize: 7.5, lineHeight: 1.1, color: '#000000' },
+            defaultStyle: { font: 'Roboto', fontSize: 8.5, lineHeight: 1.1, color: '#000000' },
             styles: {
-                header: { fontSize: 19.5, bold: true, marginBottom: 6 },
-                subheader: { fontSize: 15.5, bold: true, marginBottom: 3 },
-                h1: { fontSize: 19.5, bold: true, marginBottom: 6 },
-                h2: { fontSize: 15.5, bold: true, marginBottom: 3 },
-                h3: { fontSize: 13.5, bold: true, marginBottom: 2.4 },
-                h4: { fontSize: 11.5, bold: true, marginBottom: 1.8 },
-                h5: { fontSize: 10.5, bold: true, marginBottom: 1.2 },
-                h6: { fontSize: 9.5, bold: true, marginBottom: 1.2 },
+                header: { fontSize: 20.5, bold: true, marginBottom: 4 },
+                subheader: { fontSize: 16.5, bold: true, marginBottom: 2 },
+                h1: { fontSize: 20.5, bold: true, marginBottom: 4 },
+                h2: { fontSize: 16.5, bold: true, marginBottom: 2 },
+                h3: { fontSize: 14.5, bold: true, marginBottom: 1.5 },
+                h4: { fontSize: 12.5, bold: true, marginBottom: 1.2 },
+                h5: { fontSize: 11.5, bold: true, marginBottom: 0.8 },
+                h6: { fontSize: 10.5, bold: true, marginBottom: 0.8 },
                 quote: { italic: true },
-                small: { fontSize: 8 },
+                small: { fontSize: 9 },
                 mark: { background: 'yellow' }
             }
         };

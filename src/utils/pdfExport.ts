@@ -52,13 +52,36 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const cleanedHtml = sanitizeForPdf(html);
 
         // 2. Convert HTML to pdfMake content
-        // We use a temporary container to handle the conversion in a browser-like environment
         const content = htmlToPdfMake(cleanedHtml, {
             tableAutoSize: true,
             defaultStyles: {
                 p: { marginBottom: 5, lineHeight: 1.0 },
                 li: { marginBottom: 2 },
-                a: { color: '#2563eb', decoration: 'underline' }
+                a: { color: '#2563eb', decoration: 'underline' },
+                mark: { background: 'yellow' } // Ensure mark tags are handled
+            },
+            customTag: (el: any) => {
+                // Precision HR rendering to match footer exactly
+                if (el.nodeName === 'HR') {
+                    return {
+                        stack: [
+                            {
+                                canvas: [
+                                    {
+                                        type: 'line',
+                                        x1: 0, y1: 0,
+                                        x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2),
+                                        y2: 0,
+                                        lineWidth: 0.2, // Match footer
+                                        lineColor: '#cccccc' // Match footer
+                                    }
+                                ],
+                                margin: [0, 8, 0, 8]
+                            }
+                        ]
+                    };
+                }
+                return undefined;
             }
         });
 
@@ -125,7 +148,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 header: { fontSize: 18, bold: true, marginBottom: 10 },
                 subheader: { fontSize: 14, bold: true, marginBottom: 5 },
                 quote: { italic: true },
-                small: { fontSize: 8 }
+                small: { fontSize: 8 },
+                // Marker style to ensure it doesn't cover text
+                highlight: {
+                    background: 'yellow'
+                }
             }
         };
 

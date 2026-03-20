@@ -12,7 +12,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['apple-touch-icon.png', 'vite.svg'],
       manifest: {
         name: 'SmartCards',
         short_name: 'SmartCards',

@@ -1,9 +1,9 @@
 import pdfMake from 'pdfmake/build/pdfmake';
-import pdfFonts from 'pdfmake/build/vfs_fonts';
+import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfMake from 'html-to-pdfmake';
 
 // Setup VFS for pdfMake - handle different import structures
-(pdfMake as any).vfs = (pdfFonts as any).pdfMake ? (pdfFonts as any).pdfMake.vfs : (pdfFonts as any).vfs || pdfFonts;
+(pdfMake as any).vfs = (pdfFonts as any).pdfMake ? (pdfFonts as any).pdfMake.vfs : (pdfFonts as any).vfs || (pdfFonts as any).default?.vfs || pdfFonts;
 
 /**
  * Robust Text-Based PDF Export

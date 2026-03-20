@@ -50,6 +50,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         };
 
         const cleanedHtml = sanitizeForPdf(html);
+        
+        // Metrics for PDF (1 cm = 28.35 pt. 2.5 cm = 70.875 pt)
+        const MARGIN_2_5_CM = 70.875;
+        const PAGE_WIDTH = 595.28; // A4 Width in pt
 
         // 2. Convert HTML to pdfMake content
         const content = htmlToPdfMake(cleanedHtml, {
@@ -87,10 +91,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         });
 
         // 3. Define Doc Definition based on A4 metrics
-        // 1 cm = 28.35 pt. 2.5 cm = 70.875 pt
-        const MARGIN_2_5_CM = 70.875;
-        const PAGE_WIDTH = 595.28; // A4 Width in pt
-
         const docDefinition: any = {
             pageSize: 'A4',
             pageMargins: [MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM],

@@ -77,32 +77,28 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             window: window,
             tableAutoSize: true,
             defaultStyles: {
-                p: { marginBottom: 5, lineHeight: 1.0 },
+                p: { marginBottom: 3, lineHeight: 1.0 },
                 li: { marginBottom: 2 },
-                a: { color: '#2563eb', decoration: 'underline' }
+                a: { color: '#2563eb', decoration: 'underline' },
+                mark: { background: 'yellow' }
             },
-            customTag: (el: any) => {
-                if (el.nodeName === 'HR') {
+            customTag: ({ element, ret }: any) => {
+                if (element.nodeName === 'HR') {
                     return {
-                        stack: [
+                        canvas: [
                             {
-                                canvas: [
-                                    {
-                                        type: 'line',
-                                        x1: 0, y1: 5,
-                                        x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2),
-                                        y2: 5,
-                                        lineWidth: 0.2,
-                                        lineColor: '#cccccc'
-                                    }
-                                ],
-                                margin: [0, 5, 0, 5],
-                                pageBreak: 'none'
+                                type: 'line',
+                                x1: 0, y1: 5,
+                                x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2),
+                                y2: 5,
+                                lineWidth: 0.2,
+                                lineColor: '#cccccc'
                             }
-                        ]
+                        ],
+                        margin: [0, 5, 0, 5]
                     };
                 }
-                return undefined;
+                return ret; // CRITICAL: must return original ret if not handled
             }
         });
 

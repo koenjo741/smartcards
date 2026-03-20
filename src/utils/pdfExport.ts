@@ -29,7 +29,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const now = new Date();
-        const exportTimeText = `Exportiert am ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+        const exportTimeText = `Download vom ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 
         // 1. Sanitize HTML
         const sanitizeForPdf = (htmlInput: string) => {
@@ -94,11 +94,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 if (currentPage === 1) {
                     return {
                         stack: [
-                            { text: safeTitle, fontSize: 16, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 2] },
-                            { text: exportTimeText, fontSize: 10, margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 4] },
+                            { text: safeTitle, fontSize: 16, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 0] },
+                            { text: exportTimeText, fontSize: 9, color: '#999999', margin: [MARGIN_2_5_CM, 1, MARGIN_2_5_CM, 2] },
                             {
                                 canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.5, lineColor: '#3b82f6' }],
-                                margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 0]
+                                margin: [MARGIN_2_5_CM, 2, MARGIN_2_5_CM, 0]
                             }
                         ]
                     };
@@ -117,7 +117,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 };
             },
             content: [
-                { text: '', margin: [0, 25, 0, 0] },
+                { text: '', margin: [0, 15, 0, 0] },
                 ...(Array.isArray(content) ? content : [content]).filter(Boolean)
             ],
             defaultStyle: { font: 'Roboto', fontSize: 7.5, lineHeight: 1.1, color: '#000000' },

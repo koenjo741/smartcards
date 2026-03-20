@@ -2,10 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { registerSW } from 'virtual:pwa-register'
-
-// Register Service Worker for PWA
-registerSW({ immediate: true })
+// Register Service Worker for PWA (Disabled temporarily)
+// import { registerSW } from 'virtual:pwa-register'
+// registerSW({ immediate: true })
 
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 

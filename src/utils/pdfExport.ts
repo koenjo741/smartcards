@@ -17,20 +17,36 @@ if (pf && pf.pdfMake && pf.pdfMake.vfs) {
     console.error('PDF Export: Could not load vfs_fonts. PDF generation may fail.');
 }
 
+// CRITICAL: Explicit Font Mapping for pdfMake 0.2.x+ / 0.3.x
+// This prevents 'progressCallback' undefined errors and silent hangs.
+pm.fonts = {
+    Roboto: {
+        normal: 'Roboto-Regular.ttf',
+        bold: 'Roboto-Medium.ttf',
+        italics: 'Roboto-Italic.ttf',
+        bolditalics: 'Roboto-MediumItalic.ttf'
+    }
+};
+
 /**
- * PDF Export Utility v1.3.28 - Ultimate Stability & Alignment
+ * PDF Export Utility v1.3.29 - Ultimate Stability & Table Fix
  * - Uses a split-and-merge strategy for HR lines to bypass parsing crashes.
  * - Forces perfect 2.0cm left-alignment for text block and footer.
  * - Refined font sizes (Title: 12pt, Body: 10pt).
+ * - NEW: Pre-processes table widths (replaces fit-content with 100%) to prevent layout engine hangs.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const contentWidth = 481.89; // (210mm - 2*20mm) to pt
 
+        // 0. Pre-process HTML String
+        // 'fit-content' is not a valid PDF width and can crash the layout engine or parser.
+        const sanitizedHtml = (html || '').replace(/width:\s*fit-content;?/g, 'width: 100%;');
+
         // 1. Pre-process Images and Highlighters (DOM side)
         const parser = new DOMParser();
-        const doc = parser.parseFromString(`<div>${html || ''}</div>`, 'text/html');
+        const doc = parser.parseFromString(`<div>${sanitizedHtml}</div>`, 'text/html');
         
         // Highlighters styling
         const highlightElements = Array.from(doc.querySelectorAll('mark, [style*="background-color"]'));

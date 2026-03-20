@@ -19,32 +19,48 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const exportTime = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         const subtitleText = `Exportiert am ${exportDate}, ${exportTime}`;
 
-        // 1. Sanitize HTML for pdfMake robustness
+        // 1. Sanitize HTML - Nuclear Sanitation
+        // html-to-pdfmake often crashes on complex styles. We strip almost everything
+        // while preserving the core structure and highlighters.
         const sanitizeForPdf = (htmlInput: string) => {
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlInput, 'text/html');
             
-            // Fix Tiptap-specific elements
-            doc.querySelectorAll('ul[data-type="taskList"]').forEach((el: any) => el.removeAttribute('data-type'));
-            doc.querySelectorAll('li[data-type="taskItem"]').forEach((el: any) => el.removeAttribute('data-type'));
-            doc.querySelectorAll('label').forEach((el: any) => el.remove()); // Remove checkbox labels
+            // Fix Tiptap-specific Task Lists
+            doc.querySelectorAll('ul[data-type="taskList"]').forEach((el: any) => {
+                el.removeAttribute('data-type');
+            });
+            doc.querySelectorAll('li[data-type="taskItem"]').forEach((el: any) => {
+                el.removeAttribute('data-type');
+                // Remove the checkbox but keep the text
+                const checkbox = el.querySelector('input[type="checkbox"]');
+                if (checkbox) checkbox.remove();
+            });
 
-            // Clean all elements
+            // Strip ALL style attributes from ALL elements to prevent parser crashes
+            // We manually handle highlighters by keeping background-color only if it's a highlight
             doc.querySelectorAll('*').forEach((el: any) => {
-                const style = el.getAttribute('style') || '';
-                let newStyle = style
-                    .replace(/display\s*:\s*[^;]+/gi, '') // Strip display
-                    .replace(/width\s*:\s*fit-content/gi, 'width: 100%')
-                    .replace(/width\s*:\s*0px/gi, 'width: auto')
-                    .replace(/box-sizing\s*:\s*border-box/gi, '')
-                    .replace(/position\s*:\s*[^;]+/gi, '') // Strip position
-                    .replace(/white-space\s*:\s*[^;]+/gi, '') // Strip white-space
-                    .replace(/border-collapse\s*:\s*separate/gi, 'border-collapse: collapse');
+                const bgColor = el.style.backgroundColor;
+                const isHighlight = bgColor && (bgColor.includes('yellow') || bgColor.includes('rgba') || bgColor.includes('rgb'));
                 
-                el.setAttribute('style', newStyle);
+                // Clear all styles
+                el.removeAttribute('style');
                 
-                if (el.tagName === 'TD' || el.tagName === 'TH') {
-                    el.style.minWidth = 'auto';
+                // Re-apply highlight as a simple style that pdfmake likes
+                if (isHighlight || el.tagName === 'MARK') {
+                    el.style.backgroundColor = 'yellow';
+                }
+
+                // Remove problematic tags entirely
+                if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) {
+                    el.remove();
+                }
+            });
+
+            // Remove empty paragraphs/spans that can cause 'undefined' errors
+            doc.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6').forEach(el => {
+                if (!el.textContent?.trim() && !el.querySelector('img, hr, br, table')) {
+                    el.remove();
                 }
             });
 
@@ -53,7 +69,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         const cleanedHtml = sanitizeForPdf(html);
         
-        // Metrics for PDF (1 cm = 28.35 pt. 2.5 cm = 70.875 pt)
         const MARGIN_2_5_CM = 70.875;
         const PAGE_WIDTH = 595.28; // A4 Width in pt
 
@@ -130,14 +145,14 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             },
 
             content: [
-                { text: '', margin: [0, 25, 0, 0], pageBreak: 'none' },
-                ...(Array.isArray(content) ? content : [content]).filter(c => c !== undefined && c !== null)
+                { text: '', margin: [0, 25, 0, 0] },
+                ...(Array.isArray(content) ? content : [content]).filter(Boolean)
             ],
 
             defaultStyle: {
                 font: 'Roboto',
-                fontSize: 7.5, // Approx 10px
-                lineHeight: 1.0,
+                fontSize: 7.5,
+                lineHeight: 1.1,
                 color: '#000000'
             },
             

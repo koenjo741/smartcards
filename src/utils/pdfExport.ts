@@ -70,8 +70,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             window: window,
             tableAutoSize: true,
             defaultStyles: {
-                p: { marginBottom: 3, lineHeight: 1.0 },
-                li: { marginBottom: 2 },
+                p: { marginBottom: 1.8, lineHeight: 1.0 },
+                li: { marginBottom: 1.2 },
                 a: { color: '#2563eb', decoration: 'underline' },
                 mark: { background: 'yellow' }
             },
@@ -122,14 +122,14 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             ],
             defaultStyle: { font: 'Roboto', fontSize: 7.5, lineHeight: 1.1, color: '#000000' },
             styles: {
-                header: { fontSize: 19.5, bold: true, marginBottom: 10 },
-                subheader: { fontSize: 15.5, bold: true, marginBottom: 5 },
-                h1: { fontSize: 19.5, bold: true, marginBottom: 10 },
-                h2: { fontSize: 15.5, bold: true, marginBottom: 5 },
-                h3: { fontSize: 13.5, bold: true, marginBottom: 4 },
-                h4: { fontSize: 11.5, bold: true, marginBottom: 3 },
-                h5: { fontSize: 10.5, bold: true, marginBottom: 2 },
-                h6: { fontSize: 9.5, bold: true, marginBottom: 2 },
+                header: { fontSize: 19.5, bold: true, marginBottom: 6 },
+                subheader: { fontSize: 15.5, bold: true, marginBottom: 3 },
+                h1: { fontSize: 19.5, bold: true, marginBottom: 6 },
+                h2: { fontSize: 15.5, bold: true, marginBottom: 3 },
+                h3: { fontSize: 13.5, bold: true, marginBottom: 2.4 },
+                h4: { fontSize: 11.5, bold: true, marginBottom: 1.8 },
+                h5: { fontSize: 10.5, bold: true, marginBottom: 1.2 },
+                h6: { fontSize: 9.5, bold: true, marginBottom: 1.2 },
                 quote: { italic: true },
                 small: { fontSize: 8 },
                 mark: { background: 'yellow' }

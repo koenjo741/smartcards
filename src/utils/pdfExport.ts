@@ -2,17 +2,24 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 import htmlToPdfMake from 'html-to-pdfmake';
 
-// Setup VFS for pdfMake - handle different import structures
-(pdfMake as any).vfs = (pdfFonts as any).pdfMake ? (pdfFonts as any).pdfMake.vfs : (pdfFonts as any).vfs || (pdfFonts as any).default?.vfs || pdfFonts;
-
-/**
- * Robust Text-Based PDF Export
- * - Supports text selection and clickable URLs.
- * - Handles multi-page tables and layout.
- * - Precise 2.5cm margins and footer formatting.
- */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
+        // Setup VFS for pdfMake lazily to prevent crashing the whole app on load if fonts fail
+        try {
+            if (!(pdfMake as any).vfs) {
+                const vfs = (pdfFonts as any).pdfMake ? (pdfFonts as any).pdfMake.vfs : (pdfFonts as any).vfs || (pdfFonts as any).default?.vfs;
+                if (vfs) {
+                    (pdfMake as any).vfs = vfs;
+                } else {
+                    console.warn('pdfMake VFS fonts not found in imported module, using fallback.');
+                    // Some builds export directly as the module object
+                    (pdfMake as any).vfs = pdfFonts;
+                }
+            }
+        } catch (vfsError) {
+            console.error('Error initializing pdfMake fonts:', vfsError);
+        }
+
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const now = new Date();
         const exportDate = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });

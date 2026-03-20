@@ -3,40 +3,40 @@
  * - Supports text selection and clickable URLs.
  * - Handles multi-page tables and layout.
  * - Precise 2.5cm margins and footer formatting.
- * - Lazy loaded to prevent startup crashes.
+ * - Lazy loaded for performance.
+ * - Uses CDN-hosted fonts to avoid production bundling issues with vfs_fonts.js.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
-        // 0. Lazy load all large PDF libraries to prevent startup crashes
-        const pdfMakeModule = await import('pdfmake/build/pdfmake');
+        // 0. Lazy load core libraries
+        const [pdfMakeModule, htmlToPdfMakeModule] = await Promise.all([
+            import('pdfmake/build/pdfmake'),
+            import('html-to-pdfmake')
+        ]);
+
         const pdfMake = pdfMakeModule.default || pdfMakeModule;
-
-        // CRITICAL for Production: vfs_fonts.js expects pdfMake to be on the window object
-        // in order to attach the fonts to it.
-        (window as any).pdfMake = pdfMake;
-
-        const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
-        const pdfFonts = pdfFontsModule.default || pdfFontsModule;
-        const htmlToPdfMakeModule = await import('html-to-pdfmake');
         const htmlToPdfMake = htmlToPdfMakeModule.default || htmlToPdfMakeModule;
 
-        // Setup VFS if not already attached
-        if (!(pdfMake as any).vfs) {
-            const vfs = (pdfFonts as any).pdfMake ? (pdfFonts as any).pdfMake.vfs : (pdfFonts as any).vfs || (pdfFonts as any).default?.vfs;
-            (pdfMake as any).vfs = vfs || pdfFonts;
-        }
+        // 0.1 Configure Fonts (using reliable CDN URLs to avoid vfs_fonts.js bundling issues)
+        const fonts = {
+            Roboto: {
+                normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf',
+                bold: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Medium.ttf',
+                italic: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Italic.ttf',
+                bolditalic: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-MediumItalic.ttf'
+            }
+        };
 
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const now = new Date();
-        const exportDate = now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const exportTime = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-        const subtitleText = `Exportiert am ${exportDate}, ${exportTime}`;
+        const exportTimeText = `Exportiert am ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 
-        // 1. Sanitize HTML - Nuclear Sanitation
+        // 1. Sanitize HTML
         const sanitizeForPdf = (htmlInput: string) => {
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlInput, 'text/html');
             
+            // Cleanup Tiptap specific structures
             doc.querySelectorAll('ul[data-type="taskList"]').forEach((el: any) => el.removeAttribute('data-type'));
             doc.querySelectorAll('li[data-type="taskItem"]').forEach((el: any) => {
                 el.removeAttribute('data-type');
@@ -44,6 +44,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 if (checkbox) checkbox.remove();
             });
 
+            // Strip all problematic styles but preserve highlighters
             doc.querySelectorAll('*').forEach((el: any) => {
                 const bgColor = el.style.backgroundColor;
                 const isHighlight = bgColor && (bgColor.includes('yellow') || bgColor.includes('rgba') || bgColor.includes('rgb'));
@@ -52,6 +53,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
             });
 
+            // Clean empty tags
             doc.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6').forEach(el => {
                 if (!el.textContent?.trim() && !el.querySelector('img, hr, br, table')) el.remove();
             });
@@ -93,7 +95,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     return {
                         stack: [
                             { text: safeTitle, fontSize: 16, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 2] },
-                            { text: subtitleText, fontSize: 10, margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 4] },
+                            { text: exportTimeText, fontSize: 10, margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 4] },
                             {
                                 canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.5, lineColor: '#3b82f6' }],
                                 margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 0]
@@ -128,7 +130,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
         };
 
-        (pdfMake as any).createPdf(docDefinition).download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        // 4. Generate PDF using explicit fonts object to bypass vfs_fonts.js issues
+        (pdfMake as any).createPdf(docDefinition, null, fonts).download(`${safeTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
 
     } catch (error) {
         console.error('PDF Export Error:', error);

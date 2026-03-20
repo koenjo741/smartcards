@@ -29,20 +29,28 @@ pm.fonts = {
 };
 
 /**
- * PDF Export Utility v1.3.29 - Ultimate Stability & Table Fix
+ * PDF Export Utility v1.3.30 - Ultimate Stability & Table Fix Pro
  * - Uses a split-and-merge strategy for HR lines to bypass parsing crashes.
  * - Forces perfect 2.0cm left-alignment for text block and footer.
  * - Refined font sizes (Title: 12pt, Body: 10pt).
- * - NEW: Pre-processes table widths (replaces fit-content with 100%) to prevent layout engine hangs.
+ * - NEW: Aggressive sanitization of table/column styles to prevent layout engine crashes.
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const contentWidth = 481.89; // (210mm - 2*20mm) to pt
 
-        // 0. Pre-process HTML String
-        // 'fit-content' is not a valid PDF width and can crash the layout engine or parser.
-        const sanitizedHtml = (html || '').replace(/width:\s*fit-content;?/g, 'width: 100%;');
+        // 0. Aggressive Sanitization of HTML String
+        // We strip layout styles that often cause html-to-pdfmake / pdfmake crashes
+        let sanitizedHtml = (html || '')
+            // Replace width: fit-content with 100% (flexible regex for spacing/casing)
+            .replace(/width\s*:\s*fit-content\s*;?/gi, 'width: 100%;')
+            // Remove min-width/max-width which can mess up column calculations
+            .replace(/(min-width|max-width)\s*:\s*[^;"]+;?/gi, '')
+            // Remove display: table/inline-table which is redundant for <table> tags and can confuse parser
+            .replace(/display\s*:\s*(table|inline-table|table-row|table-cell)\s*;?/gi, '')
+            // Remove box-sizing
+            .replace(/box-sizing\s*:\s*[^;"]+;?/gi, '');
 
         // 1. Pre-process Images and Highlighters (DOM side)
         const parser = new DOMParser();

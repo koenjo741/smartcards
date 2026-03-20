@@ -20,27 +20,29 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const subtitleText = `Exportiert am ${exportDate}, ${exportTime}`;
 
         // 1. Sanitize HTML for pdfMake robustness
-        // Strip problematic CSS that often causes crashes in pdfMake's layout engine
         const sanitizeForPdf = (htmlInput: string) => {
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlInput, 'text/html');
             
-            // Fix tables and remove complex display/width properties
+            // Fix Tiptap-specific elements
+            doc.querySelectorAll('ul[data-type="taskList"]').forEach((el: any) => el.removeAttribute('data-type'));
+            doc.querySelectorAll('li[data-type="taskItem"]').forEach((el: any) => el.removeAttribute('data-type'));
+            doc.querySelectorAll('label').forEach((el: any) => el.remove()); // Remove checkbox labels
+
+            // Clean all elements
             doc.querySelectorAll('*').forEach((el: any) => {
                 const style = el.getAttribute('style') || '';
                 let newStyle = style
-                    .replace(/display\s*:\s*table-cell/gi, '')
-                    .replace(/display\s*:\s*table-row/gi, '')
-                    .replace(/display\s*:\s*table/gi, '')
+                    .replace(/display\s*:\s*[^;]+/gi, '') // Strip display
                     .replace(/width\s*:\s*fit-content/gi, 'width: 100%')
                     .replace(/width\s*:\s*0px/gi, 'width: auto')
                     .replace(/box-sizing\s*:\s*border-box/gi, '')
-                    .replace(/position\s*:\s*relative/gi, '')
+                    .replace(/position\s*:\s*[^;]+/gi, '') // Strip position
+                    .replace(/white-space\s*:\s*[^;]+/gi, '') // Strip white-space
                     .replace(/border-collapse\s*:\s*separate/gi, 'border-collapse: collapse');
                 
                 el.setAttribute('style', newStyle);
                 
-                // Ensure table cells don't have nested complex layouts that crash pdfmake
                 if (el.tagName === 'TD' || el.tagName === 'TH') {
                     el.style.minWidth = 'auto';
                 }
@@ -62,11 +64,9 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             defaultStyles: {
                 p: { marginBottom: 5, lineHeight: 1.0 },
                 li: { marginBottom: 2 },
-                a: { color: '#2563eb', decoration: 'underline' },
-                mark: { background: 'yellow' } // Ensure mark tags are handled
+                a: { color: '#2563eb', decoration: 'underline' }
             },
             customTag: (el: any) => {
-                // Precision HR rendering to match footer exactly
                 if (el.nodeName === 'HR') {
                     return {
                         stack: [
@@ -74,14 +74,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                 canvas: [
                                     {
                                         type: 'line',
-                                        x1: 0, y1: 0,
+                                        x1: 0, y1: 5,
                                         x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2),
-                                        y2: 0,
-                                        lineWidth: 0.2, // Match footer
-                                        lineColor: '#cccccc' // Match footer
+                                        y2: 5,
+                                        lineWidth: 0.2,
+                                        lineColor: '#cccccc'
                                     }
                                 ],
-                                margin: [0, 8, 0, 8]
+                                margin: [0, 5, 0, 5],
+                                pageBreak: 'none'
                             }
                         ]
                     };
@@ -95,7 +96,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             pageSize: 'A4',
             pageMargins: [MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM],
             
-            // Header for Page 1
             header: (currentPage: number) => {
                 if (currentPage === 1) {
                     return {
@@ -112,17 +112,14 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 return null;
             },
 
-            // Footer for every page
             footer: (currentPage: number, pageCount: number) => {
                 return {
                     stack: [
                         {
-                            // Gray line at 2.0cm from bottom (14.17pt below text area end)
                             canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
                             margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 0]
                         },
                         {
-                            // Page Number at 1.0cm from bottom (42.5pt below text area end)
                             text: `Seite ${currentPage}/${pageCount}`, 
                             alignment: 'right', 
                             fontSize: 8, 
@@ -134,11 +131,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
             content: [
                 { text: '', margin: [0, 25, 0, 0], pageBreak: 'none' },
-                ...(Array.isArray(content) ? content : [content])
+                ...(Array.isArray(content) ? content : [content]).filter(c => c !== undefined && c !== null)
             ],
 
             defaultStyle: {
-                font: 'Roboto', // Default pdfMake font, clean and professional fallback for Inter
+                font: 'Roboto',
                 fontSize: 7.5, // Approx 10px
                 lineHeight: 1.0,
                 color: '#000000'
@@ -149,10 +146,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 subheader: { fontSize: 14, bold: true, marginBottom: 5 },
                 quote: { italic: true },
                 small: { fontSize: 8 },
-                // Marker style to ensure it doesn't cover text
-                highlight: {
-                    background: 'yellow'
-                }
+                mark: { background: 'yellow' }
             }
         };
 

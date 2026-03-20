@@ -53,6 +53,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         // 2. Convert HTML to pdfMake content
         const content = htmlToPdfMake(cleanedHtml, {
+            window: window,
             tableAutoSize: true,
             defaultStyles: {
                 p: { marginBottom: 5, lineHeight: 1.0 },
@@ -132,9 +133,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             },
 
             content: [
-                // Spacer for Page 1 Header
                 { text: '', margin: [0, 25, 0, 0], pageBreak: 'none' },
-                content
+                ...(Array.isArray(content) ? content : [content])
             ],
 
             defaultStyle: {

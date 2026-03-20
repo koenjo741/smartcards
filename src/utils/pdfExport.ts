@@ -7,18 +7,20 @@
  */
 export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
     try {
-        // 0. Lazy load all large PDF libraries to prevent startup crashes and reduce bundle size
-        const [pdfMakeModule, pdfFontsModule, htmlToPdfMakeModule] = await Promise.all([
-            import('pdfmake/build/pdfmake'),
-            import('pdfmake/build/vfs_fonts'),
-            import('html-to-pdfmake')
-        ]);
-
+        // 0. Lazy load all large PDF libraries to prevent startup crashes
+        const pdfMakeModule = await import('pdfmake/build/pdfmake');
         const pdfMake = pdfMakeModule.default || pdfMakeModule;
+
+        // CRITICAL for Production: vfs_fonts.js expects pdfMake to be on the window object
+        // in order to attach the fonts to it.
+        (window as any).pdfMake = pdfMake;
+
+        const pdfFontsModule = await import('pdfmake/build/vfs_fonts');
         const pdfFonts = pdfFontsModule.default || pdfFontsModule;
+        const htmlToPdfMakeModule = await import('html-to-pdfmake');
         const htmlToPdfMake = htmlToPdfMakeModule.default || htmlToPdfMakeModule;
 
-        // Setup VFS
+        // Setup VFS if not already attached
         if (!(pdfMake as any).vfs) {
             const vfs = (pdfFonts as any).pdfMake ? (pdfFonts as any).pdfMake.vfs : (pdfFonts as any).vfs || (pdfFonts as any).default?.vfs;
             (pdfMake as any).vfs = vfs || pdfFonts;

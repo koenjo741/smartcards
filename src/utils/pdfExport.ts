@@ -31,8 +31,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const now = new Date();
         const exportTimeText = `Download vom ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
 
-        // 1. Sanitize HTML
-        const sanitizeForPdf = (htmlInput: string) => {
+        // 1. Prepare and Sanitize HTML
+        const prepareHtmlForPdf = async (htmlInput: string) => {
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlInput, 'text/html');
             
@@ -43,6 +43,51 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 const checkbox = el.querySelector('input[type="checkbox"]');
                 if (checkbox) checkbox.remove();
             });
+
+            // Process Images asynchronously
+            const images = Array.from(doc.querySelectorAll('img'));
+            for (const img of images) {
+                const src = img.getAttribute('src');
+                if (src) {
+                    try {
+                        let finalSrc = src;
+                        if (!src.startsWith('data:')) {
+                            const fetchUrl = src.startsWith('/') ? window.location.origin + src : src;
+                            const response = await fetch(fetchUrl);
+                            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                            const blob = await response.blob();
+                            finalSrc = await new Promise<string>((resolve, reject) => {
+                                const reader = new FileReader();
+                                reader.onloadend = () => resolve(reader.result as string);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+                        }
+                        
+                        img.setAttribute('src', finalSrc);
+
+                        const imgEl = new Image();
+                        imgEl.src = finalSrc;
+                        await new Promise((resolve) => {
+                            imgEl.onload = resolve;
+                            imgEl.onerror = resolve;
+                        });
+                        
+                        const MAX_WIDTH = 450;
+                        if (imgEl.width > MAX_WIDTH) {
+                            img.setAttribute('width', String(MAX_WIDTH));
+                        } else if (imgEl.width > 0) {
+                            img.setAttribute('width', String(imgEl.width));
+                        }
+                        img.removeAttribute('height'); // Let pdfmake handle aspect ratio
+                    } catch (err) {
+                        console.warn('Failed to load image for PDF export:', src, err);
+                        img.remove();
+                    }
+                } else {
+                    img.remove();
+                }
+            }
 
             // Strip all problematic styles but preserve highlighters
             doc.querySelectorAll('*').forEach((el: any) => {
@@ -61,7 +106,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             return doc.body.innerHTML;
         };
 
-        const cleanedHtml = sanitizeForPdf(html);
+        const cleanedHtml = await prepareHtmlForPdf(html);
         const MARGIN_2_5_CM = 70.875;
         const PAGE_WIDTH = 595.28;
 

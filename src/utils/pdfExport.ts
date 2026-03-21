@@ -150,6 +150,33 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             pdfContent = [pdfContent];
         }
 
+        // Groups scattered inline elements into valid paragraph blocks
+        const groupInlineElements = (nodes: any[]): any[] => {
+            const result: any[] = [];
+            let currentInlineGroup: any[] = [];
+
+            for (const item of nodes) {
+                const isBlock = item && typeof item === 'object' && (
+                    item.margin || item.stack || item.table || item.ul || item.ol || 
+                    item.canvas || item.image || item.pageBreak || item.columns || item.svg
+                );
+
+                if (!isBlock) {
+                    currentInlineGroup.push(item);
+                } else {
+                    if (currentInlineGroup.length > 0) {
+                        result.push({ text: currentInlineGroup });
+                        currentInlineGroup = [];
+                    }
+                    result.push(item);
+                }
+            }
+            if (currentInlineGroup.length > 0) {
+                result.push({ text: currentInlineGroup });
+            }
+            return result;
+        };
+
         // Deep scrubber to ensure inline elements inside text arrays NEVER have block properties like margin or display
         const sanitizePdfmakeTree = (node: any): any => {
             if (Array.isArray(node)) {
@@ -168,7 +195,9 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         return cleanItem;
                     });
                 }
-                if (newNode.stack) newNode.stack = sanitizePdfmakeTree(newNode.stack);
+                if (newNode.stack) {
+                    newNode.stack = groupInlineElements(newNode.stack).map(sanitizePdfmakeTree);
+                }
                 if (newNode.table && newNode.table.body) newNode.table.body = sanitizePdfmakeTree(newNode.table.body);
                 if (newNode.ul) newNode.ul = sanitizePdfmakeTree(newNode.ul);
                 if (newNode.ol) newNode.ol = sanitizePdfmakeTree(newNode.ol);
@@ -177,31 +206,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             return node;
         };
 
-        const scrubbedPdfContent = sanitizePdfmakeTree(pdfContent);
-
-        // Group scattered root inline elements into valid paragraph blocks
-        const normalizedPdfContent: any[] = [];
-        let currentInlineGroup: any[] = [];
-
-        for (const item of scrubbedPdfContent) {
-            const isBlock = item && typeof item === 'object' && (
-                item.margin || item.stack || item.table || item.ul || item.ol || 
-                item.canvas || item.image || item.pageBreak || item.columns || item.svg
-            );
-
-            if (!isBlock) {
-                currentInlineGroup.push(item);
-            } else {
-                if (currentInlineGroup.length > 0) {
-                    normalizedPdfContent.push({ text: currentInlineGroup });
-                    currentInlineGroup = [];
-                }
-                normalizedPdfContent.push(item);
-            }
-        }
-        if (currentInlineGroup.length > 0) {
-            normalizedPdfContent.push({ text: currentInlineGroup });
-        }
+        const normalizedPdfContent = groupInlineElements(pdfContent).map(sanitizePdfmakeTree);
 
         // 3. Define Doc Definition
         const docDefinition: any = {

@@ -124,6 +124,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         // 2. Convert HTML to pdfMake content
         let pdfContent = (htmlToPdfMake as any)(cleanedHtml, {
+            window: window,
             tableAutoSize: true,
             ignoreStyles: true, // Prevents html-to-pdfmake from inheriting 'white-space' blocks from global CSS
             removeExtraBlanks: true, // Collapses HTML space nodes accurately
@@ -149,13 +150,40 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             pdfContent = [pdfContent];
         }
 
-        // pdfmake strictly requires inline elements to be wrapped in a block (e.g. { text: [...] }).
-        // Unwrapped strings or inline objects at the root are split into separate lines!
-        // This regroups contiguous bare inlines into proper paragraph blocks.
+        // Deep scrubber to ensure inline elements inside text arrays NEVER have block properties like margin or display
+        const sanitizePdfmakeTree = (node: any): any => {
+            if (Array.isArray(node)) {
+                return node.map(sanitizePdfmakeTree);
+            }
+            if (node && typeof node === 'object') {
+                const newNode = { ...node };
+                if (newNode.text && Array.isArray(newNode.text)) {
+                    newNode.text = newNode.text.map((inlineItem: any) => {
+                        const cleanItem = sanitizePdfmakeTree(inlineItem);
+                        if (cleanItem && typeof cleanItem === 'object') {
+                            // strictly force inline flow by removing any box-model margins or display types
+                            delete cleanItem.margin;
+                            delete cleanItem.display;
+                        }
+                        return cleanItem;
+                    });
+                }
+                if (newNode.stack) newNode.stack = sanitizePdfmakeTree(newNode.stack);
+                if (newNode.table && newNode.table.body) newNode.table.body = sanitizePdfmakeTree(newNode.table.body);
+                if (newNode.ul) newNode.ul = sanitizePdfmakeTree(newNode.ul);
+                if (newNode.ol) newNode.ol = sanitizePdfmakeTree(newNode.ol);
+                return newNode;
+            }
+            return node;
+        };
+
+        const scrubbedPdfContent = sanitizePdfmakeTree(pdfContent);
+
+        // Group scattered root inline elements into valid paragraph blocks
         const normalizedPdfContent: any[] = [];
         let currentInlineGroup: any[] = [];
 
-        for (const item of pdfContent) {
+        for (const item of scrubbedPdfContent) {
             const isBlock = item && typeof item === 'object' && (
                 item.margin || item.stack || item.table || item.ul || item.ol || 
                 item.canvas || item.image || item.pageBreak || item.columns || item.svg

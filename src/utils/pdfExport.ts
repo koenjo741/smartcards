@@ -107,15 +107,18 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
             });
 
-            // Clean empty tags
-            doc.querySelectorAll('p, span, div, h1, h2, h3, h4, h5, h6').forEach(el => {
-                if (!el.textContent?.trim() && !el.querySelector('img, hr, br, table')) el.remove();
+            // Clean empty tags (only if they genuinely lack layout or text content - beware of structural spaces)
+            doc.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6').forEach(el => {
+                // Check if totally empty of string content AND lacking structural children
+                if (!el.textContent && !el.querySelector('img, hr, br, table, span')) el.remove();
             });
 
             return doc.body.innerHTML;
         };
 
-        const cleanedHtml = await prepareHtmlForPdf(html);
+        // Aggressively replace newlines \n with spaces to prevent html-to-pdfmake from misinterpreting them as hard breaks
+        const normalizedHtml = html.replace(/\n+/g, ' ');
+        const cleanedHtml = await prepareHtmlForPdf(normalizedHtml);
         const MARGIN_2_5_CM = 70.875;
         const PAGE_WIDTH = 595.28;
 
@@ -123,6 +126,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const content = (htmlToPdfMake as any)(cleanedHtml, {
             window: window,
             tableAutoSize: true,
+            ignoreStyles: true, // Prevents html-to-pdfmake from inheriting 'white-space' blocks from global CSS
+            removeExtraBlanks: true, // Collapses HTML space nodes accurately
             defaultStyles: {
                 p: { marginBottom: 0, lineHeight: 1.0 },
                 li: { marginBottom: 0, lineHeight: 1.0 },

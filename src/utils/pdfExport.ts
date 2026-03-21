@@ -219,7 +219,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             { text: safeTitle, fontSize: 18.5, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 0] },
                             { text: exportTimeText, fontSize: 11, color: '#999999', margin: [MARGIN_2_5_CM, 1, MARGIN_2_5_CM, 2] },
                             {
-                                canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.5, lineColor: '#3b82f6' }],
+                                canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
                                 margin: [MARGIN_2_5_CM, 2, MARGIN_2_5_CM, 0]
                             }
                         ]

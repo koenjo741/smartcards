@@ -53,7 +53,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         let finalSrc = src;
                         if (!src.startsWith('data:')) {
                             const fetchUrl = src.startsWith('/') ? window.location.origin + src : src;
-                            const response = await fetch(fetchUrl);
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 5000);
+                            const response = await fetch(fetchUrl, { signal: controller.signal });
+                            clearTimeout(timeoutId);
                             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                             const blob = await response.blob();
                             finalSrc = await new Promise<string>((resolve, reject) => {
@@ -67,11 +70,17 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         img.setAttribute('src', finalSrc);
 
                         const imgEl = new Image();
-                        imgEl.src = finalSrc;
-                        await new Promise((resolve) => {
-                            imgEl.onload = resolve;
-                            imgEl.onerror = resolve;
+                        const loaded = new Promise<void>((resolve) => {
+                            imgEl.onload = () => resolve();
+                            imgEl.onerror = () => resolve();
                         });
+                        imgEl.src = finalSrc;
+                        
+                        // Prevent infinite hanging if image load fails silently
+                        await Promise.race([
+                            loaded,
+                            new Promise<void>(resolve => setTimeout(resolve, 5000))
+                        ]);
                         
                         const MAX_WIDTH = 450;
                         if (imgEl.width > MAX_WIDTH) {

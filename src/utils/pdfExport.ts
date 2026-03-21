@@ -29,7 +29,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
         const now = new Date();
-        const exportTimeText = `Download vom ${now.toLocaleDateString('de-DE')}, ${now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`;
+        const exportTimeText = `Download vom ${now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
 
         // 1. Prepare and Sanitize HTML
         const prepareHtmlForPdf = async (htmlInput: string) => {
@@ -212,21 +212,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageMargins: [MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM],
-            header: (currentPage: number) => {
-                if (currentPage === 1) {
-                    return {
-                        stack: [
-                            { text: safeTitle, fontSize: 18.5, bold: true, margin: [MARGIN_2_5_CM, 40, MARGIN_2_5_CM, 0] },
-                            { text: exportTimeText, fontSize: 11, color: '#999999', margin: [MARGIN_2_5_CM, 1, MARGIN_2_5_CM, 2] },
-                            {
-                                canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
-                                margin: [MARGIN_2_5_CM, 2, MARGIN_2_5_CM, 0]
-                            }
-                        ]
-                    };
-                }
-                return null;
-            },
             footer: (currentPage: number, pageCount: number) => {
                 return {
                     stack: [
@@ -239,7 +224,16 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 };
             },
             content: [
-                { text: '', margin: [0, 15, 0, 0] },
+                {
+                    stack: [
+                        { text: safeTitle, fontSize: 18.5, bold: true, margin: [0, 0, 0, 0] },
+                        { text: exportTimeText, fontSize: 11, color: '#CAD5E2', margin: [0, 4, 0, 4] },
+                        {
+                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
+                            margin: [0, 0, 0, 15]
+                        }
+                    ]
+                },
                 ...(Array.isArray(normalizedPdfContent) ? normalizedPdfContent : [normalizedPdfContent]).filter(Boolean)
             ],
             defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.0, color: '#000000' },

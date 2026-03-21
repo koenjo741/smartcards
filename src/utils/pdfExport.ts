@@ -123,8 +123,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const PAGE_WIDTH = 595.28;
 
         // 2. Convert HTML to pdfMake content
-        const content = (htmlToPdfMake as any)(cleanedHtml, {
-            window: window,
+        let pdfContent = (htmlToPdfMake as any)(cleanedHtml, {
             tableAutoSize: true,
             ignoreStyles: true, // Prevents html-to-pdfmake from inheriting 'white-space' blocks from global CSS
             removeExtraBlanks: true, // Collapses HTML space nodes accurately
@@ -144,6 +143,37 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 return ret;
             }
         });
+
+        // Ensure pdfContent is a flat array
+        if (!Array.isArray(pdfContent)) {
+            pdfContent = [pdfContent];
+        }
+
+        // pdfmake strictly requires inline elements to be wrapped in a block (e.g. { text: [...] }).
+        // Unwrapped strings or inline objects at the root are split into separate lines!
+        // This regroups contiguous bare inlines into proper paragraph blocks.
+        const normalizedPdfContent: any[] = [];
+        let currentInlineGroup: any[] = [];
+
+        for (const item of pdfContent) {
+            const isBlock = item && typeof item === 'object' && (
+                item.margin || item.stack || item.table || item.ul || item.ol || 
+                item.canvas || item.image || item.pageBreak || item.columns || item.svg
+            );
+
+            if (!isBlock) {
+                currentInlineGroup.push(item);
+            } else {
+                if (currentInlineGroup.length > 0) {
+                    normalizedPdfContent.push({ text: currentInlineGroup });
+                    currentInlineGroup = [];
+                }
+                normalizedPdfContent.push(item);
+            }
+        }
+        if (currentInlineGroup.length > 0) {
+            normalizedPdfContent.push({ text: currentInlineGroup });
+        }
 
         // 3. Define Doc Definition
         const docDefinition: any = {
@@ -177,7 +207,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             },
             content: [
                 { text: '', margin: [0, 15, 0, 0] },
-                ...(Array.isArray(content) ? content : [content]).filter(Boolean)
+                ...(Array.isArray(normalizedPdfContent) ? normalizedPdfContent : [normalizedPdfContent]).filter(Boolean)
             ],
             defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.0, color: '#000000' },
             styles: {

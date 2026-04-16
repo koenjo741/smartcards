@@ -55,7 +55,7 @@ export const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                 )}
             </div>
             <div className="flex flex-wrap gap-1.5 md:gap-2">
-                {projects.map(p => {
+                {[...projects].sort((a, b) => a.name.localeCompare(b.name)).map(p => {
                     const isSelected = selectedProjectIds.includes(p.id);
                     const isDisabled = !!isTodoCard;
 

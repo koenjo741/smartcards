@@ -189,14 +189,26 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     if (bgColor) dynamicStyles[styleKey].background = bgColor;
                     if (textColor) dynamicStyles[styleKey].color = textColor;
                     
-                    if (Array.isArray(ret)) {
-                        return { text: ret, style: [styleKey] };
-                    } else if (typeof ret === 'object' && ret !== null) {
-                        ret.style = ret.style ? (Array.isArray(ret.style) ? [...ret.style, styleKey] : [ret.style, styleKey]) : [styleKey];
-                        return ret;
-                    } else if (typeof ret === 'string') {
-                        return { text: ret, style: [styleKey] };
-                    }
+                    const applyStylesDeep = (node: any): any => {
+                        if (Array.isArray(node)) {
+                            return node.map(applyStylesDeep);
+                        }
+                        if (typeof node === 'string') {
+                            return { text: node, style: [styleKey] };
+                        }
+                        if (typeof node === 'object' && node !== null) {
+                            const result = { ...node };
+                            if (result.text && Array.isArray(result.text)) {
+                                result.text = result.text.map(applyStylesDeep);
+                            } else {
+                                result.style = result.style ? (Array.isArray(result.style) ? [...result.style, styleKey] : [result.style, styleKey]) : [styleKey];
+                            }
+                            return result;
+                        }
+                        return node;
+                    };
+                    
+                    return applyStylesDeep(ret);
                 }
                 
                 return ret;

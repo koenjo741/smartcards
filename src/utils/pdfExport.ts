@@ -278,7 +278,19 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
 
                 if (newNode.text && Array.isArray(newNode.text)) {
-                    newNode.text = newNode.text.map((inlineItem: any) => {
+                    const flattenArray = (arr: any[]): any[] => {
+                        let flat: any[] = [];
+                        for (let i = 0; i < arr.length; i++) {
+                            if (Array.isArray(arr[i])) {
+                                flat = flat.concat(flattenArray(arr[i]));
+                            } else {
+                                flat.push(arr[i]);
+                            }
+                        }
+                        return flat;
+                    };
+
+                    newNode.text = flattenArray(newNode.text).map((inlineItem: any) => {
                         const cleanItem = sanitizePdfmakeTree(inlineItem);
                         if (cleanItem && typeof cleanItem === 'object') {
                             // strictly force inline flow by removing any box-model margins or display types

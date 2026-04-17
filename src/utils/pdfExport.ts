@@ -142,8 +142,9 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             ignoreStyles: true, // Prevents html-to-pdfmake from inheriting 'white-space' blocks from global CSS
             removeExtraBlanks: true, // Collapses HTML space nodes accurately
             defaultStyles: {
-                p: { marginBottom: 0, lineHeight: 1.0 },
-                li: { marginBottom: 0, lineHeight: 1.0 },
+                p: { margin: [0, 1, 0, 2], lineHeight: 0.9 },
+                div: { margin: [0, 1, 0, 2], lineHeight: 0.9 },
+                li: { margin: [0, 0, 0, 1], lineHeight: 0.9 },
                 a: { color: '#2563eb', decoration: 'underline' },
                 mark: { background: 'yellow' }
             },
@@ -197,6 +198,21 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
             if (node && typeof node === 'object') {
                 const newNode = { ...node };
+
+                // Compress vertical margins for standard blocks to make text more compact
+                if (newNode.margin && Array.isArray(newNode.margin) && !newNode.canvas && !newNode.table && !newNode.pageBreak) {
+                    const isHeader = newNode.style && (
+                        newNode.style === 'h1' || newNode.style === 'h2' || newNode.style === 'h3' ||
+                        newNode.style === 'h4' || newNode.style === 'h5' || newNode.style === 'h6' ||
+                        (Array.isArray(newNode.style) && newNode.style.some((s: string) => s.startsWith('h')))
+                    );
+                    
+                    if (!isHeader) {
+                        // Preserve left margin for indentation (lists), but squish top and bottom
+                        newNode.margin = [newNode.margin[0] || 0, 1, newNode.margin[2] || 0, 2];
+                    }
+                }
+
                 if (newNode.text && Array.isArray(newNode.text)) {
                     newNode.text = newNode.text.map((inlineItem: any) => {
                         const cleanItem = sanitizePdfmakeTree(inlineItem);
@@ -277,7 +293,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 },
                 ...(Array.isArray(normalizedPdfContent) ? normalizedPdfContent : [normalizedPdfContent]).filter(Boolean)
             ],
-            defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 1.0, color: '#000000' },
+            defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 0.9, color: '#000000' },
             styles: {
                 header: { fontSize: 22, bold: true, marginBottom: 0.5 },
                 subheader: { fontSize: 18, bold: true, marginBottom: 0.5 },

@@ -1,0 +1,78 @@
+{
+  "processed": [
+    {
+      "text": [
+        {
+          "text": "DEDALUS",
+          "nodeName": "MARK",
+          "background": "#4ade80",
+          "style": [
+            "html-mark",
+            "html-p"
+          ]
+        },
+        "​"
+      ],
+      "nodeName": "P",
+      "margin": [
+        0,
+        5,
+        0,
+        10
+      ],
+      "style": [
+        "html-p"
+      ]
+    },
+    {
+      "text": [
+        {
+          "text": " "
+        },
+        "​"
+      ]
+    },
+    {
+      "text": [
+        {
+          "text": "27.01.2026: ",
+          "style": [
+            "html-p"
+          ]
+        },
+        {
+          "text": "[OK]",
+          "nodeName": "MARK",
+          "background": "#4ade80",
+          "style": [
+            "html-mark",
+            "html-p"
+          ]
+        }
+      ],
+      "nodeName": "P",
+      "margin": [
+        0,
+        5,
+        0,
+        10
+      ],
+      "style": [
+        "html-p"
+      ]
+    },
+    {
+      "text": [
+        {
+          "text": " "
+        },
+        "​"
+      ]
+    }
+  ],
+  "dynamicStyles": {
+    "dyn_4ade80_fg": {
+      "background": "#4ade80"
+    }
+  }
+}

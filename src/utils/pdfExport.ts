@@ -181,7 +181,16 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
                 
                 const bgColor = rgbToHex(element.style.backgroundColor) || rgbToHex(element.getAttribute('data-color'));
-                const textColor = rgbToHex(element.style.color);
+                let textColor = rgbToHex(element.style.color);
+                
+                // Ensure text is readable on dark/light backgrounds if no color is specified
+                if (bgColor && !textColor) {
+                    const r = parseInt(bgColor.slice(1, 3), 16);
+                    const g = parseInt(bgColor.slice(3, 5), 16);
+                    const b = parseInt(bgColor.slice(5, 7), 16);
+                    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+                    textColor = (yiq >= 128) ? '#000000' : '#ffffff';
+                }
                 
                 if (bgColor || textColor) {
                     const styleKey = `dyn_${bgColor?.replace('#', '') || 'bg'}_${textColor?.replace('#', '') || 'fg'}`;
@@ -304,12 +313,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     });
                     
                     // WORKAROUND FOR PDFMAKE INLINE BACKGROUND BUG:
-                    // If an inline text array has only 1 element (e.g. a single highlighted word like "DEDALUS"),
-                    // pdfmake sometimes optimizes it into a block that paints over the text.
-                    // By appending a zero-width space, we force pdfmake to use its multi-item inline renderer.
-                    if (newNode.text.length === 1) {
-                        newNode.text.push('\u200B');
-                    }
+                    // If a highlighted text element touches the boundaries of the paragraph (first or last item),
+                    // pdfmake sometimes calculates the bounding box incorrectly and draws a solid block over the text.
+                    // By wrapping the array in invisible zero-width spaces, we force it to render purely inline,
+                    // which perfectly mimics the working behavior seen when highlights are surrounded by normal text.
+                    newNode.text = ['\u200B', ...newNode.text, '\u200B'];
                 }
                 if (newNode.stack) {
                     newNode.stack = groupInlineElements(newNode.stack).map(sanitizePdfmakeTree);

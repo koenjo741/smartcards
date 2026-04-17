@@ -123,7 +123,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .replace(/→/g, '->')
             .replace(/←/g, '<-')
             .replace(/&rarr;/ig, '->')
-            .replace(/&larr;/ig, '<-');
+            .replace(/&larr;/ig, '<-')
+            .replace(/✅/g, '[OK]')
+            .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero width spaces
+            .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ''); // strip remaining complex emojis
         const cleanedHtml = await prepareHtmlForPdf(normalizedHtml);
         const MARGIN_2_5_CM = 70.875;
         const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;

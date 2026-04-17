@@ -98,6 +98,7 @@ export const CardForm: React.FC<CardFormProps> = ({
 
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
     const [isExportingPdf, setIsExportingPdf] = useState(false);
+    const [pdfExportModalOpen, setPdfExportModalOpen] = useState(false);
 
     // Use ref to hold the latest onSave callback to avoid effect dependencies
     const onSaveRef = React.useRef(onSave);
@@ -270,10 +271,13 @@ export const CardForm: React.FC<CardFormProps> = ({
         );
     };
 
-    const handleExportPdf = async () => {
+    const handleExportPdfClick = () => {
         if (!content) return;
-        const confirmResult = window.confirm('Möchten Sie das PDF im Querformat (Landscape) erstellen?\n\nKlicken Sie "OK" für Querformat, oder "Abbrechen" für Hochformat (Portrait).');
-        const orientation = confirmResult ? 'landscape' : 'portrait';
+        setPdfExportModalOpen(true);
+    };
+
+    const doExportPdf = async (orientation: 'portrait' | 'landscape') => {
+        setPdfExportModalOpen(false);
         setIsExportingPdf(true);
         try {
             await exportCardToPdf(content, title || 'Card_Content', orientation);
@@ -324,7 +328,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                             </label>
                             <button
                                 type="button"
-                                onClick={handleExportPdf}
+                                onClick={handleExportPdfClick}
                                 disabled={isExportingPdf || !content}
                                 className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-500/5 px-2 py-1 rounded border border-blue-500/20"
                                 title="Inhalt als PDF exportieren"
@@ -817,6 +821,42 @@ export const CardForm: React.FC<CardFormProps> = ({
                 message={confirmState.message}
                 isDestructive={true}
             />
+
+            {pdfExportModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#020617] rounded-xl shadow-2xl border border-slate-700/50 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <h2 className="text-xl font-bold text-gray-100 mb-2">PDF Export Format</h2>
+                            <p className="text-sm text-gray-400 mb-6">
+                                In welchem Format möchten Sie das PDF erstellen?
+                            </p>
+                            <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:space-x-3 justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setPdfExportModalOpen(false)}
+                                    className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                                >
+                                    Abbrechen
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => doExportPdf('portrait')}
+                                    className="px-4 py-2 text-sm text-white bg-slate-700 hover:bg-slate-600 rounded-md transition-colors font-medium border border-slate-600"
+                                >
+                                    Hochformat
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => doExportPdf('landscape')}
+                                    className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors font-medium shadow-lg shadow-blue-500/20"
+                                >
+                                    Querformat
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </form>
     );
 };

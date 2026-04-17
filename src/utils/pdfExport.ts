@@ -44,31 +44,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             return colorStr;
         };
 
-        const groupInlineElements = (content: any[]): any[] => {
-            if (!Array.isArray(content)) return content;
-            const grouped: any[] = [];
-            let currentParagraph: any[] = [];
-
-            const flushParagraph = () => {
-                if (currentParagraph.length > 0) {
-                    grouped.push({ text: [...currentParagraph], margin: [0, 1, 0, 2], lineHeight: 0.9 });
-                    currentParagraph = [];
-                }
-            };
-
-            content.forEach(item => {
-                if (!item) return;
-                // Treat these as block elements that break paragraph flow
-                if (item.table || item.stack || item.image || item.canvas || item.ol || item.ul || item.pageBreak) {
-                    flushParagraph();
-                    grouped.push(item);
-                } else {
-                    currentParagraph.push(item);
-                }
-            });
-            flushParagraph();
-            return grouped;
-        };
 
         // 1. Prepare and Sanitize HTML
         const prepareHtmlForPdf = async (htmlInput: string) => {

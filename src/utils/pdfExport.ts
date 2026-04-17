@@ -111,38 +111,76 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
             }
 
+        const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
+        const PAGE_MARGIN_LR = 15; // 15 points (roughly 0.5cm)
+        const PAGE_MARGIN_TB = 15;
+        
+        const styleProcessor = (el: HTMLElement, inheritedColor: string | null = null) => {
+            // Get effective color: either inline style, or inherited from parent
+            const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
+            const textColor = el.style.color || inheritedColor;
+            
+            const isHighlight = !!bgColor;
+            
+            // Clean up original styles to prevent html-to-pdfmake from picking up browser-specific garbage
+            el.removeAttribute('style');
+            
+            // Re-apply only what we need for the PDF engine
+            if (isHighlight) {
+                el.style.backgroundColor = bgColor;
+            } else if (el.tagName === 'MARK') {
+                el.style.backgroundColor = '#4ade80';
+            }
+            
+            if (textColor) {
+                el.style.color = textColor;
+            }
+            
+            // Recursively process children, passing down the current text color
+            Array.from(el.children).forEach(child => styleProcessor(child as HTMLElement, textColor));
+            
+            if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
+        };
+
+        const prepareHtmlForPdf = async (html: string) => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Handle images
+            const images = Array.from(doc.querySelectorAll('img'));
+            for (const img of images) {
+                const src = img.getAttribute('src');
+                if (src) {
+                    try {
+                        const imgEl = await loadImage(src);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgEl.width;
+                        canvas.height = imgEl.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx?.drawImage(imgEl, 0, 0);
+                        img.setAttribute('src', canvas.toDataURL('image/png'));
+                        
+                        const MAX_WIDTH = PAGE_WIDTH - (PAGE_MARGIN_LR * 2) - 40;
+                        if (imgEl.width > MAX_WIDTH) {
+                            img.setAttribute('width', String(MAX_WIDTH));
+                        } else if (imgEl.width > 0) {
+                            img.setAttribute('width', String(imgEl.width));
+                        }
+                        img.removeAttribute('height'); // Let pdfmake handle aspect ratio
+                    } catch (err) {
+                        console.warn('Failed to load image for PDF export:', src, err);
+                        img.remove();
+                    }
+                } else {
+                    img.remove();
+                }
+            }
+
             // Strip all problematic styles but preserve highlighters and text colors
-            const styleProcessor = (el: HTMLElement, inheritedColor: string | null = null) => {
-                // Get effective color: either inline style, or inherited from parent
-                const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
-                const textColor = el.style.color || inheritedColor;
-                
-                const isHighlight = !!bgColor;
-                
-                // Clean up original styles to prevent html-to-pdfmake from picking up browser-specific garbage
-                el.removeAttribute('style');
-                
-                // Re-apply only what we need for the PDF engine
-                if (isHighlight) {
-                    el.style.backgroundColor = bgColor;
-                } else if (el.tagName === 'MARK') {
-                    el.style.backgroundColor = '#4ade80';
-                }
-                
-                if (textColor) {
-                    el.style.color = textColor;
-                }
-                
-                // Recursively process children, passing down the current text color
-                Array.from(el.children).forEach(child => styleProcessor(child as HTMLElement, textColor));
-                
-                if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
-            };
             styleProcessor(doc.body);
 
             // Clean empty tags (only if they genuinely lack layout or text content - beware of structural spaces)
             doc.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6').forEach(el => {
-                // Check if totally empty of string content AND lacking structural children
                 if (!el.textContent && !el.querySelector('img, hr, br, table, span')) el.remove();
             });
 
@@ -161,11 +199,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero width spaces
             .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ''); // strip remaining complex emojis
         const cleanedHtml = await prepareHtmlForPdf(normalizedHtml);
-        const PAGE_MARGIN_TB = 56.7; // 2.0 cm
-        const PAGE_MARGIN_LR = 42.5; // 1.5 cm
-        const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
-        
-        const dynamicStyles: any = {};
 
         // 2. Convert HTML to pdfMake content
         let pdfContent = (htmlToPdfMake as any)(cleanedHtml, {
@@ -363,7 +396,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [15, 15, 15, 15], // 1.5 cm all around
+            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
             defaultStyle: {
                 font: 'Inter',
                 fontSize: 9,
@@ -401,21 +434,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     ]
                 },
                 ...(Array.isArray(normalizedPdfContent) ? normalizedPdfContent : [normalizedPdfContent]).filter(Boolean)
-            ],
-            defaultStyle: { font: 'Roboto', fontSize: 10, lineHeight: 0.9, color: '#000000' },
-            styles: {
-                header: { fontSize: 22, bold: true, marginBottom: 0.5 },
-                subheader: { fontSize: 18, bold: true, marginBottom: 0.5 },
-                h1: { fontSize: 22, bold: true, marginBottom: 0.5 },
-                h2: { fontSize: 18, bold: true, marginBottom: 0.5 },
-                h3: { fontSize: 16, bold: true, marginBottom: 0.5 },
-                h4: { fontSize: 14, bold: true, marginBottom: 0.5 },
-                h5: { fontSize: 13, bold: true, marginBottom: 0.5 },
-                h6: { fontSize: 12, bold: true, marginBottom: 0.5 },
-                quote: { italic: true },
-                small: { fontSize: 10 },
-                ...dynamicStyles
-            }
+            ]
         };
 
         // 4. Generate PDF using explicit fonts object to bypass vfs_fonts.js issues

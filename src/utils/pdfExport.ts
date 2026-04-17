@@ -183,34 +183,37 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 const bgColor = rgbToHex(element.style.backgroundColor) || rgbToHex(element.getAttribute('data-color'));
                 let textColor = rgbToHex(element.style.color);
                 
-                // Ensure text is readable on dark/light backgrounds if no color is specified
+                // Contrast color only as fallback if background exists but no text color was explicitly set
+                let contrastColor: string | null = null;
                 if (bgColor && !textColor) {
                     const r = parseInt(bgColor.slice(1, 3), 16);
                     const g = parseInt(bgColor.slice(3, 5), 16);
                     const b = parseInt(bgColor.slice(5, 7), 16);
                     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-                    textColor = (yiq >= 128) ? '#000000' : '#ffffff';
+                    contrastColor = (yiq >= 128) ? '#000000' : '#ffffff';
                 }
                 
-                if (bgColor || textColor) {
-                    const styleKey = `dyn_${bgColor?.replace('#', '') || 'bg'}_${textColor?.replace('#', '') || 'fg'}`;
-                    dynamicStyles[styleKey] = {};
-                    if (bgColor) dynamicStyles[styleKey].background = bgColor;
-                    if (textColor) dynamicStyles[styleKey].color = textColor;
-                    
+                if (bgColor || textColor || contrastColor) {
                     const applyStylesDeep = (node: any): any => {
                         if (Array.isArray(node)) {
                             return node.map(applyStylesDeep);
                         }
                         if (typeof node === 'string') {
-                            return { text: node, style: [styleKey] };
+                            const leafNode: any = { text: node };
+                            if (bgColor) leafNode.background = bgColor;
+                            if (textColor) leafNode.color = textColor;
+                            else if (contrastColor) leafNode.color = contrastColor;
+                            return leafNode;
                         }
                         if (typeof node === 'object' && node !== null) {
                             const result = { ...node };
                             if (result.text && Array.isArray(result.text)) {
                                 result.text = result.text.map(applyStylesDeep);
                             } else {
-                                result.style = result.style ? (Array.isArray(result.style) ? [...result.style, styleKey] : [result.style, styleKey]) : [styleKey];
+                                // Preserve existing inner styles by only setting if missing
+                                if (bgColor && !result.background) result.background = bgColor;
+                                if (textColor) result.color = textColor; // Explicit text color always wins
+                                else if (contrastColor && !result.color) result.color = contrastColor;
                             }
                             return result;
                         }
@@ -365,7 +368,21 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [PAGE_MARGIN_LR, 42.5, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
+            pageMargins: [15, 15, 15, 15], // 1.5 cm all around
+            defaultStyle: {
+                font: 'Inter',
+                fontSize: 9,
+                color: '#334155',
+                lineHeight: 1.1
+            },
+            styles: {
+                h1: { fontSize: 18, bold: true, color: '#000000', margin: [0, 0, 0, 10] },
+                h2: { fontSize: 14, bold: true, color: '#000000', margin: [0, 10, 0, 5] },
+                p: { margin: [0, 1, 0, 2], lineHeight: 0.9 },
+                tableHeader: { fontSize: 11, bold: true, color: '#ffffff', fillColor: '#1e293b', margin: [0, 2, 0, 2] },
+                tableCell: { margin: [0, 1, 0, 1], color: '#334155' },
+                link: { color: '#2563eb', decoration: 'underline' }
+            },
             footer: (currentPage: number, pageCount: number) => {
                 return {
                     stack: [

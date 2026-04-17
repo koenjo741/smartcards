@@ -1,0 +1,40 @@
+[
+  {
+    "text": [
+      {
+        "text": [
+          {
+            "text": "DMEA 2026",
+            "nodeName": "SPAN",
+            "background": "#334155",
+            "color": "#4ade80",
+            "style": [
+              "html-span",
+              "html-mark",
+              "html-p"
+            ]
+          }
+        ],
+        "nodeName": "MARK",
+        "background": "#334155",
+        "style": [
+          "html-mark",
+          "html-p"
+        ]
+      }
+    ],
+    "nodeName": "P",
+    "margin": [
+      0,
+      5,
+      0,
+      10
+    ],
+    "style": [
+      "html-p"
+    ]
+  },
+  {
+    "text": " "
+  }
+]

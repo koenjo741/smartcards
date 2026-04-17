@@ -302,6 +302,14 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         }
                         return cleanItem;
                     });
+                    
+                    // WORKAROUND FOR PDFMAKE INLINE BACKGROUND BUG:
+                    // If an inline text array has only 1 element (e.g. a single highlighted word like "DEDALUS"),
+                    // pdfmake sometimes optimizes it into a block that paints over the text.
+                    // By appending a zero-width space, we force pdfmake to use its multi-item inline renderer.
+                    if (newNode.text.length === 1) {
+                        newNode.text.push('\u200B');
+                    }
                 }
                 if (newNode.stack) {
                     newNode.stack = groupInlineElements(newNode.stack).map(sanitizePdfmakeTree);

@@ -112,14 +112,17 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
 
             // Strip all problematic styles but preserve highlighters and text colors
-            doc.querySelectorAll('*').forEach((el: any) => {
+            const styleProcessor = (el: HTMLElement, inheritedColor: string | null = null) => {
+                // Get effective color: either inline style, or inherited from parent
                 const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
-                const textColor = el.style.color;
+                const textColor = el.style.color || inheritedColor;
                 
                 const isHighlight = !!bgColor;
                 
+                // Clean up original styles to prevent html-to-pdfmake from picking up browser-specific garbage
                 el.removeAttribute('style');
                 
+                // Re-apply only what we need for the PDF engine
                 if (isHighlight) {
                     el.style.backgroundColor = bgColor;
                 } else if (el.tagName === 'MARK') {
@@ -130,8 +133,12 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     el.style.color = textColor;
                 }
                 
+                // Recursively process children, passing down the current text color
+                Array.from(el.children).forEach(child => styleProcessor(child as HTMLElement, textColor));
+                
                 if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
-            });
+            };
+            styleProcessor(doc.body);
 
             // Clean empty tags (only if they genuinely lack layout or text content - beware of structural spaces)
             doc.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6').forEach(el => {

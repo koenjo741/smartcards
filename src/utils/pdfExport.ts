@@ -102,12 +102,25 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
             }
 
-            // Strip all problematic styles but preserve highlighters
+            // Strip all problematic styles but preserve highlighters and text colors
             doc.querySelectorAll('*').forEach((el: any) => {
                 const bgColor = el.style.backgroundColor;
-                const isHighlight = bgColor && (bgColor.includes('yellow') || bgColor.includes('rgba') || bgColor.includes('rgb'));
+                const textColor = el.style.color;
+                
+                const isHighlight = bgColor && (bgColor.includes('yellow') || bgColor.includes('green') || bgColor.includes('rgba') || bgColor.includes('rgb') || bgColor.startsWith('#'));
+                
                 el.removeAttribute('style');
-                if (isHighlight || el.tagName === 'MARK') el.style.backgroundColor = 'yellow';
+                
+                if (isHighlight) {
+                    el.style.backgroundColor = bgColor;
+                } else if (el.tagName === 'MARK') {
+                    el.style.backgroundColor = '#4ade80';
+                }
+                
+                if (textColor) {
+                    el.style.color = textColor;
+                }
+                
                 if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
             });
 
@@ -145,8 +158,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 p: { margin: [0, 1, 0, 2], lineHeight: 0.9 },
                 div: { margin: [0, 1, 0, 2], lineHeight: 0.9 },
                 li: { margin: [0, 0, 0, 1], lineHeight: 0.9 },
-                a: { color: '#2563eb', decoration: 'underline' },
-                mark: { background: 'yellow' }
+                a: { color: '#2563eb', decoration: 'underline' }
             },
             customTag: ({ element, ret }: any) => {
                 if (element.nodeName === 'HR') {
@@ -155,6 +167,21 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         margin: [0, 5, 0, 5]
                     };
                 }
+                
+                const bgColor = element.style.backgroundColor;
+                const textColor = element.style.color;
+                
+                if (bgColor || textColor) {
+                    if (Array.isArray(ret)) {
+                        return { text: ret, background: bgColor || undefined, color: textColor || undefined };
+                    } else if (typeof ret === 'object' && ret !== null) {
+                        if (bgColor) ret.background = bgColor;
+                        if (textColor) ret.color = textColor;
+                    } else if (typeof ret === 'string') {
+                        return { text: ret, background: bgColor || undefined, color: textColor || undefined };
+                    }
+                }
+                
                 return ret;
             }
         });
@@ -208,8 +235,19 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     );
                     
                     if (!isHeader) {
-                        // Preserve left margin for indentation (lists), but squish top and bottom
-                        newNode.margin = [newNode.margin[0] || 0, 1, newNode.margin[2] || 0, 2];
+                        const textContent = Array.isArray(newNode.text) 
+                            ? newNode.text.map((t: any) => typeof t === 'string' ? t : (t?.text || '')).join('')
+                            : (typeof newNode.text === 'string' ? newNode.text : '');
+                        
+                        const isBlankLine = !newNode.image && !newNode.svg && textContent.trim() === '';
+                        
+                        if (isBlankLine) {
+                            // give it some height to act like an empty line
+                            newNode.margin = [newNode.margin[0] || 0, 5, newNode.margin[2] || 0, 5];
+                        } else {
+                            // Preserve left margin for indentation (lists), but squish top and bottom
+                            newNode.margin = [newNode.margin[0] || 0, 1, newNode.margin[2] || 0, 2];
+                        }
                     }
                 }
 
@@ -304,8 +342,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 h5: { fontSize: 13, bold: true, marginBottom: 0.5 },
                 h6: { fontSize: 12, bold: true, marginBottom: 0.5 },
                 quote: { italic: true },
-                small: { fontSize: 10 },
-                mark: { background: 'yellow' }
+                small: { fontSize: 10 }
             }
         };
 

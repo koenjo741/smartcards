@@ -111,81 +111,35 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
             }
 
-        const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
-        const PAGE_MARGIN_LR = 15; // 15 points (roughly 0.5cm)
-        const PAGE_MARGIN_TB = 15;
-        
-        const styleProcessor = (el: HTMLElement, inheritedColor: string | null = null) => {
-            // Get effective color: either inline style, or inherited from parent
-            const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
-            const textColor = el.style.color || inheritedColor;
-            
-            const isHighlight = !!bgColor;
-            
-            // Clean up original styles to prevent html-to-pdfmake from picking up browser-specific garbage
-            el.removeAttribute('style');
-            
-            // Re-apply only what we need for the PDF engine
-            if (isHighlight) {
-                el.style.backgroundColor = bgColor;
-            } else if (el.tagName === 'MARK') {
-                el.style.backgroundColor = '#4ade80';
-            }
-            
-            if (textColor) {
-                el.style.color = textColor;
-            }
-            
-            // Recursively process children, passing down the current text color
-            Array.from(el.children).forEach(child => styleProcessor(child as HTMLElement, textColor));
-            
-            if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
-        };
-
-        const prepareHtmlForPdf = async (html: string) => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-
-            // Handle images
-            const images = Array.from(doc.querySelectorAll('img'));
-            for (const img of images) {
-                const src = img.getAttribute('src');
-                if (src) {
-                    try {
-                        const imgEl = await loadImage(src);
-                        const canvas = document.createElement('canvas');
-                        canvas.width = imgEl.width;
-                        canvas.height = imgEl.height;
-                        const ctx = canvas.getContext('2d');
-                        ctx?.drawImage(imgEl, 0, 0);
-                        img.setAttribute('src', canvas.toDataURL('image/png'));
-                        
-                        const MAX_WIDTH = PAGE_WIDTH - (PAGE_MARGIN_LR * 2) - 40;
-                        if (imgEl.width > MAX_WIDTH) {
-                            img.setAttribute('width', String(MAX_WIDTH));
-                        } else if (imgEl.width > 0) {
-                            img.setAttribute('width', String(imgEl.width));
-                        }
-                        img.removeAttribute('height'); // Let pdfmake handle aspect ratio
-                    } catch (err) {
-                        console.warn('Failed to load image for PDF export:', src, err);
-                        img.remove();
-                    }
-                } else {
-                    img.remove();
-                }
-            }
-
             // Strip all problematic styles but preserve highlighters and text colors
+            const styleProcessor = (el: HTMLElement, inheritedColor: string | null = null) => {
+                const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
+                const textColor = el.style.color || inheritedColor;
+                const isHighlight = !!bgColor;
+                el.removeAttribute('style');
+                if (isHighlight) {
+                    el.style.backgroundColor = bgColor;
+                } else if (el.tagName === 'MARK') {
+                    el.style.backgroundColor = '#4ade80';
+                }
+                if (textColor) el.style.color = textColor;
+                Array.from(el.children).forEach(child => styleProcessor(child as HTMLElement, textColor));
+                if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
+            };
             styleProcessor(doc.body);
 
-            // Clean empty tags (only if they genuinely lack layout or text content - beware of structural spaces)
+            // Clean empty tags
             doc.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6').forEach(el => {
                 if (!el.textContent && !el.querySelector('img, hr, br, table, span')) el.remove();
             });
 
             return doc.body.innerHTML;
         };
+
+        const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
+        const PAGE_MARGIN_LR = 15;
+        const PAGE_MARGIN_TB = 15;
+
 
         // Aggressively replace newlines \n with spaces to prevent html-to-pdfmake from misinterpreting them as hard breaks
         // and replace unsupported Unicode arrows with ASCII equivalents to ensure correct PDF rendering

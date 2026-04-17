@@ -181,19 +181,9 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
                 
                 const bgColor = rgbToHex(element.style.backgroundColor) || rgbToHex(element.getAttribute('data-color'));
-                let textColor = rgbToHex(element.style.color);
+                const textColor = rgbToHex(element.style.color);
                 
-                // Contrast color only as fallback if background exists but no text color was explicitly set
-                let contrastColor: string | null = null;
-                if (bgColor && !textColor) {
-                    const r = parseInt(bgColor.slice(1, 3), 16);
-                    const g = parseInt(bgColor.slice(3, 5), 16);
-                    const b = parseInt(bgColor.slice(5, 7), 16);
-                    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-                    contrastColor = (yiq >= 128) ? '#000000' : '#ffffff';
-                }
-                
-                if (bgColor || textColor || contrastColor) {
+                if (bgColor || textColor) {
                     const applyStylesDeep = (node: any): any => {
                         if (Array.isArray(node)) {
                             return node.map(applyStylesDeep);
@@ -202,7 +192,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             const leafNode: any = { text: node };
                             if (bgColor) leafNode.background = bgColor;
                             if (textColor) leafNode.color = textColor;
-                            else if (contrastColor) leafNode.color = contrastColor;
                             return leafNode;
                         }
                         if (typeof node === 'object' && node !== null) {
@@ -212,8 +201,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             } else {
                                 // Preserve existing inner styles by only setting if missing
                                 if (bgColor && !result.background) result.background = bgColor;
-                                if (textColor) result.color = textColor; // Explicit text color always wins
-                                else if (contrastColor && !result.color) result.color = contrastColor;
+                                if (textColor) result.color = textColor; // Explicit text color wins
                             }
                             return result;
                         }

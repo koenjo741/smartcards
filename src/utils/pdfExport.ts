@@ -157,6 +157,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const PAGE_MARGIN_TB = 56.7; // 2.0 cm
         const PAGE_MARGIN_LR = 42.5; // 1.5 cm
         const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
+        
+        const dynamicStyles: any = {};
 
         // 2. Convert HTML to pdfMake content
         let pdfContent = (htmlToPdfMake as any)(cleanedHtml, {
@@ -178,34 +180,23 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     };
                 }
                 
-                const bgColor = rgbToHex(element.style.backgroundColor);
+                const bgColor = rgbToHex(element.style.backgroundColor) || rgbToHex(element.getAttribute('data-color'));
                 const textColor = rgbToHex(element.style.color);
                 
                 if (bgColor || textColor) {
-                    const applyStylesDeep = (node: any): any => {
-                        if (Array.isArray(node)) {
-                            return node.map(applyStylesDeep);
-                        }
-                        if (typeof node === 'string') {
-                            const styledNode: any = { text: node };
-                            if (bgColor) styledNode.background = bgColor;
-                            if (textColor) styledNode.color = textColor;
-                            return styledNode;
-                        }
-                        if (typeof node === 'object' && node !== null) {
-                            const result = { ...node };
-                            if (result.text && Array.isArray(result.text)) {
-                                result.text = result.text.map(applyStylesDeep);
-                                delete result.background;
-                            } else {
-                                if (bgColor && !result.background) result.background = bgColor;
-                                if (textColor && !result.color) result.color = textColor;
-                            }
-                            return result;
-                        }
-                        return node;
-                    };
-                    return applyStylesDeep(ret);
+                    const styleKey = `dyn_${bgColor?.replace('#', '') || 'bg'}_${textColor?.replace('#', '') || 'fg'}`;
+                    dynamicStyles[styleKey] = {};
+                    if (bgColor) dynamicStyles[styleKey].background = bgColor;
+                    if (textColor) dynamicStyles[styleKey].color = textColor;
+                    
+                    if (Array.isArray(ret)) {
+                        return { text: ret, style: [styleKey] };
+                    } else if (typeof ret === 'object' && ret !== null) {
+                        ret.style = ret.style ? (Array.isArray(ret.style) ? [...ret.style, styleKey] : [ret.style, styleKey]) : [styleKey];
+                        return ret;
+                    } else if (typeof ret === 'string') {
+                        return { text: ret, style: [styleKey] };
+                    }
                 }
                 
                 return ret;
@@ -382,7 +373,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 h5: { fontSize: 13, bold: true, marginBottom: 0.5 },
                 h6: { fontSize: 12, bold: true, marginBottom: 0.5 },
                 quote: { italic: true },
-                small: { fontSize: 10 }
+                small: { fontSize: 10 },
+                ...dynamicStyles
             }
         };
 

@@ -113,10 +113,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
             // Strip all problematic styles but preserve highlighters and text colors
             doc.querySelectorAll('*').forEach((el: any) => {
-                const bgColor = el.style.backgroundColor;
+                const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
                 const textColor = el.style.color;
                 
-                const isHighlight = bgColor && (bgColor.includes('yellow') || bgColor.includes('green') || bgColor.includes('rgba') || bgColor.includes('rgb') || bgColor.startsWith('#'));
+                const isHighlight = !!bgColor;
                 
                 el.removeAttribute('style');
                 
@@ -318,7 +318,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
+            pageMargins: [PAGE_MARGIN_LR, 42.5, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
             footer: (currentPage: number, pageCount: number) => {
                 return {
                     stack: [

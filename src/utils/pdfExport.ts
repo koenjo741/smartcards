@@ -35,6 +35,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const now = new Date();
         const exportTimeText = `Download vom ${now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
 
+        const rgbToHex = (colorStr: string): string => {
+            if (!colorStr) return colorStr;
+            const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+            if (match) {
+                return '#' + match.slice(1, 4).map(x => parseInt(x).toString(16).padStart(2, '0')).join('');
+            }
+            return colorStr;
+        };
+
         // 1. Prepare and Sanitize HTML
         const prepareHtmlForPdf = async (htmlInput: string) => {
             const parser = new DOMParser();
@@ -145,7 +154,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero width spaces
             .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ''); // strip remaining complex emojis
         const cleanedHtml = await prepareHtmlForPdf(normalizedHtml);
-        const PAGE_MARGIN = 56.7; // 2.0 cm
+        const PAGE_MARGIN_TB = 56.7; // 2.0 cm
+        const PAGE_MARGIN_LR = 42.5; // 1.5 cm
         const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
 
         // 2. Convert HTML to pdfMake content
@@ -163,13 +173,13 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             customTag: ({ element, ret }: any) => {
                 if (element.nodeName === 'HR') {
                     return {
-                        canvas: [{ type: 'line', x1: 0, y1: 5, x2: PAGE_WIDTH - (PAGE_MARGIN * 2), y2: 5, lineWidth: 0.2, lineColor: '#cccccc' }],
+                        canvas: [{ type: 'line', x1: 0, y1: 5, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 5, lineWidth: 0.2, lineColor: '#cccccc' }],
                         margin: [0, 5, 0, 5]
                     };
                 }
                 
-                const bgColor = element.style.backgroundColor;
-                const textColor = element.style.color;
+                const bgColor = rgbToHex(element.style.backgroundColor);
+                const textColor = rgbToHex(element.style.color);
                 
                 if (bgColor || textColor) {
                     if (Array.isArray(ret)) {
@@ -266,6 +276,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     newNode.stack = groupInlineElements(newNode.stack).map(sanitizePdfmakeTree);
                 }
                 if (newNode.table) {
+                    newNode.fontSize = 9;
                     if (newNode.table.body) {
                         newNode.table.body = sanitizePdfmakeTree(newNode.table.body);
                         
@@ -277,6 +288,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                                 styledCell.fillColor = '#1e293b'; // Slate 800
                                 styledCell.color = '#ffffff';     // White
                                 styledCell.bold = true;
+                                styledCell.fontSize = 11;
                                 return styledCell;
                             });
                         }
@@ -306,15 +318,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN],
+            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
             footer: (currentPage: number, pageCount: number) => {
                 return {
                     stack: [
                         {
-                            canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (PAGE_MARGIN * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
-                            margin: [PAGE_MARGIN, 0, PAGE_MARGIN, 0]
+                            canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
+                            margin: [PAGE_MARGIN_LR, 0, PAGE_MARGIN_LR, 0]
                         },
-                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 10, margin: [0, 20, PAGE_MARGIN, 0] }
+                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 10, margin: [0, 20, PAGE_MARGIN_LR, 0] }
                     ]
                 };
             },
@@ -324,7 +336,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         { text: safeTitle, fontSize: 18.5, bold: true, margin: [0, 0, 0, 0] },
                         { text: exportTimeText, fontSize: 11, color: '#CAD5E2', margin: [0, 4, 0, 4] },
                         {
-                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
+                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
                             margin: [0, 0, 0, 15]
                         }
                     ]

@@ -132,7 +132,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero width spaces
             .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ''); // strip remaining complex emojis
         const cleanedHtml = await prepareHtmlForPdf(normalizedHtml);
-        const MARGIN_2_5_CM = 70.875;
+        const PAGE_MARGIN = 56.7; // 2.0 cm
         const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
 
         // 2. Convert HTML to pdfMake content
@@ -150,7 +150,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             customTag: ({ element, ret }: any) => {
                 if (element.nodeName === 'HR') {
                     return {
-                        canvas: [{ type: 'line', x1: 0, y1: 5, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 5, lineWidth: 0.2, lineColor: '#cccccc' }],
+                        canvas: [{ type: 'line', x1: 0, y1: 5, x2: PAGE_WIDTH - (PAGE_MARGIN * 2), y2: 5, lineWidth: 0.2, lineColor: '#cccccc' }],
                         margin: [0, 5, 0, 5]
                     };
                 }
@@ -233,10 +233,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         vLineWidth: function () { return 1; },
                         hLineColor: function () { return '#e2e8f0'; }, // Slate 200 light border
                         vLineColor: function () { return '#e2e8f0'; },
-                        paddingLeft: function() { return 8; },
-                        paddingRight: function() { return 8; },
-                        paddingTop: function() { return 6; },
-                        paddingBottom: function() { return 6; }
+                        paddingLeft: function() { return 4; },
+                        paddingRight: function() { return 4; },
+                        paddingTop: function() { return 3; },
+                        paddingBottom: function() { return 3; }
                     };
                 }
                 if (newNode.ul) newNode.ul = sanitizePdfmakeTree(newNode.ul);
@@ -252,15 +252,15 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM],
+            pageMargins: [PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN, PAGE_MARGIN],
             footer: (currentPage: number, pageCount: number) => {
                 return {
                     stack: [
                         {
-                            canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
-                            margin: [MARGIN_2_5_CM, 0, MARGIN_2_5_CM, 0]
+                            canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (PAGE_MARGIN * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
+                            margin: [PAGE_MARGIN, 0, PAGE_MARGIN, 0]
                         },
-                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 10, margin: [0, 20, MARGIN_2_5_CM, 0] }
+                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 10, margin: [0, 20, PAGE_MARGIN, 0] }
                     ]
                 };
             },
@@ -270,7 +270,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                         { text: safeTitle, fontSize: 18.5, bold: true, margin: [0, 0, 0, 0] },
                         { text: exportTimeText, fontSize: 11, color: '#CAD5E2', margin: [0, 4, 0, 4] },
                         {
-                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (MARGIN_2_5_CM * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
+                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
                             margin: [0, 0, 0, 15]
                         }
                     ]

@@ -27,7 +27,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
         };
 
-        const safeTitle = (title || 'Export').toString().trim() || 'Unbenannt';
+        const rawTitle = (title || 'Export').toString().trim() || 'Unbenannt';
+        const safeTitle = rawTitle
+            .replace(/✅/g, '[OK]')
+            .replace(/[\u200B-\u200D\uFEFF]/g, '')
+            .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
         const now = new Date();
         const exportTimeText = `Download vom ${now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
 
@@ -207,7 +211,34 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 if (newNode.stack) {
                     newNode.stack = groupInlineElements(newNode.stack).map(sanitizePdfmakeTree);
                 }
-                if (newNode.table && newNode.table.body) newNode.table.body = sanitizePdfmakeTree(newNode.table.body);
+                if (newNode.table) {
+                    if (newNode.table.body) {
+                        newNode.table.body = sanitizePdfmakeTree(newNode.table.body);
+                        
+                        // Apply styling to table header row (row index 0)
+                        if (newNode.table.body.length > 0 && Array.isArray(newNode.table.body[0])) {
+                            newNode.table.body[0] = newNode.table.body[0].map((cell: any) => {
+                                if (!cell) return cell;
+                                const styledCell = typeof cell === 'object' ? { ...cell } : { text: cell };
+                                styledCell.fillColor = '#1e293b'; // Slate 800
+                                styledCell.color = '#ffffff';     // White
+                                styledCell.bold = true;
+                                return styledCell;
+                            });
+                        }
+                    }
+                    
+                    newNode.layout = {
+                        hLineWidth: function () { return 1; },
+                        vLineWidth: function () { return 1; },
+                        hLineColor: function () { return '#e2e8f0'; }, // Slate 200 light border
+                        vLineColor: function () { return '#e2e8f0'; },
+                        paddingLeft: function() { return 8; },
+                        paddingRight: function() { return 8; },
+                        paddingTop: function() { return 6; },
+                        paddingBottom: function() { return 6; }
+                    };
+                }
                 if (newNode.ul) newNode.ul = sanitizePdfmakeTree(newNode.ul);
                 if (newNode.ol) newNode.ol = sanitizePdfmakeTree(newNode.ol);
                 return newNode;

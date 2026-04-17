@@ -182,14 +182,30 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 const textColor = rgbToHex(element.style.color);
                 
                 if (bgColor || textColor) {
-                    if (Array.isArray(ret)) {
-                        return { text: ret, background: bgColor || undefined, color: textColor || undefined };
-                    } else if (typeof ret === 'object' && ret !== null) {
-                        if (bgColor) ret.background = bgColor;
-                        if (textColor) ret.color = textColor;
-                    } else if (typeof ret === 'string') {
-                        return { text: ret, background: bgColor || undefined, color: textColor || undefined };
-                    }
+                    const applyStylesDeep = (node: any): any => {
+                        if (Array.isArray(node)) {
+                            return node.map(applyStylesDeep);
+                        }
+                        if (typeof node === 'string') {
+                            const styledNode: any = { text: node };
+                            if (bgColor) styledNode.background = bgColor;
+                            if (textColor) styledNode.color = textColor;
+                            return styledNode;
+                        }
+                        if (typeof node === 'object' && node !== null) {
+                            const result = { ...node };
+                            if (result.text && Array.isArray(result.text)) {
+                                result.text = result.text.map(applyStylesDeep);
+                                delete result.background;
+                            } else {
+                                if (bgColor && !result.background) result.background = bgColor;
+                                if (textColor && !result.color) result.color = textColor;
+                            }
+                            return result;
+                        }
+                        return node;
+                    };
+                    return applyStylesDeep(ret);
                 }
                 
                 return ret;

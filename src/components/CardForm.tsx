@@ -272,9 +272,11 @@ export const CardForm: React.FC<CardFormProps> = ({
 
     const handleExportPdf = async () => {
         if (!content) return;
+        const confirmResult = window.confirm('Möchten Sie das PDF im Querformat (Landscape) erstellen?\n\nKlicken Sie "OK" für Querformat, oder "Abbrechen" für Hochformat (Portrait).');
+        const orientation = confirmResult ? 'landscape' : 'portrait';
         setIsExportingPdf(true);
         try {
-            await exportCardToPdf(content, title || 'Card_Content');
+            await exportCardToPdf(content, title || 'Card_Content', orientation);
         } catch (error) {
             console.error('Export failed:', error);
             alert('Export fehlgeschlagen. Bitte versuchen Sie es erneut.');
@@ -325,7 +327,7 @@ export const CardForm: React.FC<CardFormProps> = ({
                                 onClick={handleExportPdf}
                                 disabled={isExportingPdf || !content}
                                 className="flex items-center space-x-1 text-xs text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-500/5 px-2 py-1 rounded border border-blue-500/20"
-                                title="Inhalt als PDF exportieren (A4 Portrait)"
+                                title="Inhalt als PDF exportieren"
                             >
                                 {isExportingPdf ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />

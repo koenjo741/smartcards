@@ -6,7 +6,7 @@
  * - Lazy loaded for performance.
  * - Uses CDN-hosted fonts to avoid production bundling issues with vfs_fonts.js.
  */
-export const exportCardToPdf = async (html: string, title: string = 'Card_Export'): Promise<void> => {
+export const exportCardToPdf = async (html: string, title: string = 'Card_Export', orientation: 'portrait' | 'landscape' = 'portrait'): Promise<void> => {
     try {
         // 0. Lazy load core libraries
         const [pdfMakeModule, htmlToPdfMakeModule] = await Promise.all([
@@ -117,10 +117,16 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         };
 
         // Aggressively replace newlines \n with spaces to prevent html-to-pdfmake from misinterpreting them as hard breaks
-        const normalizedHtml = html.replace(/\n+/g, ' ');
+        // and replace unsupported Unicode arrows with ASCII equivalents to ensure correct PDF rendering
+        const normalizedHtml = html
+            .replace(/\n+/g, ' ')
+            .replace(/→/g, '->')
+            .replace(/←/g, '<-')
+            .replace(/&rarr;/ig, '->')
+            .replace(/&larr;/ig, '<-');
         const cleanedHtml = await prepareHtmlForPdf(normalizedHtml);
         const MARGIN_2_5_CM = 70.875;
-        const PAGE_WIDTH = 595.28;
+        const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
 
         // 2. Convert HTML to pdfMake content
         let pdfContent = (htmlToPdfMake as any)(cleanedHtml, {
@@ -211,6 +217,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         // 3. Define Doc Definition
         const docDefinition: any = {
             pageSize: 'A4',
+            pageOrientation: orientation,
             pageMargins: [MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM, MARGIN_2_5_CM],
             footer: (currentPage: number, pageCount: number) => {
                 return {

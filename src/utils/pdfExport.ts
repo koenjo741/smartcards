@@ -353,7 +353,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             pageOrientation: orientation,
             pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
             defaultStyle: {
-                font: 'Inter',
+                font: 'Roboto',
                 fontSize: 9,
                 color: '#334155',
                 lineHeight: 1.1

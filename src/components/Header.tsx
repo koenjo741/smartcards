@@ -5,6 +5,7 @@ import type { Project } from '../types';
 interface HeaderProps {
     selectedProject: Project | undefined;
     connectionError: boolean;
+    cloudStatus: 'idle' | 'loading' | 'synced' | 'error' | 'new';
     isSyncing: boolean;
     isGoogleAuthenticated: boolean;
     isStandalone: boolean;
@@ -17,6 +18,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
     selectedProject,
     connectionError,
+    cloudStatus,
     isSyncing,
     isGoogleAuthenticated,
     isStandalone,
@@ -42,15 +44,20 @@ export const Header: React.FC<HeaderProps> = ({
                         <span className="hidden md:inline text-gray-600">|</span>
 
                         {/* Dropbox Status */}
-                        {connectionError ? (
-                            <button onClick={onConnect} className="flex items-center space-x-1 text-yellow-500 font-bold text-[10px] md:text-xs bg-yellow-500/10 hover:bg-yellow-500/20 px-1.5 py-0.5 rounded animate-pulse cursor-pointer transition-colors" title="Click to reconnect">
+                        {connectionError || cloudStatus === 'error' ? (
+                            <button onClick={onConnect} className="flex items-center space-x-1 text-yellow-500 font-bold text-[10px] md:text-xs bg-yellow-500/10 hover:bg-yellow-500/20 px-1.5 py-0.5 rounded animate-pulse cursor-pointer transition-colors" title={cloudStatus === 'error' ? "Initial sync failed. Click to retry connection." : "Click to reconnect"}>
                                 <span>⚠️</span>
-                                <span>Dropbox: Disconnected</span>
+                                <span>{cloudStatus === 'error' ? 'Sync Blocked' : 'Dropbox: Disconnected'}</span>
                             </button>
                         ) : isSyncing ? (
                             <div className="flex items-center space-x-1 text-blue-400 font-bold text-[10px] md:text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">
                                 <Loader2 className="w-3 h-3 animate-spin" />
                                 <span>Syncing...</span>
+                            </div>
+                        ) : cloudStatus === 'new' ? (
+                            <div className="flex items-center space-x-1 text-amber-400 font-bold text-[10px] md:text-xs bg-amber-500/10 px-1.5 py-0.5 rounded" title="Cloud file not found. A new one will be created on your next change.">
+                                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
+                                <span>Cloud: New Account</span>
                             </div>
                         ) : (
                             <div className="flex items-center space-x-1 text-blue-400 font-bold text-[10px] md:text-xs bg-blue-500/10 px-1.5 py-0.5 rounded">
@@ -60,6 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
                         )}
 
                         <span className="hidden md:inline text-gray-600">|</span>
+
 
                         {/* Google Calendar Status */}
                         {isGoogleAuthenticated ? (

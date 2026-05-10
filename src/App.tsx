@@ -170,6 +170,7 @@ function App() {
   const {
     isDropboxAuthenticated,
     isCloudLoaded,
+    cloudStatus,
     isSyncing,
     connectionError,
     connect,
@@ -231,7 +232,7 @@ function App() {
 
   const handleDropboxLoad = async () => {
     const result = await loadData();
-    if (result && result.data && result.data.projects && result.data.cards) {
+    if (result.type === 'success' && result.data && result.data.projects && result.data.cards) {
       loadDataStore(result.data);
       setIsSettingsOpen(false);
     }
@@ -492,6 +493,7 @@ function App() {
       <Header
         selectedProject={selectedProject}
         connectionError={connectionError}
+        cloudStatus={cloudStatus}
         isSyncing={isSyncing}
         isGoogleAuthenticated={isGoogleAuthenticated}
         isStandalone={isStandalone}

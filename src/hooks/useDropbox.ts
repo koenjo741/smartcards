@@ -31,6 +31,11 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 30000): Promise<T> => 
     });
 };
 
+export type LoadResult =
+    | { type: 'success'; data: BackupData }
+    | { type: 'not_found' }
+    | { type: 'error'; error: any };
+
 export function useDropbox() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -178,8 +183,8 @@ export function useDropbox() {
     }, [dbx]);
 
     // Load Data (Download latest file)
-    const loadData = useCallback(async (): Promise<{ data: BackupData } | null> => {
-        if (!dbx) return null;
+    const loadData = useCallback(async (): Promise<LoadResult> => {
+        if (!dbx) return { type: 'error', error: 'Not authenticated' };
         setIsSyncing(true);
         try {
             const response = await dbx.filesDownload({ path: '/smartcards.json' });
@@ -187,10 +192,19 @@ export function useDropbox() {
             const text = await blob.text();
 
             setLastSynced(new Date());
-            return { data: JSON.parse(text) as BackupData };
-        } catch (error) {
+            return { type: 'success', data: JSON.parse(text) as BackupData };
+        } catch (error: any) {
+            const errorSummary = error?.error?.error_summary || '';
+            // 409 path/not_found or 404
+            if (error.status === 409 && errorSummary.includes('path/not_found')) {
+                return { type: 'not_found' };
+            }
+            if (error.status === 404) {
+                return { type: 'not_found' };
+            }
+
             console.error('Dropbox download error:', error);
-            return null;
+            return { type: 'error', error };
         } finally {
             setIsSyncing(false);
         }

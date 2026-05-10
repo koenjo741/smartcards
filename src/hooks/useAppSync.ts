@@ -11,6 +11,8 @@ interface UseAppSyncProps {
     loadDataStore: (data: { projects: Project[]; cards: Card[]; customColors?: string[] }) => void;
 }
 
+export type CloudStatus = 'idle' | 'loading' | 'synced' | 'error' | 'new';
+
 /**
  * Cloud-First Sync Hook.
  * 
@@ -35,18 +37,19 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         deleteFile,
     } = useDropbox();
 
-    const [isCloudLoaded, setIsCloudLoaded] = useState(false);
+    const [cloudStatus, setCloudStatus] = useState<CloudStatus>('idle');
     const isInitializingRef = useRef(false);
     const pendingSaveRef = useRef(false);
     const lastSavedHashRef = useRef('');
 
     // --- 1. Initial Load: Cloud → Local ---
     useEffect(() => {
-        if (!isDropboxAuthenticated || isCloudLoaded || isInitializingRef.current) return;
+        if (!isDropboxAuthenticated || cloudStatus !== 'idle' || isInitializingRef.current) return;
         isInitializingRef.current = true;
+        setCloudStatus('loading');
 
         loadData().then((result) => {
-            if (result?.data?.projects && result?.data?.cards) {
+            if (result.type === 'success') {
                 const normalized = normalizeBackupData(result.data);
                 loadDataStore(normalized);
                 lastSavedHashRef.current = stableStringify({
@@ -54,18 +57,29 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     cards: normalized.cards,
                     customColors: normalized.customColors,
                 });
+                setCloudStatus('synced');
+            } else if (result.type === 'not_found') {
+                // File doesn't exist yet - this is a NEW user.
+                // We set hash to current state so we don't auto-save mock data immediately.
+                lastSavedHashRef.current = stableStringify({ projects, cards, customColors });
+                setCloudStatus('new');
+            } else {
+                // Network error or server error
+                console.warn('Sync: Initial load failed. Auto-save is BLOCKED to prevent data loss.');
+                setCloudStatus('error');
             }
-            setIsCloudLoaded(true);
         }).catch(err => {
             console.error('Sync: Initial load error', err);
-            setIsCloudLoaded(true); // Let user work offline
+            setCloudStatus('error');
             isInitializingRef.current = false;
         });
-    }, [isDropboxAuthenticated, isCloudLoaded, loadData, loadDataStore]);
+    }, [isDropboxAuthenticated, cloudStatus, loadData, loadDataStore, projects, cards, customColors]);
 
     // --- 2. Auto-Save: Local → Cloud (3s debounce, overwrite) ---
     useEffect(() => {
-        if (!isDropboxAuthenticated || !isCloudLoaded) return;
+        // SAFETY: Only allow save if we are synced with cloud OR it's confirmed as a new account.
+        // If status is 'error', we block saving to prevent overwriting an unreadable cloud file.
+        if (!isDropboxAuthenticated || (cloudStatus !== 'synced' && cloudStatus !== 'new')) return;
         if (!projects || projects.length === 0) return;
 
         const data = { projects, cards, customColors };
@@ -92,16 +106,18 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
             if (success) {
                 lastSavedHashRef.current = stableStringify(data);
+                // If we were 'new', we are now 'synced'
+                if (cloudStatus === 'new') setCloudStatus('synced');
             }
             pendingSaveRef.current = false;
         }, 3000);
 
         return () => clearTimeout(timeoutId);
-    }, [projects, cards, customColors, isDropboxAuthenticated, isCloudLoaded, saveData]);
+    }, [projects, cards, customColors, isDropboxAuthenticated, cloudStatus, saveData]);
 
     // --- 3. Re-pull on visibility/focus (only if no pending save) ---
     useEffect(() => {
-        if (!isDropboxAuthenticated || !isCloudLoaded) return;
+        if (!isDropboxAuthenticated || cloudStatus !== 'synced') return;
 
         const handleVisibility = async () => {
             if (document.visibilityState !== 'visible') return;
@@ -109,7 +125,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
 
             try {
                 const result = await loadData();
-                if (result?.data?.projects && result?.data?.cards) {
+                if (result.type === 'success') {
                     const normalized = normalizeBackupData(result.data);
                     const cloudHash = stableStringify({
                         projects: normalized.projects,
@@ -135,7 +151,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('online', handleVisibility);
         };
-    }, [isDropboxAuthenticated, isCloudLoaded, isSyncing, loadData, loadDataStore]);
+    }, [isDropboxAuthenticated, cloudStatus, isSyncing, loadData, loadDataStore]);
 
     // --- 4. Unsaved Changes Warning ---
     useEffect(() => {
@@ -152,11 +168,13 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     // Derived state
     const currentHash = stableStringify({ projects, cards, customColors });
     const isCloudSynced = currentHash === lastSavedHashRef.current && !isSyncing;
+    const isCloudLoaded = cloudStatus === 'synced' || cloudStatus === 'new' || cloudStatus === 'error'; // Error allows UI to show but with warning
 
     return {
         isDropboxAuthenticated,
         isAuthChecking,
         isCloudLoaded,
+        cloudStatus,
         isSyncing,
         connectionError,
         connect,

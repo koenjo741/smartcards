@@ -13,6 +13,7 @@ export interface Project {
   color: string;
   isGantt?: boolean;
   gantt?: GanttProjectProps;
+  status?: 'ACTIVE' | 'ARCHIVE';
 }
 
 export interface Attachment {

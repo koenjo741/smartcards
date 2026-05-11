@@ -17,6 +17,8 @@ interface LayoutProps {
     // New View Props
     currentView: 'list' | 'timeline' | 'gantt';
     onViewChange: (view: 'list' | 'timeline' | 'gantt') => void;
+    viewFilter: 'ACTIVE' | 'ARCHIVE' | 'ALL';
+    onViewFilterChange: (filter: 'ACTIVE' | 'ARCHIVE' | 'ALL') => void;
 }
 
 export const Layout: React.FC<LayoutProps> = ({
@@ -32,7 +34,9 @@ export const Layout: React.FC<LayoutProps> = ({
     searchQuery,
     onSearchChange,
     currentView,
-    onViewChange
+    onViewChange,
+    viewFilter,
+    onViewFilterChange
 }) => {
     // Mobile Sidebar State
     const [isSidebarOpen, setSidebarOpen] = React.useState(false);
@@ -77,6 +81,8 @@ export const Layout: React.FC<LayoutProps> = ({
                 onClose={() => setSidebarOpen(false)}
                 currentView={currentView}
                 onViewChange={onViewChange}
+                viewFilter={viewFilter}
+                onViewFilterChange={onViewFilterChange}
             />
             <main className="flex-1 overflow-hidden bg-slate-950 p-4 md:p-8">
                 <div className="w-full mx-auto h-full flex flex-col">

@@ -18,6 +18,8 @@ interface SidebarProps {
     // View Mode
     currentView: 'list' | 'timeline' | 'gantt';
     onViewChange: (view: 'list' | 'timeline' | 'gantt') => void;
+    viewFilter: 'ACTIVE' | 'ARCHIVE' | 'ALL';
+    onViewFilterChange: (filter: 'ACTIVE' | 'ARCHIVE' | 'ALL') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -33,7 +35,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     isOpen,
     onClose,
     currentView,
-    onViewChange
+    onViewChange,
+    viewFilter,
+    onViewFilterChange
 }) => {
     return (
         <>
@@ -59,16 +63,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                     <button
                         onClick={() => {
+                            if (currentView === 'list' && selectedProjectId === null) {
+                                // Toggle ACTIVE <-> ARCHIVE if already on "All" view
+                                onViewFilterChange(viewFilter === 'ACTIVE' ? 'ARCHIVE' : 'ACTIVE');
+                            } else {
+                                onViewChange('list');
+                                onSelectProject(null);
+                            }
+                        }}
+                        onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            onViewFilterChange('ALL');
                             onViewChange('list');
                             onSelectProject(null);
                         }}
-                        className={`w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-md transition-all ${currentView === 'list' && selectedProjectId === null
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md transition-all group ${currentView === 'list' && selectedProjectId === null
                             ? 'bg-blue-600 text-white shadow-md' // Active: Full Blue
                             : 'bg-slate-800 text-gray-300 hover:bg-slate-700 hover:text-white' // Inactive: Dark Card
                             }`}
+                        title={viewFilter === 'ALL' ? "Click to toggle Active/Archive" : "Double-click for All Projects"}
                     >
-                        <Layers className="w-4 h-4" />
-                        <span>All Projects</span>
+                        <div className="flex items-center space-x-3">
+                            <Layers className="w-4 h-4" />
+                            <span>
+                                {viewFilter === 'ACTIVE' ? 'Active View' :
+                                    viewFilter === 'ARCHIVE' ? 'Archive View' :
+                                        'Full View'}
+                            </span>
+                        </div>
+                        {currentView === 'list' && selectedProjectId === null && (
+                            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded uppercase font-bold tracking-tighter opacity-70 group-hover:opacity-100">
+                                {viewFilter}
+                            </span>
+                        )}
                     </button>
 
                     {/* Desktop-Only Timeline Button */}

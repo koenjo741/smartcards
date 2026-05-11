@@ -39,6 +39,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(''); // New Search State
   const [viewMode, setViewMode] = useState<'list' | 'timeline' | 'gantt'>('list');
+  const [viewFilter, setViewFilter] = useState<'ACTIVE' | 'ARCHIVE' | 'ALL'>('ACTIVE');
   const [googleSyncStatus, setGoogleSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error' | 'deleted'>('idle');
 
   // Confirmation State
@@ -433,7 +434,21 @@ function App() {
 
   const filteredCards = (selectedProjectId
     ? cards.filter(card => card.projectIds.includes(selectedProjectId))
-    : cards)
+    : cards.filter(card => {
+      if (viewFilter === 'ALL') return true;
+
+      const cardProjects = projects.filter(p => card.projectIds.includes(p.id));
+
+      if (viewFilter === 'ACTIVE') {
+        // Unassigned cards go to ACTIVE
+        if (card.projectIds.length === 0) return true;
+        // Show if it belongs to at least one ACTIVE project OR if it belongs to TODO
+        return cardProjects.some(p => (p.status !== 'ARCHIVE') || p.name === 'TODO');
+      } else {
+        // ARCHIVE: Show if it belongs to at least one ARCHIVE project
+        return cardProjects.some(p => p.status === 'ARCHIVE');
+      }
+    }))
     .filter(card => matchesSearch(card, searchQuery)) // Apply search filter
     .sort((a, b) => {
       if (sortOption === 'alpha') {
@@ -453,6 +468,15 @@ function App() {
 
   // Filter TODO card out of standard list
   const standardCards = filteredCards.filter(c => !todoCard || c.id !== todoCard.id);
+
+  // Filter projects for sidebar
+  const filteredSidebarProjects = projects.filter(p => {
+    if (viewFilter === 'ALL') return true;
+    if (p.name === 'TODO') return true;
+    if (viewFilter === 'ACTIVE') return p.status !== 'ARCHIVE';
+    if (viewFilter === 'ARCHIVE') return p.status === 'ARCHIVE';
+    return true;
+  });
 
   // If not authenticated, but we have local data, we STILL show the app (offline mode)
   // We only show EmptyState if we have NO DATA and NO AUTH
@@ -475,7 +499,7 @@ function App() {
 
   return (
     <Layout
-      projects={projects}
+      projects={filteredSidebarProjects}
       onAddProject={handleOpenNewProject}
       selectedProjectId={selectedProjectId}
       onSelectProject={handleProjectSelect}
@@ -487,6 +511,8 @@ function App() {
       onSearchChange={setSearchQuery}
       currentView={viewMode}
       onViewChange={setViewMode}
+      viewFilter={viewFilter}
+      onViewFilterChange={setViewFilter}
     >
 
       {/* ... Header ... */}
@@ -747,6 +773,7 @@ function App() {
         projects={projects}
         onReorderProjects={reorderProjects}
         onDeleteProject={deleteProject}
+        onUpdateProject={updateProject}
       />
 
       <ConfirmModal

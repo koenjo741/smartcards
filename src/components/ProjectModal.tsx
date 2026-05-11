@@ -29,16 +29,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     const [name, setName] = useState('');
     const [color, setColor] = useState(COLORS[0]);
     const [isGantt, setIsGantt] = useState(false);
+    const [status, setStatus] = useState<'ACTIVE' | 'ARCHIVE'>('ACTIVE');
 
     useEffect(() => {
         if (initialData) {
             setName(initialData.name);
             setColor(initialData.color);
             setIsGantt(initialData.isGantt || false);
+            setStatus(initialData.status || 'ACTIVE');
         } else {
             setName('');
             setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
             setIsGantt(false);
+            setStatus('ACTIVE');
         }
     }, [initialData, isOpen]);
 
@@ -61,6 +64,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             color,
             isGantt,
             gantt: ganttProps,
+            status,
         } as Project);
         onClose();
     };
@@ -142,6 +146,30 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                             GANTT Projekt
                         </label>
                     </div>
+
+                    {name !== 'TODO' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Status
+                            </label>
+                            <div className="flex bg-slate-900 rounded-md p-1 border border-gray-700">
+                                <button
+                                    type="button"
+                                    onClick={() => setStatus('ACTIVE')}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded transition-all ${status === 'ACTIVE' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    ACTIVE
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setStatus('ARCHIVE')}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded transition-all ${status === 'ARCHIVE' ? 'bg-amber-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300'}`}
+                                >
+                                    ARCHIVE
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex justify-end pt-4 space-x-2">
                         <button

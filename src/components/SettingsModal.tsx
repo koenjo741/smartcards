@@ -17,6 +17,7 @@ interface SettingsModalProps {
     projects: Project[];
     onReorderProjects: (projects: Project[]) => void;
     onDeleteProject: (pk: string) => void;
+    onUpdateProject: (project: Project) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -32,7 +33,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onLoad,
     projects,
     onReorderProjects,
-    onDeleteProject
+    onDeleteProject,
+    onUpdateProject
 }) => {
     if (!isOpen) return null;
 
@@ -89,6 +91,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {p.name !== 'TODO' && (
                                             <>
+                                                <button
+                                                    onClick={() => onUpdateProject({ ...p, status: p.status === 'ARCHIVE' ? 'ACTIVE' : 'ARCHIVE' })}
+                                                    className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-colors ${p.status === 'ARCHIVE'
+                                                            ? 'bg-amber-600/20 border-amber-500/50 text-amber-500 hover:bg-amber-600/40'
+                                                            : 'bg-blue-600/20 border-blue-500/50 text-blue-400 hover:bg-blue-600/40'
+                                                        }`}
+                                                    title="Toggle Active/Archive"
+                                                >
+                                                    {p.status === 'ARCHIVE' ? 'ARCHIVE' : 'ACTIVE'}
+                                                </button>
+                                                <div className="w-px h-4 bg-gray-800 mx-1"></div>
                                                 <button
                                                     onClick={() => moveProject(index, 'up')}
                                                     disabled={index === 0}

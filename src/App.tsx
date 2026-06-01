@@ -182,6 +182,7 @@ function App() {
     userName,
     isCloudSynced,
     forceSave,
+    forceDownload,
   } = useAppSync({
     projects,
     cards,
@@ -233,9 +234,8 @@ function App() {
 
 
   const handleDropboxLoad = async () => {
-    const result = await loadData();
-    if (result.type === 'success' && result.data && result.data.projects && result.data.cards) {
-      loadDataStore(result.data);
+    const result = await forceDownload();
+    if (result.success) {
       setIsSettingsOpen(false);
     }
   };

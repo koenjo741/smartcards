@@ -180,6 +180,38 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         return res;
     }, [projects, cards, customColors, isDropboxAuthenticated, saveData, cloudStatus]);
 
+    /**
+     * Force Download: pulls the latest cloud file and overwrites local state.
+     * Critically, it also updates lastSavedHashRef to match the downloaded data,
+     * preventing the 3-second auto-save debounce from immediately re-uploading
+     * the old local data over the freshly downloaded cloud data.
+     */
+    const forceDownload = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+        if (!isDropboxAuthenticated) return { success: false, error: 'not_authenticated' };
+        try {
+            const result = await loadData();
+            if (result.type === 'success') {
+                const normalized = normalizeBackupData(result.data);
+                loadDataStore(normalized);
+                // CRITICAL: sync the hash so auto-save doesn't overwrite immediately
+                lastSavedHashRef.current = stableStringify({
+                    projects: normalized.projects,
+                    cards: normalized.cards,
+                    customColors: normalized.customColors,
+                });
+                setCloudStatus('synced');
+                return { success: true };
+            } else if (result.type === 'not_found') {
+                return { success: false, error: 'not_found' };
+            } else {
+                return { success: false, error: 'load_error' };
+            }
+        } catch (err: any) {
+            console.error('Sync: forceDownload error', err);
+            return { success: false, error: err?.message ?? 'unknown' };
+        }
+    }, [isDropboxAuthenticated, loadData, loadDataStore]);
+
     // Derived state
     const currentHash = stableStringify({ projects, cards, customColors });
     const isCloudSynced = currentHash === lastSavedHashRef.current && !isSyncing;
@@ -200,5 +232,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         isCloudSynced,
         userName,
         forceSave,
+        forceDownload,
     };
 }

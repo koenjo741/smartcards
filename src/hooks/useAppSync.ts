@@ -13,6 +13,14 @@ interface UseAppSyncProps {
 
 export type CloudStatus = 'idle' | 'loading' | 'synced' | 'error' | 'new';
 
+export interface CloudMeta {
+    lastSaved: number | null;
+    appVersion: string | null;
+    cardCount: number;
+    projectCount: number;
+    checkedAt: Date;
+}
+
 /**
  * Cloud-First Sync Hook.
  * 
@@ -227,6 +235,31 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     const isCloudSynced = currentHash === lastSavedHashRef.current && !isSyncing;
     const isCloudLoaded = cloudStatus === 'synced' || cloudStatus === 'new' || cloudStatus === 'error'; // Error allows UI to show but with warning
 
+    /**
+     * Read cloud file metadata WITHOUT overwriting local state.
+     * Used by the diagnostic panel to compare cloud vs. local data.
+     */
+    const checkCloud = useCallback(async (): Promise<CloudMeta | { error: string }> => {
+        if (!isDropboxAuthenticated) return { error: 'not_authenticated' };
+        try {
+            const result = await loadData();
+            if (result.type === 'success') {
+                const raw = result.data as any;
+                return {
+                    lastSaved: raw._meta?.lastSaved ?? null,
+                    appVersion: raw._meta?.appVersion ?? null,
+                    cardCount: Array.isArray(raw.cards) ? raw.cards.length : 0,
+                    projectCount: Array.isArray(raw.projects) ? raw.projects.length : 0,
+                    checkedAt: new Date(),
+                };
+            }
+            if (result.type === 'not_found') return { error: 'not_found' };
+            return { error: 'load_error' };
+        } catch (err: any) {
+            return { error: err?.message ?? 'unknown' };
+        }
+    }, [isDropboxAuthenticated, loadData]);
+
     return {
         isDropboxAuthenticated,
         isAuthChecking,
@@ -243,5 +276,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         userName,
         forceSave,
         forceDownload,
+        checkCloud,
     };
 }

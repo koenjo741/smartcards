@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Save, FolderOpen, HardDrive, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Save, FolderOpen, HardDrive, CheckCircle, AlertCircle, X, Activity } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 import type { Project } from '../types';
+import type { CloudMeta } from '../hooks/useAppSync';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -14,6 +15,9 @@ interface SettingsModalProps {
     onDisconnect: () => void;
     onSave: () => void;
     onLoad: () => void;
+    onCheckCloud: () => Promise<CloudMeta | { error: string }>;
+    localCardCount: number;
+    localProjectCount: number;
     projects: Project[];
     onReorderProjects: (projects: Project[]) => void;
     onDeleteProject: (pk: string) => void;
@@ -31,6 +35,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onDisconnect,
     onSave,
     onLoad,
+    onCheckCloud,
+    localCardCount,
+    localProjectCount,
     projects,
     onReorderProjects,
     onDeleteProject,
@@ -51,6 +58,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     });
 
     const [syncStatus, setSyncStatus] = useState<'idle' | 'pending' | 'success' | 'error' | 'download_pending'>('idle');
+    const [cloudMeta, setCloudMeta] = useState<CloudMeta | { error: string } | null>(null);
+    const [isCheckingCloud, setIsCheckingCloud] = useState(false);
+
+    const handleCheckCloud = async () => {
+        setIsCheckingCloud(true);
+        setCloudMeta(null);
+        try {
+            const meta = await onCheckCloud();
+            setCloudMeta(meta);
+        } finally {
+            setIsCheckingCloud(false);
+        }
+    };
 
     const handleForceUpload = async () => {
         setSyncStatus('pending');
@@ -66,10 +86,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     const handleForceDownload = async () => {
         setSyncStatus('download_pending');
+        setCloudMeta(null);
         try {
             await onLoad();
+            // After download, show what's now in cloud
+            const meta = await onCheckCloud();
+            setCloudMeta(meta);
             setSyncStatus('success');
-            setTimeout(() => setSyncStatus('idle'), 3000);
+            setTimeout(() => setSyncStatus('idle'), 5000);
         } catch (err) {
             setSyncStatus('error');
             setTimeout(() => setSyncStatus('idle'), 5000);
@@ -271,6 +295,87 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </>
                         )}
                     </div>
+
+                    {/* ── Diagnostics ── */}
+                    {isAuthenticated && (
+                        <div className="space-y-3">
+                            <div className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                <Activity className="w-4 h-4" />
+                                Sync Diagnostics
+                            </div>
+
+                            {/* Local State */}
+                            <div className="bg-slate-950 rounded-lg border border-gray-800 p-3 space-y-1">
+                                <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">📱 Lokal (dieser Browser)</div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-gray-400">Cards</span>
+                                    <span className="font-mono text-gray-200">{localCardCount}</span>
+                                </div>
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-gray-400">Projects</span>
+                                    <span className="font-mono text-gray-200">{localProjectCount}</span>
+                                </div>
+                                {lastSynced && (
+                                    <div className="flex justify-between text-xs">
+                                        <span className="text-gray-400">Last Synced</span>
+                                        <span className="font-mono text-green-400">{lastSynced.toLocaleTimeString()}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Cloud State */}
+                            <button
+                                onClick={handleCheckCloud}
+                                disabled={isCheckingCloud}
+                                className="w-full flex items-center justify-center gap-2 p-2.5 bg-slate-800 hover:bg-slate-700 border border-gray-700 rounded-lg transition-all text-xs text-gray-300 disabled:opacity-50"
+                            >
+                                {isCheckingCloud ? (
+                                    <><span className="animate-spin inline-block w-3.5 h-3.5 border-t-2 border-blue-400 rounded-full" />Lese Dropbox...</>
+                                ) : (
+                                    <><Activity className="w-3.5 h-3.5 text-blue-400" />☁️ Dropbox-Datei prüfen (ohne Download)</>                                )}
+                            </button>
+
+                            {cloudMeta && (
+                                <div className={`bg-slate-950 rounded-lg border p-3 space-y-1 ${'error' in cloudMeta ? 'border-red-800' : 'border-blue-800/50'}`}>
+                                    {'error' in cloudMeta ? (
+                                        <div className="text-xs text-red-400 font-mono">❌ Fehler: {cloudMeta.error}</div>
+                                    ) : (
+                                        <>
+                                            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">☁️ Dropbox (smartcards.json)</div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Cards</span>
+                                                <span className={`font-mono font-bold ${
+                                                    cloudMeta.cardCount !== localCardCount ? 'text-amber-400' : 'text-green-400'
+                                                }`}>{cloudMeta.cardCount} {cloudMeta.cardCount !== localCardCount ? `≠ lokal (${localCardCount})` : '✓'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Projects</span>
+                                                <span className={`font-mono font-bold ${
+                                                    cloudMeta.projectCount !== localProjectCount ? 'text-amber-400' : 'text-green-400'
+                                                }`}>{cloudMeta.projectCount} {cloudMeta.projectCount !== localProjectCount ? `≠ lokal (${localProjectCount})` : '✓'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Version</span>
+                                                <span className="font-mono text-gray-300">{cloudMeta.appVersion ?? '—'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Gespeichert um</span>
+                                                <span className="font-mono text-gray-300">
+                                                    {cloudMeta.lastSaved
+                                                        ? new Date(cloudMeta.lastSaved).toLocaleString('de-DE')
+                                                        : '—'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Abgerufen um</span>
+                                                <span className="font-mono text-blue-400">{cloudMeta.checkedAt.toLocaleTimeString()}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="text-xs text-gray-500 p-3 bg-gray-900/50 rounded border border-gray-800">
                         <strong>Note:</strong> Data is automatically saved to the cloud when you make changes. Only use manual controls if needed.

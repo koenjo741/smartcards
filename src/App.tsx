@@ -182,6 +182,7 @@ function App() {
     isCloudSynced,
     forceSave,
     forceDownload,
+    checkCloud,
   } = useAppSync({
     projects,
     cards,
@@ -776,7 +777,9 @@ function App() {
           }
         }}
         onLoad={handleDropboxLoad}
-
+        onCheckCloud={checkCloud}
+        localCardCount={cards.length}
+        localProjectCount={projects.length}
         // Project Management
         projects={projects}
         onReorderProjects={reorderProjects}

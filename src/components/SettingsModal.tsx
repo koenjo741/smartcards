@@ -370,6 +370,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                                 <span className="text-gray-400">Abgerufen um</span>
                                                 <span className="font-mono text-blue-400">{cloudMeta.checkedAt.toLocaleTimeString()}</span>
                                             </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Dateigröße</span>
+                                                <span className="font-mono text-gray-400">{cloudMeta.size ? `${Math.round(cloudMeta.size / 1024)} KB` : '—'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs items-start gap-2">
+                                                <span className="text-gray-400 shrink-0">Dropbox-Rev</span>
+                                                <span className="font-mono text-purple-400 text-right break-all text-[10px]">{cloudMeta.rev ?? '—'}</span>
+                                            </div>
                                         </>
                                     )}
                                 </div>

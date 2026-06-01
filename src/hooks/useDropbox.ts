@@ -32,7 +32,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 30000): Promise<T> => 
 };
 
 export type LoadResult =
-    | { type: 'success'; data: BackupData }
+    | { type: 'success'; data: BackupData; rev: string; contentHash: string; size: number }
     | { type: 'not_found' }
     | { type: 'error'; error: any };
 
@@ -188,11 +188,16 @@ export function useDropbox() {
         setIsSyncing(true);
         try {
             const response = await dbx.filesDownload({ path: '/smartcards.json' });
-            const blob = (response.result as unknown as { fileBlob: Blob }).fileBlob;
+            const result = response.result as any;
+            const blob = (result as unknown as { fileBlob: Blob }).fileBlob;
             const text = await blob.text();
+            const rev: string = result.rev ?? 'unknown';
+            const contentHash: string = result.content_hash ?? 'unknown';
+            const size: number = result.size ?? 0;
 
+            console.log(`[Dropbox] loadData: rev=${rev} size=${size} content_hash=${contentHash.slice(0, 12)}...`);
             setLastSynced(new Date());
-            return { type: 'success', data: JSON.parse(text) as BackupData };
+            return { type: 'success', data: JSON.parse(text) as BackupData, rev, contentHash, size };
         } catch (error: any) {
             const errorSummary = error?.error?.error_summary || '';
             // 409 path/not_found or 404

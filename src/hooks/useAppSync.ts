@@ -19,6 +19,9 @@ export interface CloudMeta {
     cardCount: number;
     projectCount: number;
     checkedAt: Date;
+    rev: string;
+    size: number;
+    contentHash: string;
 }
 
 /**
@@ -69,6 +72,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     cards: normalized.cards,
                     customColors: normalized.customColors,
                 });
+                console.log(`[Sync] Initial load OK: ${normalized.cards.length} cards, ${normalized.projects.length} projects, rev=${result.rev}`);
                 setCloudStatus('synced');
             } else if (result.type === 'not_found') {
                 // File doesn't exist yet - this is a NEW user.
@@ -115,6 +119,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 return;
             }
 
+            console.log(`[Sync] Auto-save FIRING: ${data.cards.length} cards, ${data.projects.length} projects. Hash changed from saved state.`);
             const payload = {
                 ...data,
                 _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ },
@@ -251,6 +256,9 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                     cardCount: Array.isArray(raw.cards) ? raw.cards.length : 0,
                     projectCount: Array.isArray(raw.projects) ? raw.projects.length : 0,
                     checkedAt: new Date(),
+                    rev: result.rev,
+                    size: result.size,
+                    contentHash: result.contentHash,
                 };
             }
             if (result.type === 'not_found') return { error: 'not_found' };
@@ -259,6 +267,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             return { error: err?.message ?? 'unknown' };
         }
     }, [isDropboxAuthenticated, loadData]);
+
 
     return {
         isDropboxAuthenticated,

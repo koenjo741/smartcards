@@ -50,6 +50,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         onConfirm: () => { },
     });
 
+    const [syncStatus, setSyncStatus] = useState<'idle' | 'pending' | 'success' | 'error' | 'download_pending'>('idle');
+
+    const handleForceUpload = async () => {
+        setSyncStatus('pending');
+        try {
+            await onSave();
+            setSyncStatus('success');
+            setTimeout(() => setSyncStatus('idle'), 3000);
+        } catch (err) {
+            setSyncStatus('error');
+            setTimeout(() => setSyncStatus('idle'), 5000);
+        }
+    };
+
+    const handleForceDownload = async () => {
+        setSyncStatus('download_pending');
+        try {
+            await onLoad();
+            setSyncStatus('success');
+            setTimeout(() => setSyncStatus('idle'), 3000);
+        } catch (err) {
+            setSyncStatus('error');
+            setTimeout(() => setSyncStatus('idle'), 5000);
+        }
+    };
+
     const moveProject = (index: number, direction: 'up' | 'down') => {
         if (direction === 'up' && index > 0) {
             const newProjects = [...projects];
@@ -183,8 +209,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         ) : (
                             <>
                                 <button
-                                    onClick={onSave}
-                                    disabled={isSyncing}
+                                    onClick={handleForceUpload}
+                                    disabled={isSyncing || syncStatus !== 'idle'}
                                     className="w-full flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 border border-gray-700 rounded-lg transition-all group group-hover:border-gray-600"
                                 >
                                     <span className="flex items-center gap-3 text-gray-200">
@@ -197,8 +223,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 </button>
 
                                 <button
-                                    onClick={onLoad}
-                                    disabled={isSyncing}
+                                    onClick={handleForceDownload}
+                                    disabled={isSyncing || syncStatus !== 'idle'}
                                     className="w-full flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 border border-gray-700 rounded-lg transition-all"
                                 >
                                     <span className="flex items-center gap-3 text-gray-200">
@@ -207,6 +233,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     </span>
                                     <span className="text-xs text-gray-500">Overwrite Local</span>
                                 </button>
+
+                                {/* Sync Status Feedback Panel */}
+                                {syncStatus !== 'idle' && (
+                                    <div className="p-3 rounded bg-slate-950 border border-gray-800 transition-all text-center">
+                                        {syncStatus === 'pending' && (
+                                            <div className="text-xs text-blue-400 font-medium animate-pulse flex items-center justify-center gap-2">
+                                                <span className="animate-spin inline-block w-3.5 h-3.5 border-t-2 border-b-2 border-blue-400 rounded-full"></span>
+                                                ⏳ Upload-Befehl gesendet. Daten werden an Dropbox übertragen...
+                                            </div>
+                                        )}
+                                        {syncStatus === 'download_pending' && (
+                                            <div className="text-xs text-yellow-400 font-medium animate-pulse flex items-center justify-center gap-2">
+                                                <span className="animate-spin inline-block w-3.5 h-3.5 border-t-2 border-b-2 border-yellow-400 rounded-full"></span>
+                                                ⏳ Download-Befehl gesendet. Daten werden abgerufen...
+                                            </div>
+                                        )}
+                                        {syncStatus === 'success' && (
+                                            <div className="text-xs text-green-400 font-bold flex items-center justify-center gap-1">
+                                                ✅ Aktion erfolgreich abgeschlossen!
+                                            </div>
+                                        )}
+                                        {syncStatus === 'error' && (
+                                            <div className="text-xs text-red-400 font-bold flex items-center justify-center gap-1">
+                                                ❌ Aktion fehlgeschlagen. Verbindung prüfen.
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
 
                                 <button
                                     onClick={onDisconnect}

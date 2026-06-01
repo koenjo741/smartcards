@@ -181,6 +181,7 @@ function App() {
     lastSynced,
     userName,
     isCloudSynced,
+    forceSave,
   } = useAppSync({
     projects,
     cards,
@@ -766,7 +767,15 @@ function App() {
         lastSynced={lastSynced}
         onConnect={handleConnect}
         onDisconnect={disconnect}
-        onSave={() => { }}
+        onSave={async () => {
+          const res = await forceSave();
+          if (res && res.success) {
+            alert('Upload erfolgreich!');
+            setIsSettingsOpen(false);
+          } else {
+            alert('Upload fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung.');
+          }
+        }}
         onLoad={handleDropboxLoad}
 
         // Project Management

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useDropbox } from './useDropbox';
 import { stableStringify } from '../utils/helpers';
 import { normalizeBackupData, isValidBackupData } from '../utils/normalizeBackupData';
@@ -165,6 +165,21 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [isSyncing]);
 
+    const forceSave = useCallback(async () => {
+        if (!isDropboxAuthenticated) return { success: false, errorType: 'auth' };
+        const data = { projects, cards, customColors };
+        const payload = {
+            ...data,
+            _meta: { lastSaved: Date.now(), appVersion: __APP_VERSION__ },
+        };
+        const res = await saveData(payload);
+        if (res.success) {
+            lastSavedHashRef.current = stableStringify(data);
+            if (cloudStatus === 'new') setCloudStatus('synced');
+        }
+        return res;
+    }, [projects, cards, customColors, isDropboxAuthenticated, saveData, cloudStatus]);
+
     // Derived state
     const currentHash = stableStringify({ projects, cards, customColors });
     const isCloudSynced = currentHash === lastSavedHashRef.current && !isSyncing;
@@ -184,5 +199,6 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         lastSynced,
         isCloudSynced,
         userName,
+        forceSave,
     };
 }

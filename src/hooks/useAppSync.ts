@@ -41,6 +41,10 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
     const isInitializingRef = useRef(false);
     const pendingSaveRef = useRef(false);
     const lastSavedHashRef = useRef('');
+    // Stable snapshot of current local data — updated every render via ref,
+    // so effects can read the latest value without listing them as deps.
+    const latestLocalRef = useRef({ projects, cards, customColors });
+    latestLocalRef.current = { projects, cards, customColors };
 
     // --- 1. Initial Load: Cloud → Local ---
     useEffect(() => {
@@ -60,8 +64,9 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
                 setCloudStatus('synced');
             } else if (result.type === 'not_found') {
                 // File doesn't exist yet - this is a NEW user.
-                // We set hash to current state so we don't auto-save mock data immediately.
-                lastSavedHashRef.current = stableStringify({ projects, cards, customColors });
+                // Use the ref snapshot to avoid stale closure over initial empty values.
+                const local = latestLocalRef.current;
+                lastSavedHashRef.current = stableStringify(local);
                 setCloudStatus('new');
             } else {
                 // Network error or server error
@@ -73,7 +78,12 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
             setCloudStatus('error');
             isInitializingRef.current = false;
         });
-    }, [isDropboxAuthenticated, cloudStatus, loadData, loadDataStore, projects, cards, customColors]);
+    // IMPORTANT: projects/cards/customColors intentionally excluded.
+    // Adding them would cause this effect to re-run mid-load whenever the
+    // store updates, creating a race condition that re-triggers initialization.
+    // latestLocalRef captures their current values without being a dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDropboxAuthenticated, cloudStatus, loadData, loadDataStore]);
 
     // --- 2. Auto-Save: Local → Cloud (3s debounce, overwrite) ---
     useEffect(() => {

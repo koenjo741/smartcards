@@ -9,6 +9,7 @@ interface SettingsModalProps {
     onClose: () => void;
     isAuthenticated: boolean;
     userName: string | null;
+    userEmail: string | null;
     isSyncing: boolean;
     lastSynced: Date | null;
     onConnect: () => void;
@@ -29,6 +30,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose,
     isAuthenticated,
     userName,
+    userEmail,
     isSyncing,
     lastSynced,
     onConnect,
@@ -204,6 +206,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <h3 className="text-sm font-medium text-gray-200">
                                     {isAuthenticated ? `Connected as ${userName}` : 'Not Connected'}
                                 </h3>
+                                {isAuthenticated && userEmail && (
+                                    <p className="text-xs text-blue-300/70 mt-0.5 font-mono">{userEmail}</p>
+                                )}
                                 <p className="text-xs text-gray-400 mt-1">
                                     {isAuthenticated
                                         ? 'Data synced with Dropbox.'

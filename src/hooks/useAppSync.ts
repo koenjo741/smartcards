@@ -44,6 +44,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         connectionError,
         isAuthChecking,
         userName,
+        userEmail,
         lastSynced,
         deleteFile,
     } = useDropbox();
@@ -283,6 +284,7 @@ export function useAppSync({ projects, cards, customColors, loadDataStore }: Use
         lastSynced,
         isCloudSynced,
         userName,
+        userEmail,
         forceSave,
         forceDownload,
         checkCloud,

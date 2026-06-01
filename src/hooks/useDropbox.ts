@@ -44,15 +44,18 @@ export function useDropbox() {
     const [lastSynced, setLastSynced] = useState<Date | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [connectionError, setConnectionError] = useState<boolean>(false);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
 
     const handleAuthError = useCallback(() => {
         setConnectionError(true);
         setIsAuthenticated(false);
         setDbx(null);
+        setUserEmail(null);
         localStorage.removeItem('dropbox_token');
         cachedUserName = null;
         accountCheckPromise = null;
     }, []);
+
 
     // Handle Auth on Load (URL Hash OR LocalStorage)
     useEffect(() => {
@@ -68,7 +71,10 @@ export function useDropbox() {
                 setIsAuthenticated(true);
 
                 newDbx.usersGetCurrentAccount()
-                    .then(response => setUserName(response.result.name.display_name))
+                    .then(response => {
+                        setUserName(response.result.name.display_name);
+                        setUserEmail(response.result.email);
+                    })
                     .catch(console.error)
                     .finally(() => setIsAuthChecking(false));
 
@@ -88,10 +94,11 @@ export function useDropbox() {
                     accountCheckPromise = newDbx.usersGetCurrentAccount()
                         .then(response => {
                             cachedUserName = response.result.name.display_name;
+                            setUserEmail(response.result.email);
                             return response;
                         })
                         .catch(err => {
-                            accountCheckPromise = null; // allow retry next time if it failed transiently
+                            accountCheckPromise = null;
                             throw err;
                         });
                 }
@@ -106,7 +113,7 @@ export function useDropbox() {
                             handleAuthError();
                             if (!sessionStorage.getItem('dropbox_auto_connect_attempted')) {
                                 sessionStorage.setItem('dropbox_auto_connect_attempted', '1');
-                                const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+                                const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&force_reapprove=true`;
                                 window.location.href = authUrl;
                             }
                         } else {
@@ -119,7 +126,7 @@ export function useDropbox() {
                 // Auto-connect: redirect to Dropbox OAuth if not yet attempted this session
                 if (!sessionStorage.getItem('dropbox_auto_connect_attempted')) {
                     sessionStorage.setItem('dropbox_auto_connect_attempted', '1');
-                    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+                    const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&force_reapprove=true`;
                     window.location.href = authUrl;
                 } else {
                     setIsAuthChecking(false);
@@ -129,7 +136,9 @@ export function useDropbox() {
     }, []);
 
     const connect = useCallback(() => {
-        const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
+        // force_reapprove=true ensures Dropbox always shows the consent screen,
+        // allowing the user to switch accounts if the wrong one is selected.
+        const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${DROPBOX_APP_KEY}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&force_reapprove=true`;
         window.location.href = authUrl;
     }, []);
 
@@ -217,9 +226,14 @@ export function useDropbox() {
 
     const disconnect = useCallback(() => {
         localStorage.removeItem('dropbox_token');
+        // Block auto-reconnect so the user must explicitly choose to connect again.
+        // Without this, the app immediately redirects to Dropbox OAuth on next load,
+        // potentially reconnecting to the wrong account.
+        sessionStorage.setItem('dropbox_auto_connect_attempted', '1');
         setDbx(null);
         setIsAuthenticated(false);
         setUserName(null);
+        setUserEmail(null);
         cachedUserName = null;
         accountCheckPromise = null;
     }, []);
@@ -322,6 +336,7 @@ export function useDropbox() {
         isAuthenticated,
         isAuthChecking,
         userName,
+        userEmail,
         isSyncing,
         lastSynced,
         connectionError,

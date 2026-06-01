@@ -179,6 +179,7 @@ function App() {
     deleteFile,
     lastSynced,
     userName,
+    userEmail,
     isCloudSynced,
     forceSave,
     forceDownload,
@@ -763,6 +764,7 @@ function App() {
         onClose={() => setIsSettingsOpen(false)}
         isAuthenticated={isDropboxAuthenticated}
         userName={userName}
+        userEmail={userEmail}
         isSyncing={isSyncing}
         lastSynced={lastSynced}
         onConnect={handleConnect}

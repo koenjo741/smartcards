@@ -176,7 +176,6 @@ function App() {
     connectionError,
     connect,
     disconnect,
-    loadData,
     deleteFile,
     lastSynced,
     userName,

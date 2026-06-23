@@ -358,6 +358,45 @@ export function useDropbox() {
         void init();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── Proactive token refresh ──────────────────────────────────────────────
+    // Checks every 60 s whether the access token is within the refresh margin.
+    // If so, silently refreshes in the background so that no user-facing API
+    // call ever hits an expired token during a normal session.
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const CHECK_INTERVAL_MS = 60_000;
+
+        const maybeRefresh = async () => {
+            const cached = getStoredAccessToken();
+            if (cached) return; // Token still valid — nothing to do
+
+            const hasRefreshToken = !!localStorage.getItem('dropbox_refresh_token');
+            if (!hasRefreshToken) return; // No way to refresh — user must re-auth
+
+            if (tokenRefreshPromise) return; // Another refresh already in-flight
+
+            try {
+                tokenRefreshPromise = doRefreshAccessToken().finally(() => {
+                    tokenRefreshPromise = null;
+                });
+                await tokenRefreshPromise;
+                console.log('[Dropbox] Proactive token refresh succeeded');
+            } catch (err) {
+                console.warn('[Dropbox] Proactive token refresh failed:', err);
+                // Don't call handleAuthError here — let the next real API call
+                // surface the problem with proper UX context.
+            }
+        };
+
+        const timer = setInterval(() => void maybeRefresh(), CHECK_INTERVAL_MS);
+        // Also run immediately on mount so a tab left open overnight gets a
+        // fresh token as soon as the user returns and isAuthenticated becomes true.
+        void maybeRefresh();
+
+        return () => clearInterval(timer);
+    }, [isAuthenticated]);
+
     // ── Public connect: normal login (no forced re-approval) ────────────────
     const connect = useCallback(() => void initiateDropboxLogin(false), []);
 

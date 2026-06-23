@@ -136,7 +136,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
 
         const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
         const PAGE_MARGIN_LR = 40; // Increased margins
-        const PAGE_MARGIN_TB = 40; // Increased margins
+        const PAGE_MARGIN_TOP = 60; // Extra top margin for header space
         const PAGE_MARGIN_BOTTOM = 50; // Extra bottom margin for footer space
 
 
@@ -354,7 +354,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_BOTTOM],
+            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TOP, PAGE_MARGIN_LR, PAGE_MARGIN_BOTTOM],
             defaultStyle: {
                 font: 'Roboto',
                 fontSize: 9,
@@ -368,6 +368,18 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 tableHeader: { fontSize: 11, bold: true, color: '#ffffff', fillColor: '#1e293b', margin: [0, 2, 0, 2] },
                 tableCell: { margin: [0, 1, 0, 1], color: '#334155' },
                 link: { color: '#2563eb', decoration: 'underline' }
+            },
+            header: () => {
+                return {
+                    stack: [
+                        { text: safeTitle, fontSize: 13, bold: true },
+                        {
+                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
+                            margin: [0, 4, 0, 0]
+                        }
+                    ],
+                    margin: [PAGE_MARGIN_LR, 20, PAGE_MARGIN_LR, 0]
+                };
             },
             footer: (currentPage: number, pageCount: number) => {
                 return {
@@ -389,15 +401,6 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 };
             },
             content: [
-                {
-                    stack: [
-                        { text: safeTitle, fontSize: 15, bold: true, margin: [0, 0, 0, 4] },
-                        {
-                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
-                            margin: [0, 0, 0, 15]
-                        }
-                    ]
-                },
                 ...(Array.isArray(normalizedPdfContent) ? normalizedPdfContent : [normalizedPdfContent]).filter(Boolean)
             ]
         };

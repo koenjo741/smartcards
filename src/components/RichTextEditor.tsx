@@ -9,7 +9,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, Calendar } from 'lucide-react';
+import { Bold, Italic, Superscript as SuperIcon, Subscript as SubIcon, Table as TableIcon, Trash2, Columns, Rows, Indent, Outdent, List, ListOrdered, Image as ImageIcon, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, Calendar, Scissors } from 'lucide-react';
 import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { ResizableImage } from './ResizableImage';
@@ -827,6 +827,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                             title={isTableActive ? "Table Controls Active" : "Insert Table"}
                         >
                             <TableIcon className="w-4 h-4" />
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                editor.chain().focus().insertContent('<p><span style="color: #ffffff">§§§</span></p>').run();
+                            }}
+                            className="p-1.5 rounded hover:bg-slate-700 text-gray-400"
+                            title="Seitenumbruch einfügen (PDF)"
+                        >
+                            <Scissors className="w-4 h-4" />
                         </button>
 
                         {/* Table Controls - Shown when inside a table (Robust check) */}

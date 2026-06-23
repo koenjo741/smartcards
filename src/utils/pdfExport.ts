@@ -109,11 +109,21 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 }
             }
 
-            // Strip all problematic styles but preserve highlighters and text colors
+            // Strip all problematic styles but preserve highlighters, text colors, alignment, and indentation
             const styleProcessor = (el: HTMLElement, inheritedColor: string | null = null) => {
                 const bgColor = el.style.backgroundColor || el.getAttribute('data-color');
                 const textColor = el.style.color || inheritedColor;
                 const isHighlight = !!bgColor;
+
+                // Capture layout properties from inline styles before stripping
+                const marginLeft = el.style.marginLeft;
+                let indentVal = '';
+                if (marginLeft) {
+                    const match = marginLeft.match(/(\d+)/);
+                    if (match) indentVal = match[1];
+                }
+                const textAlign = el.style.textAlign;
+
                 el.removeAttribute('style');
                 if (isHighlight) {
                     el.style.backgroundColor = bgColor;
@@ -121,6 +131,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     el.style.backgroundColor = '#4ade80';
                 }
                 if (textColor) el.style.color = textColor;
+
+                // Store captured layout properties as custom attributes
+                if (indentVal) el.setAttribute('data-pdf-indent', indentVal);
+                if (textAlign) el.setAttribute('data-pdf-align', textAlign);
+
                 Array.from(el.children).forEach(child => styleProcessor(child as HTMLElement, textColor));
                 if (['LABEL', 'INPUT', 'BUTTON', 'SELECT', 'SCRIPT', 'STYLE'].includes(el.tagName)) el.remove();
             };
@@ -175,8 +190,10 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 
                 const bgColor = rgbToHex(element.style.backgroundColor) || rgbToHex(element.getAttribute('data-color'));
                 const textColor = rgbToHex(element.style.color);
+                const pdfAlign = element.getAttribute('data-pdf-align');
+                const pdfIndent = element.getAttribute('data-pdf-indent');
                 
-                if (bgColor || textColor) {
+                if (bgColor || textColor || pdfAlign || pdfIndent) {
                     const applyStylesDeep = (node: any): any => {
                         if (Array.isArray(node)) {
                             return node.map(applyStylesDeep);
@@ -185,10 +202,33 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             const leafNode: any = { text: node };
                             if (bgColor) leafNode.background = bgColor;
                             if (textColor) leafNode.color = textColor;
+                            if (pdfAlign) leafNode.alignment = pdfAlign;
                             return leafNode;
                         }
                         if (typeof node === 'object' && node !== null) {
                             const result = { ...node };
+                            
+                            // Apply alignment
+                            if (pdfAlign && !result.alignment) {
+                                result.alignment = pdfAlign;
+                            }
+                            
+                            // Apply indentation (margin-left)
+                            if (pdfIndent) {
+                                const indentPts = parseFloat(pdfIndent) * 0.75; // Convert px to pt approx
+                                if (result.margin && Array.isArray(result.margin)) {
+                                    result.margin = [result.margin[0] + indentPts, result.margin[1], result.margin[2], result.margin[3]];
+                                } else {
+                                    // Sensible default margins to append indentation to
+                                    let defaultMargin = [0, 1, 0, 2];
+                                    if (element.nodeName === 'LI') defaultMargin = [0, 0, 0, 1];
+                                    else if (element.nodeName === 'H1') defaultMargin = [0, 0, 0, 8];
+                                    else if (element.nodeName === 'H2') defaultMargin = [0, 8, 0, 4];
+                                    
+                                    result.margin = [defaultMargin[0] + indentPts, defaultMargin[1], defaultMargin[2], defaultMargin[3]];
+                                }
+                            }
+                            
                             if (result.text && Array.isArray(result.text)) {
                                 result.text = result.text.map(applyStylesDeep);
                             } else {
@@ -240,6 +280,45 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             return result;
         };
 
+        const hasPageBreakIndicator = (n: any): boolean => {
+            if (!n) return false;
+            if (typeof n === 'string') return n.includes('§§§');
+            if (Array.isArray(n)) return n.some(hasPageBreakIndicator);
+            if (typeof n === 'object') {
+                if (typeof n.text === 'string') return n.text.includes('§§§');
+                if (Array.isArray(n.text)) return n.text.some(hasPageBreakIndicator);
+                if (Array.isArray(n.stack)) return n.stack.some(hasPageBreakIndicator);
+                if (Array.isArray(n.ul)) return n.ul.some(hasPageBreakIndicator);
+                if (Array.isArray(n.ol)) return n.ol.some(hasPageBreakIndicator);
+            }
+            return false;
+        };
+
+        const stripPageBreakIndicator = (n: any): any => {
+            if (!n) return n;
+            if (typeof n === 'string') return n.replace(/§§§/g, '');
+            if (Array.isArray(n)) return n.map(stripPageBreakIndicator);
+            if (typeof n === 'object') {
+                const result = { ...n };
+                if (typeof result.text === 'string') {
+                    result.text = result.text.replace(/§§§/g, '');
+                } else if (Array.isArray(result.text)) {
+                    result.text = result.text.map(stripPageBreakIndicator);
+                }
+                if (Array.isArray(result.stack)) {
+                    result.stack = result.stack.map(stripPageBreakIndicator);
+                }
+                if (Array.isArray(result.ul)) {
+                    result.ul = result.ul.map(stripPageBreakIndicator);
+                }
+                if (Array.isArray(result.ol)) {
+                    result.ol = result.ol.map(stripPageBreakIndicator);
+                }
+                return result;
+            }
+            return n;
+        };
+
         // Deep scrubber to ensure inline elements inside text arrays NEVER have block properties like margin or display
         const sanitizePdfmakeTree = (node: any): any => {
             if (Array.isArray(node)) {
@@ -247,6 +326,23 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             }
             if (node && typeof node === 'object') {
                 const newNode = { ...node };
+
+                // Insert page break if this block contains §§§
+                if (hasPageBreakIndicator(newNode)) {
+                    newNode.pageBreak = 'before';
+                    newNode.margin = [0, 0, 0, 0];
+                    if (typeof newNode.text === 'string') {
+                        newNode.text = newNode.text.replace(/§§§/g, '');
+                    } else if (Array.isArray(newNode.text)) {
+                        newNode.text = newNode.text.map(stripPageBreakIndicator);
+                    } else if (Array.isArray(newNode.stack)) {
+                        newNode.stack = newNode.stack.map(stripPageBreakIndicator);
+                    } else if (Array.isArray(newNode.ul)) {
+                        newNode.ul = newNode.ul.map(stripPageBreakIndicator);
+                    } else if (Array.isArray(newNode.ol)) {
+                        newNode.ol = newNode.ol.map(stripPageBreakIndicator);
+                    }
+                }
 
                 // Add margin under images to prevent text from sticking to them
                 if (newNode.image || newNode.svg) {

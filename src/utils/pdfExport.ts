@@ -96,12 +96,9 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                             new Promise<void>(resolve => setTimeout(resolve, 5000))
                         ]);
                         
-                        const MAX_WIDTH = 450;
-                        if (imgEl.width > MAX_WIDTH) {
-                            img.setAttribute('width', String(MAX_WIDTH));
-                        } else if (imgEl.width > 0) {
-                            img.setAttribute('width', String(imgEl.width));
-                        }
+                        const MAX_WIDTH = 225; // 50% of original 450 to shrink images by 50%
+                        const targetWidth = imgEl.width > 0 ? Math.min(imgEl.width * 0.5, MAX_WIDTH) : MAX_WIDTH;
+                        img.setAttribute('width', String(targetWidth));
                         img.removeAttribute('height'); // Let pdfmake handle aspect ratio
                     } catch (err) {
                         console.warn('Failed to load image for PDF export:', src, err);
@@ -138,8 +135,9 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         };
 
         const PAGE_WIDTH = orientation === 'landscape' ? 841.89 : 595.28;
-        const PAGE_MARGIN_LR = 15;
-        const PAGE_MARGIN_TB = 15;
+        const PAGE_MARGIN_LR = 40; // Increased margins
+        const PAGE_MARGIN_TB = 40; // Increased margins
+        const PAGE_MARGIN_BOTTOM = 50; // Extra bottom margin for footer space
 
 
         // Aggressively replace newlines \n with spaces to prevent html-to-pdfmake from misinterpreting them as hard breaks
@@ -250,6 +248,11 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
             if (node && typeof node === 'object') {
                 const newNode = { ...node };
 
+                // Add margin under images to prevent text from sticking to them
+                if (newNode.image || newNode.svg) {
+                    newNode.margin = [0, 5, 0, 12];
+                }
+
                 // Compress vertical margins for standard blocks to make text more compact
                 if (newNode.margin && Array.isArray(newNode.margin) && !newNode.canvas && !newNode.table && !newNode.pageBreak) {
                     const isHeader = newNode.style && (
@@ -351,7 +354,7 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
         const docDefinition: any = {
             pageSize: 'A4',
             pageOrientation: orientation,
-            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_TB],
+            pageMargins: [PAGE_MARGIN_LR, PAGE_MARGIN_TB, PAGE_MARGIN_LR, PAGE_MARGIN_BOTTOM],
             defaultStyle: {
                 font: 'Roboto',
                 fontSize: 9,
@@ -359,8 +362,8 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 lineHeight: 1.1
             },
             styles: {
-                h1: { fontSize: 18, bold: true, color: '#000000', margin: [0, 0, 0, 10] },
-                h2: { fontSize: 14, bold: true, color: '#000000', margin: [0, 10, 0, 5] },
+                h1: { fontSize: 15, bold: true, color: '#000000', margin: [0, 0, 0, 8] },
+                h2: { fontSize: 13, bold: true, color: '#000000', margin: [0, 8, 0, 4] },
                 p: { margin: [0, 1, 0, 2], lineHeight: 0.9 },
                 tableHeader: { fontSize: 11, bold: true, color: '#ffffff', fillColor: '#1e293b', margin: [0, 2, 0, 2] },
                 tableCell: { margin: [0, 1, 0, 1], color: '#334155' },
@@ -370,18 +373,25 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                 return {
                     stack: [
                         {
-                            canvas: [{ type: 'line', x1: 0, y1: 14.17, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 14.17, lineWidth: 0.2, lineColor: '#cccccc' }],
-                            margin: [PAGE_MARGIN_LR, 0, PAGE_MARGIN_LR, 0]
+                            canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 0, lineWidth: 0.2, lineColor: '#cccccc' }],
+                            margin: [PAGE_MARGIN_LR, 10, PAGE_MARGIN_LR, 0]
                         },
-                        { text: `Seite ${currentPage}/${pageCount}`, alignment: 'right', fontSize: 10, margin: [0, 20, PAGE_MARGIN_LR, 0] }
+                        {
+                            columns: [
+                                { text: exportTimeText, alignment: 'left' },
+                                { text: `Seite ${currentPage} / ${pageCount}`, alignment: 'right' }
+                            ],
+                            fontSize: 8,
+                            color: '#64748b',
+                            margin: [PAGE_MARGIN_LR, 4, PAGE_MARGIN_LR, 0]
+                        }
                     ]
                 };
             },
             content: [
                 {
                     stack: [
-                        { text: safeTitle, fontSize: 18.5, bold: true, margin: [0, 0, 0, 0] },
-                        { text: exportTimeText, fontSize: 11, color: '#CAD5E2', margin: [0, 4, 0, 4] },
+                        { text: safeTitle, fontSize: 15, bold: true, margin: [0, 0, 0, 4] },
                         {
                             canvas: [{ type: 'line', x1: 0, y1: 0, x2: PAGE_WIDTH - (PAGE_MARGIN_LR * 2), y2: 0, lineWidth: 0.2, lineColor: '#2B7FFF' }],
                             margin: [0, 0, 0, 15]

@@ -412,17 +412,38 @@ export const exportCardToPdf = async (html: string, title: string = 'Card_Export
                     if (newNode.table.body) {
                         newNode.table.body = sanitizePdfmakeTree(newNode.table.body);
                         
-                        // Apply styling to table header row (row index 0)
-                        if (newNode.table.body.length > 0 && Array.isArray(newNode.table.body[0])) {
-                            newNode.table.body[0] = newNode.table.body[0].map((cell: any) => {
-                                if (!cell) return cell;
-                                const styledCell = typeof cell === 'object' ? { ...cell } : { text: cell };
-                                styledCell.fillColor = '#1e293b'; // Slate 800
-                                styledCell.color = '#ffffff';     // White
-                                styledCell.bold = true;
-                                styledCell.fontSize = 11;
-                                return styledCell;
-                            });
+                        // Style cells, normalize empty ones, and apply zebra striping
+                        for (let rowIndex = 0; rowIndex < newNode.table.body.length; rowIndex++) {
+                            const row = newNode.table.body[rowIndex];
+                            if (Array.isArray(row)) {
+                                newNode.table.body[rowIndex] = row.map((cell: any) => {
+                                    let styledCell: any;
+                                    if (!cell) {
+                                        styledCell = { text: '\u200B' };
+                                    } else if (typeof cell === 'object') {
+                                        styledCell = { ...cell };
+                                        if (styledCell.text === undefined || styledCell.text === null || styledCell.text === '' || (Array.isArray(styledCell.text) && styledCell.text.length === 0)) {
+                                            styledCell.text = '\u200B';
+                                        }
+                                    } else {
+                                        styledCell = { text: String(cell).trim() === '' ? '\u200B' : cell };
+                                    }
+
+                                    if (rowIndex === 0) {
+                                        // Header Row Styling (Slate 800)
+                                        styledCell.fillColor = '#1e293b';
+                                        styledCell.color = '#ffffff';
+                                        styledCell.bold = true;
+                                        styledCell.fontSize = 11;
+                                    } else {
+                                        // Zebra striping for body rows: every 2nd row is light gray (Slate 50)
+                                        if (rowIndex % 2 === 0) {
+                                            styledCell.fillColor = '#f8fafc';
+                                        }
+                                    }
+                                    return styledCell;
+                                });
+                            }
                         }
                     }
                     

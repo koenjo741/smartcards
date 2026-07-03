@@ -356,6 +356,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                         height: {
                             default: null,
                         },
+                        widthPercent: {
+                            default: 100,
+                        },
                     };
                 },
                 addNodeView() {

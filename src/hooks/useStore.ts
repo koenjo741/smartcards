@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { get, set } from 'idb-keyval';
 import type { Project, Card } from '../types';
 
 interface StoreData {
@@ -55,32 +56,59 @@ const MOCK_CARDS: Card[] = [
 ];
 
 export function useStore() {
-    const [data, setData] = useState<StoreData>(() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                // Structural sanity check
-                if (parsed && Array.isArray(parsed.projects) && Array.isArray(parsed.cards)) {
-                    return parsed;
-                }
-            }
-        } catch (e) {
-            console.error('Failed to parse stored data, falling back to defaults:', e);
-        }
-        return { projects: MOCK_PROJECTS, cards: MOCK_CARDS, customColors: [] };
-    });
+    const [data, setData] = useState<StoreData>({ projects: [], cards: [], customColors: [] });
+    const [isStoreLoaded, setIsStoreLoaded] = useState(false);
 
     useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch (error) {
-            console.error("Failed to save to localStorage:", error);
-            if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-                alert("Storage Quota Exceeded! Your changes cannot be saved locally because the storage is full. Please remove large images or attachments.");
+        const initData = async () => {
+            try {
+                // 1. Try to load from IndexedDB
+                let loadedData = await get<StoreData>(STORAGE_KEY);
+
+                // 2. Migration logic: If nothing in IndexedDB, check localStorage
+                if (!loadedData) {
+                    const storedLocal = localStorage.getItem(STORAGE_KEY);
+                    if (storedLocal) {
+                        try {
+                            const parsed = JSON.parse(storedLocal);
+                            if (parsed && Array.isArray(parsed.projects) && Array.isArray(parsed.cards)) {
+                                loadedData = parsed as StoreData;
+                                console.log("Migrating data from localStorage to IndexedDB...");
+                                await set(STORAGE_KEY, loadedData); // Save to IDB
+                                localStorage.removeItem(STORAGE_KEY); // Clean up old storage
+                                console.log("Migration successful.");
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse localStorage data during migration:', e);
+                        }
+                    }
+                }
+
+                // 3. Fallback to defaults if still empty
+                if (!loadedData) {
+                    loadedData = { projects: MOCK_PROJECTS, cards: MOCK_CARDS, customColors: [] };
+                }
+
+                setData(loadedData);
+            } catch (error) {
+                console.error("Failed to load data from IndexedDB:", error);
+                setData({ projects: MOCK_PROJECTS, cards: MOCK_CARDS, customColors: [] }); // Fallback on error
+            } finally {
+                setIsStoreLoaded(true);
             }
-        }
-    }, [data]);
+        };
+
+        initData();
+    }, []);
+
+    useEffect(() => {
+        if (!isStoreLoaded) return; // Do not save before initial load is complete
+
+        set(STORAGE_KEY, data).catch(error => {
+            console.error("Failed to save to IndexedDB:", error);
+            alert("Fehler beim Speichern der Daten. Bitte überprüfe den Speicherplatz deines Browsers.");
+        });
+    }, [data, isStoreLoaded]);
 
     const addCard = (card: Card) => {
         setData(prev => ({ ...prev, cards: [...prev.cards, card] }));
@@ -152,6 +180,7 @@ export function useStore() {
         deleteProject,
         customColors: data.customColors || [],
         setCustomColors,
-        loadData // Exported for file import
+        loadData, // Exported for file import
+        isStoreLoaded
     };
 }
